@@ -1,0 +1,12 @@
+{
+  "name": "rinde",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo \"No build step required for static site\""
+  },
+  "devDependencies": {
+    "vercel": "^29.0.0"
+  }
+}
