@@ -407,6 +407,7 @@ body.privacy svg text{
   <div class="ns">Configuración</div>
   <div class="ni" onclick="nav('precios')" data-label="Mis productos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 2h2l1.5 7h5l1.5-4.5H4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="13" r="1.2" fill="currentColor"/><circle cx="11.5" cy="13" r="1.2" fill="currentColor"/></svg></span><span class="ni-label">Mis productos</span></div>
   <div class="ni" onclick="nav('actividad')" data-label="Actividad"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="ni-label">Actividad</span></div>
+  <div class="ni" onclick="nav('mejoras')" data-label="Mejoras"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 9.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Mejoras</span><span class="nbadge r" id="mejoras-badge" style="display:none"></span></div>
 
   <div class="sb">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 6px;">
@@ -573,6 +574,13 @@ body.privacy svg text{
   <div class="ptitle">Actividad</div>
   <div class="psub">Registro de todo lo que hiciste en Rinde</div>
   <div id="actividad-content"></div>
+</div>
+
+<!-- MEJORAS -->
+<div class="panel" id="panel-mejoras">
+  <div class="ptitle">Mejoras</div>
+  <div class="psub">Ticketera de mejoras y bugs de Rinde</div>
+  <div id="mejoras-content"></div>
 </div>
 
 </div><!-- /main -->
@@ -945,6 +953,7 @@ const KEYS = {
   tareas:'rinde_tareas', objetivos:'rinde_objetivos',
   productos:'rinde_productos', platos:'rinde_platos',
   actividad:'rinde_actividad', mapa:'rinde_mapa',
+  mejoras:'rinde_mejoras',
 };
 
 function dbGet(key){ try{ return JSON.parse(localStorage.getItem(KEYS[key]))||[]; }catch(e){ return []; } }
@@ -991,6 +1000,80 @@ function logActividad(tipo,modulo,detalle){
   if(log.length>200) log.splice(200);
   localStorage.setItem(KEYS['actividad'],JSON.stringify(log));
 }
+// =============================================
+// RENDER: MEJORAS
+// =============================================
+const ESTADOS_MEJORA=[
+  {key:'pendiente', label:'Pendiente', cls:'warn'},
+  {key:'en-proceso', label:'En proceso', cls:'opal'},
+  {key:'resuelto',  label:'Resuelto',  cls:'pos'},
+];
+
+function renderMejoras(){
+  const list=dbGet('mejoras');
+  const pend=list.filter(m=>m.estado==='pendiente').length;
+  const badge=document.getElementById('mejoras-badge');
+  if(badge){ if(pend>0){badge.textContent=pend;badge.style.display='';}else badge.style.display='none'; }
+
+  function card(m){
+    const est=ESTADOS_MEJORA.find(e=>e.key===m.estado)||ESTADOS_MEJORA[0];
+    return `<div class="erow" style="flex-direction:column;align-items:stretch;gap:6px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <strong style="flex:1;font-size:13px;">${m.titulo}</strong>
+        <span class="pill ${est.cls}">${est.label}</span>
+        <button class="btn sm ghost" onclick="editMejora('${m.id}')">✏</button>
+        <button class="btn sm danger" onclick="deleteMejora('${m.id}')">✕</button>
+      </div>
+      ${m.descripcion?`<div style="font-size:12px;color:var(--muted);line-height:1.5;">${m.descripcion}</div>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;">
+        ${ESTADOS_MEJORA.map(e=>e.key===m.estado?'':`<button class="btn sm ghost" style="font-size:10px;" onclick="cambiarEstadoMejora('${m.id}','${e.key}')">→ ${e.label}</button>`).join('')}
+        <span style="margin-left:auto;font-size:10px;color:var(--muted);">${m.fecha||''}</span>
+      </div>
+    </div>`;
+  }
+
+  const grupos=ESTADOS_MEJORA.map(e=>{
+    const items=list.filter(m=>m.estado===e.key);
+    if(!items.length) return `<div class="sh">${e.label} <span style="font-weight:400;color:var(--muted);">(0)</span></div><div style="color:var(--muted);font-size:12px;padding:8px 0 16px;">Sin tickets</div>`;
+    return `<div class="sh">${e.label} <span style="font-weight:400;color:var(--muted);">(${items.length})</span></div>${items.map(card).join('')}`;
+  }).join('');
+
+  document.getElementById('mejoras-content').innerHTML=`
+    <div style="margin-bottom:14px;"><button class="btn pos" onclick="addMejora()">+ Nueva mejora</button></div>
+    ${grupos}`;
+}
+
+function addMejora(){
+  openModal('Nueva mejora',[
+    {key:'titulo',label:'Título',type:'text',required:true},
+    {key:'descripcion',label:'Descripción',type:'textarea'},
+    {key:'estado',label:'Estado',type:'select',options:['pendiente','en-proceso','resuelto']},
+  ],(data)=>{
+    dbAdd('mejoras',{...data, fecha:new Date().toISOString().slice(0,10)});
+    renderMejoras();
+  });
+}
+
+function editMejora(id){
+  const m=dbGet('mejoras').find(x=>x.id===id);
+  if(!m) return;
+  openModal('Editar mejora',[
+    {key:'titulo',label:'Título',type:'text',value:m.titulo,required:true},
+    {key:'descripcion',label:'Descripción',type:'textarea',value:m.descripcion||''},
+    {key:'estado',label:'Estado',type:'select',options:['pendiente','en-proceso','resuelto'],value:m.estado},
+  ],(data)=>{
+    dbUpdate('mejoras',id,data);
+    renderMejoras();
+  });
+}
+
+function cambiarEstadoMejora(id,estado){
+  dbUpdate('mejoras',id,{estado});
+  renderMejoras();
+}
+
+function deleteMejora(id){ confirmDelete(()=>{ dbDelete('mejoras',id); renderMejoras(); }); }
+
 function renderActividad(){
   const log=JSON.parse(localStorage.getItem(KEYS['actividad'])||'[]');
   const tipoConf={
@@ -1192,6 +1275,7 @@ function nav(id){
     optimizador:renderOptimizador, precios:renderPrecios,
     actividad:renderActividad,
     asistente:renderAsistente,
+    mejoras:renderMejoras,
   };
   if(renders[id]) renders[id]();
 }
