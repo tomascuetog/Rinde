@@ -1147,7 +1147,8 @@ function initDefaultData(){
 // =============================================
 // UTILS
 // =============================================
-const MES_ACTUAL = '2026-04';
+const _hoy=new Date();
+const MES_ACTUAL=`${_hoy.getFullYear()}-${String(_hoy.getMonth()+1).padStart(2,'0')}`;
 
 function mesStr(d){ return d.toISOString().slice(0,7); }
 function mesLabel(ms){ if(!ms)return''; const [y,m]=ms.split('-'); const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']; return meses[parseInt(m)-1]+' '+y; }
@@ -1760,9 +1761,10 @@ function renderIngresos(){
   const MLAB=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   function row(i){
-    const v=ingresoEnMes(i,mes);
-    const vARS=v?(i.moneda==='ARS'?v:v*cotiz):0;
-    const vUSD=v?(i.moneda==='USD'?v:arsToUsd(v,mes)):0;
+    const entryMes=i.frecuencia==='semestral'&&i.mesIngreso?i.mesIngreso.slice(0,7):(i.desde||mes).slice(0,7);
+    const entryCotiz=getCotizacion(entryMes);
+    const entryARS=i.moneda==='ARS'?i.monto:i.monto*entryCotiz;
+    const entryUSD=i.moneda==='USD'?i.monto:arsToUsd(i.monto,entryMes);
     const mm=i.mesIngreso?(+i.mesIngreso.split('-')[1]):null;
     const mm2=mm?(mm<=6?mm+6:mm-6):null;
     const periodo=i.frecuencia==='mensual'?(i.desde+(i.hasta?' → '+i.hasta:' → ∞')):
@@ -1772,9 +1774,9 @@ function renderIngresos(){
     return `<tr>
       <td><strong>${i.descripcion}</strong></td>
       <td><span class="pill ${i.moneda==='ARS'?'opal':'pos'}">${i.moneda}</span></td>
-      <td class="pos-text">${v?fmtARS(vARS):'-'}</td>
-      <td class="pos-text mono">${v?fmtUSD(vUSD)+' USD':'-'}</td>
-      <td class="mono" style="color:var(--muted);font-size:11px;">${fmtARS(cotiz)}</td>
+      <td class="pos-text">${fmtARS(entryARS)}</td>
+      <td class="pos-text mono">${fmtUSD(entryUSD)} USD</td>
+      <td class="mono" style="color:var(--muted);font-size:11px;">${fmtARS(entryCotiz)}</td>
       <td><span class="pill gr">${freqLabel[i.frecuencia]||i.frecuencia}</span></td>
       <td style="color:var(--muted);font-size:11px;">${ajInf}</td>
       <td>${periodo}</td>
