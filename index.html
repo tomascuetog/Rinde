@@ -1872,14 +1872,11 @@ function addEgresoInm(){
     {key:'monto',label:'Monto',type:'number',required:true},
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
     {key:'categoria',label:'Categoría',type:'select',options:CATEGORIAS},
-    {key:'tipo',label:'Tipo',type:'select',options:['fijo','variable']},
-    {key:'esencial',label:'Esencial',type:'select',options:['true','false']},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['false','true']},
-    {key:'desde',label:'Desde (YYYY-MM)',type:'month',required:true},
-    {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month'},
+    {key:'esencial',label:'Esencial',type:'select',options:['si','no']},
+    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si']},
     {key:'notas',label:'Notas',type:'textarea'},
   ],(data)=>{
-    dbAdd('egresos_inm',{...data,monto:+data.monto,esencial:data.esencial==='true',ajustaInflacion:data.ajustaInflacion==='true'});
+    dbAdd('egresos_inm',{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si',ajustaInflacion:data.ajustaInflacion==='si'});
     renderEgresosInm();
   });
 }
@@ -1890,14 +1887,11 @@ function editEgresoInm(id){
     {key:'monto',label:'Monto',type:'number',value:e.monto,required:true},
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:e.moneda},
     {key:'categoria',label:'Categoría',type:'select',options:CATEGORIAS,value:e.categoria},
-    {key:'tipo',label:'Tipo',type:'select',options:['fijo','variable'],value:e.tipo},
-    {key:'esencial',label:'Esencial',type:'select',options:['true','false'],value:String(e.esencial)},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['false','true'],value:String(e.ajustaInflacion)},
-    {key:'desde',label:'Desde',type:'month',value:e.desde||'',required:true},
-    {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month',value:e.hasta||''},
+    {key:'esencial',label:'Esencial',type:'select',options:['si','no'],value:e.esencial?'si':'no'},
+    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],value:e.ajustaInflacion?'si':'no'},
     {key:'notas',label:'Notas',type:'textarea',value:e.notas||''},
   ],(data)=>{
-    dbUpdate('egresos_inm',id,{...data,monto:+data.monto,esencial:data.esencial==='true',ajustaInflacion:data.ajustaInflacion==='true'});
+    dbUpdate('egresos_inm',id,{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si',ajustaInflacion:data.ajustaInflacion==='si'});
     renderEgresosInm();
   });
 }
