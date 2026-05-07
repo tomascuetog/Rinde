@@ -1194,7 +1194,12 @@ function ingresoEnMes(ing, mes){
   }
   if(freq==='semestral'){
     const [,mm]=mes.split('-');
-    return ([6,12].includes(+mm)) ? ing.monto : 0;
+    if(ing.mesIngreso){
+      const base=+ing.mesIngreso.split('-')[1];
+      const second=base<=6?base+6:base-6;
+      return ([base,second].includes(+mm))?ing.monto:0;
+    }
+    return ([6,12].includes(+mm))?ing.monto:0;
   }
   return 0;
 }
@@ -1740,13 +1745,19 @@ function renderIngresos(){
   let ytd=0;
   const [y]=mes.split('-'); for(let m=1;m<=+mes.split('-')[1];m++) ytd+=totalIngresosUSD(`${y}-${String(m).padStart(2,'0')}`);
 
-  const freqLabel={mensual:'Mensual',variable:'Variable',unico:'Único',semestral:'Semestral'};
+  const freqLabel={mensual:'Mensual',unico:'Único',semestral:'Semestral'};
+  const MLAB=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   function row(i){
     const v=ingresoEnMes(i,mes);
     const usd=v?( i.moneda==='USD'?v:arsToUsd(v,mes) ):0;
     const vArs=v?( i.moneda==='ARS'?v:v*getCotizacion(mes) ):0;
-    const activo=!i.hasta||i.hasta>=mes;
+    const activo=i.frecuencia==='mensual'?(!i.hasta||i.hasta>=mes):true;
+    const mm=i.mesIngreso?(+i.mesIngreso.split('-')[1]):null;
+    const mm2=mm?(mm<=6?mm+6:mm-6):null;
+    const periodo=i.frecuencia==='mensual'?(i.desde+(i.hasta?' → '+i.hasta:' → ∞')):
+                  i.frecuencia==='semestral'&&mm?(MLAB[mm-1]+' y '+MLAB[mm2-1]):
+                  i.frecuencia==='unico'?(i.desde||'-'):'-';
     return `<tr>
       <td><strong>${i.descripcion}</strong></td>
       <td><span class="pill ${i.moneda==='ARS'?'opal':'pos'}">${i.moneda}</span></td>
@@ -1754,8 +1765,7 @@ function renderIngresos(){
       <td class="pos-text mono">${v?fmtUSD(usd)+' USD':'-'}</td>
       <td>${v?fmtARS(vArs):'-'}</td>
       <td><span class="pill gr">${freqLabel[i.frecuencia]||i.frecuencia}</span></td>
-      <td><span class="pill ${i.ajustaInflacion?'warn':'gr'}">${i.ajustaInflacion?'Sí':'No'}</span></td>
-      <td>${i.desde}${i.hasta?' → '+i.hasta:' → ∞'}</td>
+      <td>${periodo}</td>
       <td><span class="pill ${activo?'pos':'gr'}">${activo?'Activo':'Terminado'}</span></td>
       <td class="actions">
         <button class="btn sm ghost" onclick="editIngreso('${i.id}')">✏</button>
@@ -1773,27 +1783,50 @@ function renderIngresos(){
   <div class="sh">Todos los ingresos · editables</div>
   <div class="table-wrap">
   <table class="tbl">
-    <tr><th>Descripción</th><th>Moneda</th><th>Monto orig.</th><th>USD ${mesLabel(mes)}</th><th>ARS equiv.</th><th>Frecuencia</th><th>Aj. inflac.</th><th>Período</th><th>Estado</th><th></th></tr>
+    <tr><th>Descripción</th><th>Moneda</th><th>Monto orig.</th><th>USD ${mesLabel(mes)}</th><th>ARS equiv.</th><th>Frecuencia</th><th>Período / Mes</th><th>Estado</th><th></th></tr>
     ${list.map(row).join('')}
   </table>
   </div>
   <div class="sh">+ Agregar ingreso</div>
   <button class="btn pos" onclick="addIngreso()">+ Agregar ingreso</button>`;
 }
+function _setupIngresoModal(){
+  const sel=document.getElementById('mf-frecuencia');
+  if(!sel) return;
+  function update(){
+    const v=sel.value;
+    const show=(key,visible,req)=>{
+      const el=document.getElementById('mf-'+key);
+      if(!el) return;
+      el.closest('.modal-field').style.display=visible?'':'none';
+      el.required=!!(visible&&req);
+    };
+    show('desde', v==='mensual'||v==='unico', true);
+    show('hasta', v==='mensual', false);
+    show('mesIngreso', v==='semestral', true);
+  }
+  sel.addEventListener('change',update);
+  update();
+}
 function addIngreso(){
   openModal('Nuevo ingreso',[
     {key:'descripcion',label:'Descripción',type:'text',required:true},
     {key:'monto',label:'Monto',type:'number',required:true},
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
-    {key:'frecuencia',label:'Frecuencia',type:'select',options:['mensual','variable','unico','semestral']},
-    {key:'desde',label:'Desde (YYYY-MM)',type:'month',required:true},
-    {key:'hasta',label:'Hasta (YYYY-MM, vacío = indefinido)',type:'month'},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['false','true']},
+    {key:'frecuencia',label:'Frecuencia',type:'select',options:['mensual','semestral','unico']},
+    {key:'desde',label:'Desde (YYYY-MM)',type:'month'},
+    {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month'},
+    {key:'mesIngreso',label:'Primer mes de cobro',type:'month'},
     {key:'notas',label:'Notas',type:'textarea'},
   ],(data)=>{
-    dbAdd('ingresos',{...data,monto:+data.monto,ajustaInflacion:data.ajustaInflacion==='true'});
+    const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; }
+    if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
+    if(data.frecuencia==='unico') obj.desde=data.desde;
+    dbAdd('ingresos',obj);
     renderIngresos();
   });
+  _setupIngresoModal();
 }
 function editIngreso(id){
   const i=dbGet('ingresos').find(x=>x.id===id);
@@ -1801,15 +1834,20 @@ function editIngreso(id){
     {key:'descripcion',label:'Descripción',type:'text',value:i.descripcion,required:true},
     {key:'monto',label:'Monto',type:'number',value:i.monto,required:true},
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:i.moneda},
-    {key:'frecuencia',label:'Frecuencia',type:'select',options:['mensual','variable','unico','semestral'],value:i.frecuencia},
-    {key:'desde',label:'Desde',type:'month',value:i.desde||'',required:true},
+    {key:'frecuencia',label:'Frecuencia',type:'select',options:['mensual','semestral','unico'],value:i.frecuencia},
+    {key:'desde',label:'Desde (YYYY-MM)',type:'month',value:i.desde||''},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month',value:i.hasta||''},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['false','true'],value:String(i.ajustaInflacion)},
+    {key:'mesIngreso',label:'Primer mes de cobro',type:'month',value:i.mesIngreso||''},
     {key:'notas',label:'Notas',type:'textarea',value:i.notas||''},
   ],(data)=>{
-    dbUpdate('ingresos',id,{...data,monto:+data.monto,ajustaInflacion:data.ajustaInflacion==='true'});
+    const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; }
+    if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
+    if(data.frecuencia==='unico') obj.desde=data.desde;
+    dbUpdate('ingresos',id,obj);
     renderIngresos();
   });
+  _setupIngresoModal();
 }
 function deleteIngreso(id){ confirmDelete(()=>{ dbDelete('ingresos',id); renderIngresos(); }); }
 
@@ -1838,10 +1876,7 @@ function renderEgresosInm(){
       <td class="neg-text mono">${v?fmtUSD(usd)+' USD':'-'}</td>
       <td>${v?fmtARS(ars):'-'}</td>
       <td><span class="pill opal">${e.categoria}</span></td>
-      <td><span class="pill ${e.tipo==='fijo'?'pos':'warn'}">${e.tipo}</span></td>
       <td><span class="pill ${e.esencial?'pos':'neg'}">${e.esencial?'Sí':'No'}</span></td>
-      <td><span class="toggle-inf ${e.ajustaInflacion?'on':'off'}">${e.ajustaInflacion?'📈 Sí':'— No'}</span></td>
-      <td>${e.desde}${e.hasta?' → '+e.hasta:' → ∞'}</td>
       <td class="actions">
         <button class="btn sm ghost" onclick="editEgresoInm('${e.id}')">✏</button>
         <button class="btn sm danger" onclick="deleteEgresoInm('${e.id}')">✕</button>
@@ -1859,7 +1894,7 @@ function renderEgresosInm(){
   <div class="sh">Todos los egresos inmediatos</div>
   <div class="table-wrap">
   <table class="tbl">
-    <tr><th>Descripción</th><th>Moneda</th><th>Monto orig.</th><th>USD ${mesLabel(mes)}</th><th>ARS equiv.</th><th>Categoría</th><th>Tipo</th><th>Esencial</th><th>Aj. inflac.</th><th>Período</th><th></th></tr>
+    <tr><th>Descripción</th><th>Moneda</th><th>Monto orig.</th><th>USD ${mesLabel(mes)}</th><th>ARS equiv.</th><th>Categoría</th><th>Esencial</th><th></th></tr>
     ${list.map(row).join('')}
   </table>
   </div>
@@ -1873,10 +1908,9 @@ function addEgresoInm(){
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
     {key:'categoria',label:'Categoría',type:'select',options:CATEGORIAS},
     {key:'esencial',label:'Esencial',type:'select',options:['si','no']},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si']},
     {key:'notas',label:'Notas',type:'textarea'},
   ],(data)=>{
-    dbAdd('egresos_inm',{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si',ajustaInflacion:data.ajustaInflacion==='si'});
+    dbAdd('egresos_inm',{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si'});
     renderEgresosInm();
   });
 }
@@ -1888,10 +1922,9 @@ function editEgresoInm(id){
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:e.moneda},
     {key:'categoria',label:'Categoría',type:'select',options:CATEGORIAS,value:e.categoria},
     {key:'esencial',label:'Esencial',type:'select',options:['si','no'],value:e.esencial?'si':'no'},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],value:e.ajustaInflacion?'si':'no'},
     {key:'notas',label:'Notas',type:'textarea',value:e.notas||''},
   ],(data)=>{
-    dbUpdate('egresos_inm',id,{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si',ajustaInflacion:data.ajustaInflacion==='si'});
+    dbUpdate('egresos_inm',id,{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si'});
     renderEgresosInm();
   });
 }
