@@ -598,27 +598,6 @@ body.privacy svg text{
     <div class="auth-logo">Rinde<em>.</em></div>
     <div class="auth-tag">tu plata, organizada · en todos tus dispositivos</div>
 
-    <!-- STEP 1: Supabase config (first time only) -->
-    <div id="auth-step-config" style="display:block;">
-      <div class="auth-card">
-        <div class="auth-title">Configuración inicial</div>
-        <div class="auth-sub">Conectá Rinde a tu base de datos Supabase · una sola vez</div>
-        <div class="auth-err" id="config-err"></div>
-        <div class="auth-field">
-          <label>URL del proyecto</label>
-          <input type="url" id="config-url" placeholder="https://xxxx.supabase.co">
-          <div class="hint">Encontralo en Settings → API → Project URL</div>
-        </div>
-        <div class="auth-field">
-          <label>Anon / public key</label>
-          <input type="text" id="config-key" placeholder="eyJhbGciOiJIUzI1NiIs...">
-          <div class="hint">Settings → API → Project API keys → anon public</div>
-        </div>
-        <button class="auth-btn" onclick="saveSupabaseConfig()">Conectar →</button>
-        <div class="auth-link" onclick="showAuthStep('login')">¿Ya configuraste antes? <span>Ir al login</span></div>
-      </div>
-    </div>
-
     <!-- STEP 2: Login / Register -->
     <div id="auth-step-login" style="display:none;">
       <div class="auth-card">
@@ -637,7 +616,6 @@ body.privacy svg text{
         </div>
         <button class="auth-btn" id="auth-submit-btn" onclick="submitAuth()">Entrar →</button>
         <button class="auth-btn secondary" id="auth-toggle-btn" onclick="toggleAuthMode()">¿No tenés cuenta? Registrate</button>
-        <div class="auth-link" onclick="showAuthStep('config')">⚙ Cambiar configuración de Supabase</div>
       </div>
     </div>
 
@@ -702,14 +680,11 @@ let _pendingSync = new Set();
 
 function getSbConfig(){
   return {
-    url: localStorage.getItem('rinde_sb_url')||'',
-    key: localStorage.getItem('rinde_sb_key')||'',
+    url: 'https://jhlucntxhzurrvpjqmhg.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpobHVjbnR4aHp1cnJ2cGpxbWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTA4MzMsImV4cCI6MjA5MjYyNjgzM30.3vtdVv08isV6RlAlvyrZbJNtnzDzan2w7avi_BAep8k',
   };
 }
-function hasSbConfig(){
-  const c=getSbConfig();
-  return !!(c.url && c.key);
-}
+function hasSbConfig(){ return true; }
 function initSbClient(){
   const c=getSbConfig();
   if(!c.url||!c.key) return false;
@@ -4067,13 +4042,7 @@ async function init(){
     return;
   }
 
-  // If Supabase not configured yet — auth overlay already shows config step by default
-  if(!hasSbConfig()){
-    // auth overlay is already visible with config step
-    return;
-  }
-
-  // Config exists — init client and check session
+  // Init client and check session
   if(!initSbClient()){
     showAuthStep('login');
     return;
