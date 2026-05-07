@@ -1740,33 +1740,43 @@ function deleteInflacion(id){ confirmDelete(()=>{ dbDelete('inflacion',id); rend
 function renderIngresos(){
   const list=dbGet('ingresos');
   const mes=MES_ACTUAL;
-  const total=totalIngresosUSD(mes);
-  const prox=totalIngresosUSD(mesNext(mes));
-  let ytd=0;
-  const [y]=mes.split('-'); for(let m=1;m<=+mes.split('-')[1];m++) ytd+=totalIngresosUSD(`${y}-${String(m).padStart(2,'0')}`);
+  const cotiz=getCotizacion(mes);
+  const [y]=mes.split('-');
+
+  function mesARS(m){ const c=getCotizacion(m); return list.reduce((s,i)=>{ const v=ingresoEnMes(i,m); return s+(v?(i.moneda==='ARS'?v:v*c):0); },0); }
+  function mesUSD(m){ return list.reduce((s,i)=>{ const v=ingresoEnMes(i,m); return s+(v?(i.moneda==='USD'?v:arsToUsd(v,m)):0); },0); }
+
+  const totARS=mesARS(mes), totUSD=mesUSD(mes);
+  const proxMes=mesNext(mes);
+  const proxARS=mesARS(proxMes), proxUSD=mesUSD(proxMes);
+  let ytdARS=0,ytdUSD=0;
+  for(let m=1;m<=+mes.split('-')[1];m++){
+    const mm=`${y}-${String(m).padStart(2,'0')}`;
+    ytdARS+=mesARS(mm); ytdUSD+=mesUSD(mm);
+  }
 
   const freqLabel={mensual:'Mensual',unico:'Único',semestral:'Semestral'};
   const MLAB=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   function row(i){
     const v=ingresoEnMes(i,mes);
-    const usd=v?( i.moneda==='USD'?v:arsToUsd(v,mes) ):0;
-    const vArs=v?( i.moneda==='ARS'?v:v*getCotizacion(mes) ):0;
-    const activo=i.frecuencia==='mensual'?(!i.hasta||i.hasta>=mes):true;
+    const vARS=v?(i.moneda==='ARS'?v:v*cotiz):0;
+    const vUSD=v?(i.moneda==='USD'?v:arsToUsd(v,mes)):0;
     const mm=i.mesIngreso?(+i.mesIngreso.split('-')[1]):null;
     const mm2=mm?(mm<=6?mm+6:mm-6):null;
     const periodo=i.frecuencia==='mensual'?(i.desde+(i.hasta?' → '+i.hasta:' → ∞')):
                   i.frecuencia==='semestral'&&mm?(MLAB[mm-1]+' y '+MLAB[mm2-1]):
                   i.frecuencia==='unico'?(i.desde||'-'):'-';
+    const ajInf=i.frecuencia==='mensual'?(i.ajustaInflacion?'Sí':'No'):'-';
     return `<tr>
       <td><strong>${i.descripcion}</strong></td>
       <td><span class="pill ${i.moneda==='ARS'?'opal':'pos'}">${i.moneda}</span></td>
-      <td>${i.moneda==='ARS'?fmtARS(i.monto):fmtUSD(i.monto)+' USD'}</td>
-      <td class="pos-text mono">${v?fmtUSD(usd)+' USD':'-'}</td>
-      <td>${v?fmtARS(vArs):'-'}</td>
+      <td class="pos-text">${v?fmtARS(vARS):'-'}</td>
+      <td class="pos-text mono">${v?fmtUSD(vUSD)+' USD':'-'}</td>
+      <td class="mono" style="color:var(--muted);font-size:11px;">${fmtARS(cotiz)}</td>
       <td><span class="pill gr">${freqLabel[i.frecuencia]||i.frecuencia}</span></td>
+      <td style="color:var(--muted);font-size:11px;">${ajInf}</td>
       <td>${periodo}</td>
-      <td><span class="pill ${activo?'pos':'gr'}">${activo?'Activo':'Terminado'}</span></td>
       <td class="actions">
         <button class="btn sm ghost" onclick="editIngreso('${i.id}')">✏</button>
         <button class="btn sm danger" onclick="deleteIngreso('${i.id}')">✕</button>
@@ -1776,14 +1786,14 @@ function renderIngresos(){
 
   document.getElementById('ingresos-content').innerHTML=`
   <div class="g3">
-    <div class="card pos"><div class="cl">Este mes</div><div class="cv">${fmtUSD(total)} USD</div><div class="cs">${fmtARS(total*getCotizacion(mes))} ARS</div></div>
-    <div class="card pos-s"><div class="cl">Próximo mes est.</div><div class="cv">${fmtUSD(prox)} USD</div><div class="cs">@ cotiz. ${fmtARS(getCotizacion(mesNext(mes)))} proy.</div></div>
-    <div class="card pos-s"><div class="cl">Acumulado ${y}</div><div class="cv">${fmtUSD(ytd)} USD</div><div class="cs">cotización real de cada mes</div></div>
+    <div class="card pos"><div class="cl">Este mes</div><div class="cv">${fmtARS(totARS)}</div><div class="cs">${fmtUSD(totUSD)} USD</div></div>
+    <div class="card pos-s"><div class="cl">Próximo mes est.</div><div class="cv">${fmtARS(proxARS)}</div><div class="cs">${fmtUSD(proxUSD)} USD</div></div>
+    <div class="card pos-s"><div class="cl">Acumulado ${y}</div><div class="cv">${fmtARS(ytdARS)}</div><div class="cs">${fmtUSD(ytdUSD)} USD</div></div>
   </div>
   <div class="sh">Todos los ingresos · editables</div>
   <div class="table-wrap">
   <table class="tbl">
-    <tr><th>Descripción</th><th>Moneda</th><th>Monto orig.</th><th>USD ${mesLabel(mes)}</th><th>ARS equiv.</th><th>Frecuencia</th><th>Período / Mes</th><th>Estado</th><th></th></tr>
+    <tr><th>Descripción</th><th>Moneda</th><th>ARS</th><th>USD</th><th>Cotiz. USD</th><th>Frecuencia</th><th>Aj. Inflación</th><th>Período</th><th></th></tr>
     ${list.map(row).join('')}
   </table>
   </div>
@@ -1804,6 +1814,9 @@ function _setupIngresoModal(){
     show('desde', v==='mensual'||v==='unico', true);
     show('hasta', v==='mensual', false);
     show('mesIngreso', v==='semestral', true);
+    show('ajustaInflacion', v==='mensual', false);
+    const desdeLabel=document.getElementById('mf-desde')?.closest('.modal-field')?.querySelector('label');
+    if(desdeLabel) desdeLabel.textContent=v==='unico'?'Mes de impacto *':'Desde (YYYY-MM) *';
   }
   sel.addEventListener('change',update);
   update();
@@ -1817,10 +1830,11 @@ function addIngreso(){
     {key:'desde',label:'Desde (YYYY-MM)',type:'month'},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month'},
     {key:'mesIngreso',label:'Primer mes de cobro',type:'month'},
+    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si']},
     {key:'notas',label:'Notas',type:'textarea'},
   ],(data)=>{
     const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
-    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; }
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
     if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
     if(data.frecuencia==='unico') obj.desde=data.desde;
     dbAdd('ingresos',obj);
@@ -1838,10 +1852,11 @@ function editIngreso(id){
     {key:'desde',label:'Desde (YYYY-MM)',type:'month',value:i.desde||''},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month',value:i.hasta||''},
     {key:'mesIngreso',label:'Primer mes de cobro',type:'month',value:i.mesIngreso||''},
+    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],value:(i.ajustaInflacion||false)?'si':'no'},
     {key:'notas',label:'Notas',type:'textarea',value:i.notas||''},
   ],(data)=>{
     const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
-    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; }
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
     if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
     if(data.frecuencia==='unico') obj.desde=data.desde;
     dbUpdate('ingresos',id,obj);
