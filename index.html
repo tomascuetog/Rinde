@@ -1852,24 +1852,55 @@ const CATEGORIAS=['Vivienda','Auto','Telefonía','Conectividad','River','Platafo
 function renderEgresosInm(){
   const list=dbGet('egresos_inm');
   const mes=MES_ACTUAL;
-  const total=list.reduce((s,e)=>{ const v=egresoInmEnMes(e,mes); return s+(e.moneda==='USD'?v:arsToUsd(v,mes)); },0);
-  let fijo=0,noEsencial=0;
-  list.forEach(e=>{ const v=egresoInmEnMes(e,mes); const u=e.moneda==='USD'?v:arsToUsd(v,mes); if(e.tipo==='fijo')fijo+=u; if(!e.esencial)noEsencial+=u; });
+  const mesPrev=mesNext(mes,-1);
+  const [y]=mes.split('-');
+  const today=new Date();
+  const dayN=today.getDate();
+  const daysInCur=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();
+  const daysInPrev=new Date(today.getFullYear(),today.getMonth(),0).getDate();
 
-  function row(e){
-    const v=egresoInmEnMes(e,mes);
-    const usd=e.moneda==='USD'?v:arsToUsd(v,mes);
-    const ars=e.moneda==='ARS'?v:v*getCotizacion(mes);
-    const activo=!e.hasta||e.hasta>=mes;
+  const forMes=m=>list.filter(e=>e.fecha&&e.fecha.slice(0,7)===m);
+  const sumARS=items=>items.filter(e=>e.moneda==='ARS').reduce((s,e)=>s+e.monto,0);
+  const sumUSD=items=>items.filter(e=>e.moneda==='USD').reduce((s,e)=>s+e.monto,0);
+
+  const curItems=forMes(mes), prevItems=forMes(mesPrev);
+  const curARS=sumARS(curItems), curUSD=sumUSD(curItems);
+  const prevARS=sumARS(prevItems), prevUSD=sumUSD(prevItems);
+
+  // Prorate previous month to days elapsed in current month
+  const prevARSpro=daysInPrev>0?prevARS*dayN/daysInPrev:0;
+  const prevUSDpro=daysInPrev>0?prevUSD*dayN/daysInPrev:0;
+  const base=prevARSpro||prevUSDpro;
+  const cur=prevARSpro>0?curARS:curUSD;
+  const diffPct=base>0?((cur-base)/base*100):null;
+  const diffLine=diffPct!==null
+    ?`${diffPct>0?'+':''}${diffPct.toFixed(1)}% vs ${mesLabel(mesPrev).split(' ')[0]} · día ${dayN}/${daysInCur}`
+    :`Día ${dayN} de ${daysInCur}`;
+
+  const ytdItems=list.filter(e=>e.fecha&&e.fecha.startsWith(y));
+  const ytdARS=sumARS(ytdItems), ytdUSD=sumUSD(ytdItems);
+
+  const noEsItems=curItems.filter(e=>!e.esencial);
+  const noEsARS=sumARS(noEsItems), noEsUSD=sumUSD(noEsItems);
+
+  function kpi(cls,label,ars,usd,sub){
+    const hasA=ars>0,hasU=usd>0;
+    return `<div class="card ${cls}">
+      <div class="cl">${label}</div>
+      ${hasA?`<div class="cv">-${fmtARS(ars)}</div>`:''}
+      ${hasU?`<div class="${hasA?'cs':'cv'}">-${fmtUSD(usd)} USD</div>`:''}
+      ${!hasA&&!hasU?`<div class="cv">$0</div>`:''}
+      ${sub?`<div class="cs" style="font-size:10px;margin-top:2px;">${sub}</div>`:''}
+    </div>`;
+  }
+
+  function tableRow(e){
     return `<tr>
       <td style="white-space:nowrap;font-size:12px;">${fmtFecha(e.fecha)}</td>
-      <td><strong>${e.descripcion}</strong>${e.notas?`<br><span style="font-size:10px;color:var(--muted);">${e.notas}</span>`:''}
-      </td>
+      <td><strong>${e.descripcion}</strong>${e.notas?`<br><span style="font-size:10px;color:var(--muted);">${e.notas}</span>`:''}</td>
       <td><span class="pill ${e.moneda==='ARS'?'opal':'pos'}">${e.moneda}</span></td>
-      <td>${e.moneda==='ARS'?fmtARS(e.monto):fmtUSD(e.monto)+' USD'}</td>
-      <td class="neg-text mono">${v?fmtUSD(usd)+' USD':'-'}</td>
-      <td>${v?fmtARS(ars):'-'}</td>
-      <td><span class="pill opal">${e.categoria}</span></td>
+      <td class="neg-text">${e.moneda==='ARS'?fmtARS(e.monto):fmtUSD(e.monto)+' USD'}</td>
+      <td><span class="pill opal">${e.categoria||'–'}</span></td>
       <td><span class="pill ${e.esencial?'pos':'neg'}">${e.esencial?'Sí':'No'}</span></td>
       <td class="actions">
         <button class="btn sm ghost" onclick="editEgresoInm('${e.id}')">✏</button>
@@ -1878,22 +1909,39 @@ function renderEgresosInm(){
     </tr>`;
   }
 
+  function monthSection(label,m,items){
+    const a=sumARS(items),u=sumUSD(items);
+    const tot=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
+    const sorted=[...items].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    return `<details ${m===mes?'open':''} style="margin-bottom:6px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;">
+      <summary style="cursor:pointer;padding:10px 14px;background:var(--surface);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+        <span>${label}</span>
+        <span style="color:var(--neg-dk);font-size:12px;">${tot}</span>
+      </summary>
+      <div style="overflow-x:auto;">
+        <table class="tbl" style="margin:0;">
+          <tr><th>Fecha</th><th>Descripción</th><th>Moneda</th><th>Monto</th><th>Categoría</th><th>Esencial</th><th></th></tr>
+          ${sorted.map(tableRow).join('')}
+        </table>
+      </div>
+    </details>`;
+  }
+
+  const months=[...new Set(list.filter(e=>e.fecha).map(e=>e.fecha.slice(0,7)))].sort().reverse();
+  const sinFecha=list.filter(e=>!e.fecha);
+  const sections=months.map(m=>monthSection(mesLabel(m),m,forMes(m))).join('')
+    +(sinFecha.length?monthSection('Sin fecha','',sinFecha):'');
+
   document.getElementById('egresos-inm-content').innerHTML=`
+  <button class="btn neg" style="margin-bottom:16px;" onclick="addEgresoInm()">+ Agregar egreso</button>
   <div class="g4">
-    <div class="card neg"><div class="cl">Este mes</div><div class="cv">-${fmtUSD(total)} USD</div><div class="cs">${fmtARS(total*getCotizacion(mes))} ARS</div></div>
-    <div class="card neg-s"><div class="cl">Fijos</div><div class="cv">${fmtUSD(fijo)}</div><div class="cs">${total?fmtPct(fijo/total*100):'-'} del total</div></div>
-    <div class="card warn"><div class="cl">Variables</div><div class="cv">${fmtUSD(total-fijo)}</div><div class="cs">${total?fmtPct((total-fijo)/total*100):'-'}</div></div>
-    <div class="card neg-s"><div class="cl">No esenciales</div><div class="cv">${fmtUSD(noEsencial)}</div><div class="cs">candidatos a eliminar</div></div>
+    ${kpi('neg-s',mesLabel(mesPrev),prevARS,prevUSD,'')}
+    ${kpi('neg',mesLabel(mes),curARS,curUSD,diffLine)}
+    ${kpi('neg-s','Acumulado '+y,ytdARS,ytdUSD,'')}
+    ${kpi('warn','No esenciales',noEsARS,noEsUSD,'candidatos a eliminar')}
   </div>
-  <div class="sh">Todos los egresos inmediatos</div>
-  <div class="table-wrap">
-  <table class="tbl">
-    <tr><th>Fecha</th><th>Descripción</th><th>Moneda</th><th>Monto orig.</th><th>USD ${mesLabel(mes)}</th><th>ARS equiv.</th><th>Categoría</th><th>Esencial</th><th></th></tr>
-    ${list.map(row).join('')}
-  </table>
-  </div>
-  <div class="sh">+ Agregar egreso inmediato</div>
-  <button class="btn neg" onclick="addEgresoInm()">+ Agregar egreso</button>`;
+  <div class="sh">Por mes</div>
+  ${sections||`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin egresos cargados.</div>`}`;
 }
 function addEgresoInm(){
   openModal('Nuevo egreso inmediato',[
