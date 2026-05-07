@@ -1275,11 +1275,17 @@ function renderDashboard(){
   const cotiz=getCotizacion(mes);
   const infMes=getInflacion(mes);
 
-  // split pendiente
+  // split balance (me_deben - debo_yo, in USD)
   const splitPend=dbGet('split').reduce((s,sp)=>{
-    const pend=sp.personas.filter(p=>!p.pagado).reduce((a,p)=>a+p.monto,0);
-    const val=sp.moneda==='USD'?pend:arsToUsd(pend,mes);
-    return s+val;
+    if(!sp.direccion){
+      // legacy personas model
+      const pend=(sp.personas||[]).filter(p=>!p.pagado).reduce((a,p)=>a+p.monto,0);
+      const val=sp.moneda==='USD'?pend:arsToUsd(pend,mes);
+      return s+val;
+    }
+    const pendMonto=getSplitInstancias(sp).filter(i=>!i.pagado).reduce((a,i)=>a+i.monto,0);
+    const val=sp.moneda==='USD'?pendMonto:arsToUsd(pendMonto,mes);
+    return s+(sp.direccion==='Me deben'?val:-val);
   },0);
 
   // tareas urgentes
@@ -1411,7 +1417,7 @@ function renderDashboard(){
     <div class="card pos-s"><div class="cl">Ingresos mes</div><div class="cv">+${fmtUSD(ing)} USD</div><div class="cs">${fmtARS(ing*cotiz)} ARS</div></div>
     <div class="card neg"><div class="cl">Egresos mes</div><div class="cv">-${fmtUSD(eg)} USD</div><div class="cs">${fmtARS(eg*cotiz)} ARS</div></div>
     <div class="card pos-s"><div class="cl">Ahorro mes</div><div class="cv">${neto>=0?'+':''}${fmtUSD(neto)} USD</div><div class="cs">Ratio: ${fmtPct(ratio)}</div></div>
-    <div class="card neg-s"><div class="cl">Split pendiente</div><div class="cv">-${fmtUSD(splitPend)} USD</div><div class="cs">Por cobrar</div></div>
+    <div class="card ${splitPend>=0?'pos-s':'neg-s'}"><div class="cl">Saldo split</div><div class="cv">${splitPend>=0?'+':''}${fmtUSD(splitPend)} USD</div><div class="cs">${splitPend>=0?'Me deben más de lo que debo':'Debo más de lo que me deben'}</div></div>
   </div>
   <div class="g2">
     <div>
@@ -2038,6 +2044,9 @@ function renderEgresosCuotas(){
     return s+(ec.montoCuota||0)*rest;
   },0);
 
+  const noEsARS=list.filter(ec=>ec.moneda==='ARS'&&!ec.esencial).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
+  const noEsUSD=list.filter(ec=>ec.moneda==='USD'&&!ec.esencial).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
+
   // KPI card helper
   function kpiCard(cls,label,ars,usd){
     const hasARS=ars>0, hasUSD=usd>0;
@@ -2119,10 +2128,11 @@ function renderEgresosCuotas(){
     <button class="btn neg" onclick="addEgresoCuota('cuotas')">+ Compra en cuotas</button>
   </div>
 
-  <div class="g3">
+  <div class="g4">
     ${kpiCard('neg','Este mes',arsHoy,usdHoy)}
     ${kpiCard('neg-s','Próximo mes',arsProx,usdProx)}
     ${kpiCard('warn','Deuda total',deudaARS,deudaUSD)}
+    ${kpiCard('neg-s','No esencial',noEsARS,noEsUSD)}
   </div>
 
   <div class="sh">Mes en curso y próximos</div>
@@ -2232,100 +2242,241 @@ function deleteEgresoCuota(id){ confirmDelete(()=>{ dbDelete('egresos_cuotas',id
 // =============================================
 // RENDER: SPLIT
 // =============================================
+
+function getSplitInstancias(sp){
+  if(!sp.direccion) return []; // legacy entries
+  if(sp.tipo==='unico'){
+    return [{mes:sp.desde||'', monto:sp.monto||0, pagado:!!sp.pagado}];
+  }
+  if(sp.tipo==='mensual'){
+    const result=[];
+    let m=sp.desde||MES_ACTUAL;
+    const fin=sp.hasta||mesNext(MES_ACTUAL,3);
+    while(m<=fin){
+      result.push({mes:m, monto:sp.monto||0, pagado:!!(sp.pagos&&sp.pagos[m])});
+      m=mesNext(m);
+    }
+    return result;
+  }
+  if(sp.tipo==='cuotas'){
+    const result=[];
+    const montos=sp.montos||[];
+    const n=sp.nCuotas||montos.length||0;
+    for(let i=0;i<n;i++){
+      const m=mesNext(sp.desde||MES_ACTUAL,i);
+      result.push({mes:m, monto:montos[i]||0, idx:i, pagado:!!(sp.pagos&&sp.pagos[m])});
+    }
+    return result;
+  }
+  return [];
+}
+
 function renderSplit(){
   const list=dbGet('split');
   const mes=MES_ACTUAL;
-  let meDebern=0, debo=0;
+
+  // KPI totals (native currency, unpaid only)
+  let meDebenARS=0,meDebenUSD=0,deboARS=0,deboUSD=0;
   list.forEach(sp=>{
-    sp.personas.forEach(p=>{
-      const v=sp.moneda==='USD'?p.monto:arsToUsd(p.monto,mes);
-      if(!p.pagado) meDebern+=v;
+    if(!sp.direccion) return;
+    getSplitInstancias(sp).forEach(inst=>{
+      if(inst.pagado) return;
+      if(sp.direccion==='Me deben'){
+        if(sp.moneda==='ARS') meDebenARS+=inst.monto; else meDebenUSD+=inst.monto;
+      } else {
+        if(sp.moneda==='ARS') deboARS+=inst.monto; else deboUSD+=inst.monto;
+      }
     });
   });
 
-  function sgRow(sp){
-    const totalPend=sp.personas.filter(p=>!p.pagado).reduce((a,p)=>a+p.monto,0);
-    const totalPag=sp.personas.filter(p=>p.pagado).reduce((a,p)=>a+p.monto,0);
-    const montoDisplay=sp.moneda==='USD'?`${fmtUSD(sp.total)} USD`:fmtARS(sp.total)+' ARS';
-    const miParte=sp.moneda==='USD'?fmtUSD(sp.total-totalPend-totalPag+totalPend)+' USD':fmtARS(sp.total-totalPag)+' ARS';
-    const colors=['pos-bg','neg-bg','opal-bg','warn-bg'];
-    const textColors=['pos-dk','neg-dk','opal-dk','warn'];
-    return `<div class="sg">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div>
-          <div style="font-size:14px;font-weight:700;">${sp.descripcion}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${sp.moneda} · ${sp.tipo} · ${mesLabel(sp.fecha.slice(0,7))}</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:15px;font-weight:700;color:var(--neg-dk);">-${montoDisplay} egresado</div>
-          <div style="font-size:12px;color:var(--pos-dk);font-weight:600;">mi parte real: ${sp.moneda==='USD'?fmtUSD(sp.total-sp.personas.reduce((a,p)=>a+p.monto,0))+' USD':fmtARS(sp.total-sp.personas.reduce((a,p)=>a+p.monto,0))+' ARS'}</div>
-        </div>
-      </div>
-      ${sp.personas.map((p,pi)=>`
-        <div class="prow">
-          <div class="av" style="background:var(--${colors[pi%4]});color:var(--${textColors[pi%4]});">${p.nombre.slice(0,2).toUpperCase()}</div>
-          <div style="flex:1;font-size:13px;font-weight:500;">${p.nombre}</div>
-          <div style="font-size:12px;color:var(--muted);margin-right:8px;">${sp.moneda==='USD'?fmtUSD(p.monto)+' USD':fmtARS(p.monto)}</div>
-          <div class="chk ${p.pagado?'done':''}" onclick="toggleSplitPago('${sp.id}',${pi})">${p.pagado?'✓':''}</div>
-          <span class="pill ${p.pagado?'pos':'warn'}" style="margin-left:6px;">${p.pagado?'pagó':'pendiente'}</span>
-        </div>`).join('')}
-      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border2);display:flex;justify-content:space-between;font-size:12px;">
-        <span class="muted-text">Cobrado: ${sp.moneda==='USD'?fmtUSD(totalPag)+' USD':fmtARS(totalPag)} · Pendiente: ${sp.moneda==='USD'?fmtUSD(totalPend)+' USD':fmtARS(totalPend)}</span>
-        <div style="display:flex;gap:6px;">
-          <button class="btn sm ghost" onclick="editSplit('${sp.id}')">✏ Editar</button>
-          <button class="btn sm danger" onclick="deleteSplit('${sp.id}')">✕</button>
-        </div>
-      </div>
+  function kpiSplit(cls,label,ars,usd){
+    const hA=ars>0, hU=usd>0;
+    return `<div class="card ${cls}">
+      <div class="cl">${label}</div>
+      ${hA?`<div class="cv">${fmtARS(ars)}</div>`:''}
+      ${hU?`<div class="${hA?'cs':'cv'}">${fmtUSD(usd)} USD</div>`:''}
+      ${!hA&&!hU?`<div class="cv">$0</div>`:''}
     </div>`;
   }
 
+  // Gather all instancias with their parent entry
+  const allInst=[];
+  list.forEach(sp=>{
+    if(!sp.direccion) return;
+    getSplitInstancias(sp).forEach(inst=>allInst.push({sp,inst}));
+  });
+
+  // Unique months sorted
+  const monthSet=new Set(allInst.map(x=>x.inst.mes));
+  const months=[...monthSet].sort();
+
+  function instRow({sp,inst}){
+    const isDebo=sp.direccion==='Yo debo';
+    const dirClass=isDebo?'neg':'pos';
+    const montoLabel=sp.moneda==='ARS'?fmtARS(inst.monto):`${fmtUSD(inst.monto)} USD`;
+    const sign=isDebo?'-':'+';
+    const typeLabel=sp.tipo==='cuotas'&&inst.idx!=null?`Cuota ${inst.idx+1}/${sp.nCuotas||1}`:
+                    sp.tipo==='mensual'?'Mensual':'Único';
+    return `<div class="erow">
+      <div class="erow-info">
+        <div class="erow-name">${sp.descripcion}${sp.contraparte?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px;">${isDebo?'→ ':'← '}${sp.contraparte}</span>`:''}
+        </div>
+        <div class="erow-meta" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;">
+          <span class="pill ${isDebo?'neg':'pos'}">${sp.direccion}</span>
+          <span class="pill gr">${typeLabel}</span>
+          <span class="pill ${sp.moneda==='ARS'?'opal':'pos'}">${sp.moneda}</span>
+          ${inst.pagado?`<span class="pill pos">Saldado</span>`:`<span class="pill warn">Pendiente</span>`}
+        </div>
+      </div>
+      <span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:var(--${dirClass}-dk);margin:0 8px;white-space:nowrap;">${sign}${montoLabel}</span>
+      <div class="chk ${inst.pagado?'done':''}" onclick="checkSplitEntry('${sp.id}','${inst.mes}')" style="cursor:pointer;">${inst.pagado?'✓':''}</div>
+      <button class="btn sm danger" style="margin-left:4px;" onclick="deleteSplit('${sp.id}')">✕</button>
+    </div>`;
+  }
+
+  const monthSections=months.map(m=>{
+    const items=allInst.filter(x=>x.inst.mes===m);
+    const arsPos=items.filter(x=>x.sp.direccion==='Me deben'&&x.sp.moneda==='ARS').reduce((s,x)=>s+x.inst.monto,0);
+    const usdPos=items.filter(x=>x.sp.direccion==='Me deben'&&x.sp.moneda==='USD').reduce((s,x)=>s+x.inst.monto,0);
+    const arsNeg=items.filter(x=>x.sp.direccion==='Yo debo'&&x.sp.moneda==='ARS').reduce((s,x)=>s+x.inst.monto,0);
+    const usdNeg=items.filter(x=>x.sp.direccion==='Yo debo'&&x.sp.moneda==='USD').reduce((s,x)=>s+x.inst.monto,0);
+    const parts=[];
+    if(arsPos) parts.push(`+${fmtARS(arsPos)}`);
+    if(usdPos) parts.push(`+${fmtUSD(usdPos)} USD`);
+    if(arsNeg) parts.push(`-${fmtARS(arsNeg)}`);
+    if(usdNeg) parts.push(`-${fmtUSD(usdNeg)} USD`);
+    const totLabel=parts.join('  ');
+    return `<details ${m===mes?'open':''} style="margin-bottom:6px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;">
+      <summary style="cursor:pointer;padding:10px 14px;background:var(--surface);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+        <span>${mesLabel(m)}</span>
+        <span style="font-size:12px;color:var(--muted);">${totLabel}</span>
+      </summary>
+      <div style="padding:6px 8px;">
+        ${items.map(x=>instRow(x)).join('')}
+      </div>
+    </details>`;
+  }).join('');
+
   document.getElementById('split-content').innerHTML=`
-  <div class="g2">
-    <div class="card neg-s"><div class="cl">Me deben (reduce mi egreso)</div><div class="cv">${fmtUSD(meDebern)} USD</div><div class="cs">al cobrar reduce tu egreso real</div></div>
-    <div class="card neg"><div class="cl">Debo yo</div><div class="cv">$48 USD</div><div class="cs">suma a egresos al pagar</div></div>
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button class="btn pos" onclick="addSplit()">+ Nuevo registro</button>
   </div>
-  <div class="sh">Eventos activos</div>
-  ${list.length?list.map(sgRow).join(''):`<div class="empty-state"><p>Sin gastos compartidos</p></div>`}
-  <div class="sh">+ Nuevo gasto compartido</div>
-  <button class="btn pos" onclick="addSplit()">+ Agregar evento</button>`;
+  <div class="g2">
+    ${kpiSplit('pos-s','Me deben',meDebenARS,meDebenUSD)}
+    ${kpiSplit('neg','Debo yo',deboARS,deboUSD)}
+  </div>
+  <div class="sh">Por mes</div>
+  ${months.length?monthSections:`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin gastos compartidos registrados.</div>`}`;
 }
-function toggleSplitPago(spId,pi){
+
+function checkSplitEntry(spId, instMes){
   const list=dbGet('split');
   const sp=list.find(x=>x.id===spId);
-  if(!sp)return;
-  sp.personas[pi].pagado=!sp.personas[pi].pagado;
+  if(!sp) return;
+
+  if(sp.tipo==='unico'){
+    const newPagado=!sp.pagado;
+    sp.pagado=newPagado;
+    if(newPagado){
+      const today=new Date();
+      const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+      const todayMes=todayStr.slice(0,7);
+      if(sp.direccion==='Yo debo'){
+        dbAdd('egresos_inm',{descripcion:sp.descripcion+(sp.contraparte?' → '+sp.contraparte:''),monto:sp.monto,moneda:sp.moneda,categoria:'Otro',esencial:false,tipo:'fijo',fecha:todayStr,desde:todayMes});
+        setTimeout(()=>{ if(typeof renderEgresosInm==='function') renderEgresosInm(); },50);
+      } else {
+        dbAdd('ingresos',{descripcion:sp.descripcion+(sp.contraparte?' de '+sp.contraparte:''),monto:sp.monto,moneda:sp.moneda,frecuencia:'unico',desde:todayMes});
+        setTimeout(()=>{ if(typeof renderIngresos==='function') renderIngresos(); },50);
+      }
+    }
+  } else {
+    if(!sp.pagos) sp.pagos={};
+    sp.pagos[instMes]=!sp.pagos[instMes];
+  }
   dbSet('split',list);
   renderSplit();
 }
+
+function _setupSplitModal(){
+  const tipoSel=document.getElementById('mf-tipo');
+  if(!tipoSel) return;
+  function update(){
+    const tipo=tipoSel.value;
+    const show=(key,visible,req)=>{
+      const el=document.getElementById('mf-'+key);
+      if(!el) return;
+      el.closest('.modal-field').style.display=visible?'':'none';
+      el.required=!!(visible&&req);
+    };
+    show('monto', tipo!=='cuotas', tipo!=='cuotas');
+    show('hasta', tipo==='mensual', false);
+    show('nCuotas', tipo==='cuotas', true);
+    show('montos', tipo==='cuotas', true);
+  }
+  tipoSel.addEventListener('change',update);
+  update();
+}
+
 function addSplit(){
-  openModal('Nuevo gasto compartido',[
+  openModal('Nuevo registro compartido',[
+    {key:'direccion',label:'Dirección',type:'select',options:['Yo debo','Me deben'],required:true},
     {key:'descripcion',label:'Descripción',type:'text',required:true},
-    {key:'total',label:'Total que pagué yo',type:'number',required:true},
-    {key:'moneda',label:'Moneda',type:'select',options:['USD','ARS']},
-    {key:'fecha',label:'Fecha (YYYY-MM)',type:'month',required:true},
+    {key:'contraparte',label:'A quién / De quién',type:'text',required:true},
+    {key:'monto',label:'Monto',type:'number',required:true},
+    {key:'montos',label:'Monto por cuota (separados por coma)',type:'text',hint:'Ej: 100,150,200'},
+    {key:'nCuotas',label:'N° de cuotas',type:'number'},
+    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
     {key:'tipo',label:'Tipo',type:'select',options:['unico','mensual','cuotas']},
-    {key:'personas',label:'Personas que te deben (nombre:monto, separados por coma)',type:'text',hint:'Ej: Juan:200,Mari:200'},
+    {key:'desde',label:'Desde (YYYY-MM)',type:'month',required:true},
+    {key:'hasta',label:'Hasta (YYYY-MM)',type:'month'},
     {key:'notas',label:'Notas',type:'textarea'},
   ],(data)=>{
-    const personas=(data.personas||'').split(',').filter(Boolean).map(s=>{
-      const [nombre,monto]=s.trim().split(':');
-      return {nombre:(nombre||'').trim(),monto:+(monto||0),pagado:false};
-    });
-    dbAdd('split',{...data,total:+data.total,personas});
+    const entry={direccion:data.direccion,descripcion:data.descripcion,contraparte:data.contraparte,moneda:data.moneda,tipo:data.tipo,notas:data.notas||''};
+    if(data.tipo==='cuotas'){
+      const ma=(data.montos||'').split(',').map(s=>+(s.trim())||0);
+      entry.nCuotas=+data.nCuotas||ma.length;
+      entry.montos=ma;
+      entry.desde=data.desde;
+    } else if(data.tipo==='mensual'){
+      entry.monto=+data.monto||0;
+      entry.desde=data.desde;
+      entry.hasta=data.hasta||'';
+    } else {
+      entry.monto=+data.monto||0;
+      entry.desde=data.desde;
+    }
+    dbAdd('split',entry);
+    renderSplit();
+  });
+  _setupSplitModal();
+}
+
+function editSplit(id){
+  const sp=dbGet('split').find(x=>x.id===id);
+  if(!sp) return;
+  if(!sp.direccion){
+    openModal('Editar (legado)',[
+      {key:'descripcion',label:'Descripción',type:'text',value:sp.descripcion,required:true},
+      {key:'notas',label:'Notas',type:'textarea',value:sp.notas||''},
+    ],(data)=>{ dbUpdate('split',id,data); renderSplit(); });
+    return;
+  }
+  openModal('Editar registro compartido',[
+    {key:'direccion',label:'Dirección',type:'select',options:['Yo debo','Me deben'],value:sp.direccion,required:true},
+    {key:'descripcion',label:'Descripción',type:'text',value:sp.descripcion,required:true},
+    {key:'contraparte',label:'A quién / De quién',type:'text',value:sp.contraparte||'',required:true},
+    {key:'monto',label:'Monto',type:'number',value:sp.monto||'',required:true},
+    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:sp.moneda},
+    {key:'tipo',label:'Tipo',type:'select',options:['unico','mensual','cuotas'],value:sp.tipo},
+    {key:'desde',label:'Desde (YYYY-MM)',type:'month',value:sp.desde||'',required:true},
+    {key:'hasta',label:'Hasta (YYYY-MM)',type:'month',value:sp.hasta||''},
+    {key:'notas',label:'Notas',type:'textarea',value:sp.notas||''},
+  ],(data)=>{
+    dbUpdate('split',id,{...sp,...data,monto:+data.monto||sp.monto});
     renderSplit();
   });
 }
-function editSplit(id){
-  const sp=dbGet('split').find(x=>x.id===id);
-  openModal('Editar gasto compartido',[
-    {key:'descripcion',label:'Descripción',type:'text',value:sp.descripcion,required:true},
-    {key:'total',label:'Total pagado',type:'number',value:sp.total,required:true},
-    {key:'moneda',label:'Moneda',type:'select',options:['USD','ARS'],value:sp.moneda},
-    {key:'fecha',label:'Fecha',type:'month',value:sp.fecha.slice(0,7),required:true},
-    {key:'tipo',label:'Tipo',type:'select',options:['unico','mensual','cuotas'],value:sp.tipo},
-    {key:'notas',label:'Notas',type:'textarea',value:sp.notas||''},
-  ],(data)=>{ dbUpdate('split',id,{...data,total:+data.total}); renderSplit(); });
-}
+
 function deleteSplit(id){ confirmDelete(()=>{ dbDelete('split',id); renderSplit(); }); }
 
 // =============================================
@@ -3499,9 +3650,15 @@ function calcScore(){
 
   // 5. Split cobrado (0-100 pts)
   let splitPend=0,splitTotal=0;
-  split.forEach(sp=>sp.personas.forEach(p=>{splitTotal++;if(!p.pagado)splitPend++;}));
+  split.forEach(sp=>{
+    if(sp.personas){
+      sp.personas.forEach(p=>{splitTotal++;if(!p.pagado)splitPend++;});
+    } else if(sp.direccion){
+      getSplitInstancias(sp).forEach(inst=>{splitTotal++;if(!inst.pagado)splitPend++;});
+    }
+  });
   const splitScore=splitTotal>0?Math.round((1-splitPend/splitTotal)*100):100;
-  breakdown.push({label:'Cobros al día',pts:splitScore,max:100,detail:splitTotal>0?`${splitPend} cobros pendientes`:'Sin gastos compartidos'});
+  breakdown.push({label:'Cobros al día',pts:splitScore,max:100,detail:splitTotal>0?`${splitPend} pendientes`:'Sin gastos compartidos'});
   total+=splitScore;
 
   // 6. Actividad / regularidad (0-100 pts)
