@@ -1994,126 +1994,119 @@ function egresoCuotaEnMes(ec,mes){ return cuotaMontoEnMes(ec,mes); }
 function renderEgresosCuotas(){
   const list=dbGet('egresos_cuotas');
   const mes=MES_ACTUAL;
-  const cotiz=getCotizacion(mes);
 
-  const totalMes=list.reduce((s,ec)=>{
-    const v=cuotaMontoEnMes(ec,mes);
-    return s+(ec.moneda==='USD'?v:arsToUsd(v,mes));
+  // Totals per currency for a given month
+  function mesARS(m){ return list.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0); }
+  function mesUSD(m){ return list.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0); }
+
+  const arsHoy=mesARS(mes), usdHoy=mesUSD(mes);
+  const proxMes=mesNext(mes);
+  const arsProx=mesARS(proxMes), usdProx=mesUSD(proxMes);
+
+  // Deuda total: remaining installments for finite cuotas (native currency)
+  const deudaARS=list.filter(ec=>ec.moneda==='ARS'&&(!ec.periodicidad||ec.periodicidad==='unico')).reduce((s,ec)=>{
+    const inicio=ec.desde?ec.desde.slice(0,7):'';
+    const rest=Math.max(0,(ec.nCuotas||1)-Math.max(0,mesDiff(inicio,mes)));
+    return s+(ec.montoCuota||0)*rest;
+  },0);
+  const deudaUSD=list.filter(ec=>ec.moneda==='USD'&&(!ec.periodicidad||ec.periodicidad==='unico')).reduce((s,ec)=>{
+    const inicio=ec.desde?ec.desde.slice(0,7):'';
+    const rest=Math.max(0,(ec.nCuotas||1)-Math.max(0,mesDiff(inicio,mes)));
+    return s+(ec.montoCuota||0)*rest;
   },0);
 
-  const activos=list.filter(ec=>cuotaMontoEnMes(ec,mes)>0);
-  const periodicos=list.filter(ec=>(ec.periodicidad&&ec.periodicidad!=='unico')&&(!ec.hasta||ec.hasta>=mes));
-  const enCuotas=list.filter(ec=>(!ec.periodicidad||ec.periodicidad==='unico')&&ec.nCuotas>1&&cuotaMontoEnMes(ec,mes)>0);
-
-  // Deuda total restante solo para cuotas finitas
-  const deudaTotal=list.filter(ec=>!ec.periodicidad||ec.periodicidad==='unico').reduce((s,ec)=>{
-    const inicio=ec.desde?ec.desde.slice(0,7):'';
-    const cuotasRest=Math.max(0,(ec.nCuotas||1)-mesDiff(inicio,mes));
-    let monto=ec.montoCuota||0;
-    return s+(ec.moneda==='USD'?monto*cuotasRest:arsToUsd(monto*cuotasRest,mes));
-  },0);
-
-  // Tarjetas summary
-  const tarjSummary={};
-  list.forEach(ec=>{
-    const v=cuotaMontoEnMes(ec,mes);
-    if(!v||!ec.tarjeta) return;
-    const usd=ec.moneda==='USD'?v:arsToUsd(v,mes);
-    tarjSummary[ec.tarjeta]=(tarjSummary[ec.tarjeta]||0)+usd;
-  });
-  // Also include egresos_inm with card ref if applicable
-
-  function cuotaDots(ec){
-    if(ec.periodicidad&&ec.periodicidad!=='unico') return '';
-    let dots='';
-    const inicio=ec.desde?ec.desde.slice(0,7):'';
-    for(let i=0;i<(ec.nCuotas||1);i++){
-      const mesI=mesNext(inicio,i);
-      const cls=mesI<mes?'paid':mesI===mes?'cur':'fut';
-      const montoi=cuotaMontoEnMes(ec,mesI);
-      dots+=`<div class="cdot ${cls}" title="${mesLabel(mesI)}: ${fmtARS(montoi)}"></div>`;
-    }
-    return dots;
+  // KPI card helper
+  function kpiCard(cls,label,ars,usd){
+    const hasARS=ars>0, hasUSD=usd>0;
+    return `<div class="card ${cls}">
+      <div class="cl">${label}</div>
+      ${hasARS?`<div class="cv">${fmtARS(ars)}</div>`:''}
+      ${hasUSD?`<div class="${hasARS?'cs':'cv'}">${fmtUSD(usd)} USD</div>`:''}
+      ${!hasARS&&!hasUSD?`<div class="cv">$0</div>`:''}
+    </div>`;
   }
 
-  function row(ec){
-    const v=cuotaMontoEnMes(ec,mes);
-    const usd=ec.moneda==='USD'?v:arsToUsd(v,mes);
-    const inicio=ec.desde?ec.desde.slice(0,7):'';
+  // 3-month projection mini-cards
+  const next3=[mes,mesNext(mes),mesNext(mes,2)].map(m=>{
+    const a=mesARS(m), u=mesUSD(m);
+    return `<div style="flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center;">
+      <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:4px;">${mesLabel(m)}</div>
+      ${a?`<div style="font-size:14px;font-weight:700;color:var(--neg-dk);">-${fmtARS(a)}</div>`:''}
+      ${u?`<div style="font-size:12px;font-weight:600;color:var(--neg-dk);">-${fmtUSD(u)} USD</div>`:''}
+      ${!a&&!u?`<div style="font-size:13px;color:var(--muted);">$0</div>`:''}
+    </div>`;
+  }).join('');
+
+  // Build active month range: 3 back + current + 24 ahead
+  const activeMonths=[];
+  for(let i=-3;i<=24;i++){
+    const m=mesNext(mes,i);
+    if(list.some(ec=>cuotaMontoEnMes(ec,m)>0)) activeMonths.push(m);
+  }
+
+  // Item row within a month section
+  function itemRow(ec,m){
+    const v=cuotaMontoEnMes(ec,m);
     const isPeriodico=ec.periodicidad&&ec.periodicidad!=='unico';
-    const periodLabel=PERIOD_LABELS[ec.periodicidad]||ec.periodicidad||'Mensual';
-    const activa=v>0;
-    const finLabel=isPeriodico?(ec.hasta?`hasta ${mesLabel(ec.hasta)}`:'indefinido'):`termina ${mesLabel(mesNext(inicio,(ec.nCuotas||1)-1))}`;
-    const inflBadge=ec.ajustaInflacion
-      ?`<span class="toggle-inf on" style="font-size:9px;padding:1px 6px;">+inf</span>`
-      :`<span class="toggle-inf off" style="font-size:9px;padding:1px 6px;">sin inf</span>`;
+    const inicio=ec.desde?ec.desde.slice(0,7):'';
+    const fin=isPeriodico?(ec.hasta?ec.hasta.slice(0,7):'indefinido'):mesNext(inicio,(ec.nCuotas||1)-1);
+    const idx=mesDiff(inicio,m)+1;
+    const typeLabel=isPeriodico?(PERIOD_LABELS[ec.periodicidad]||ec.periodicidad):`Cuota ${idx}/${ec.nCuotas||1}`;
+    const monto=ec.moneda==='ARS'?`-${fmtARS(v)}`:`-${fmtUSD(v)} USD`;
+    const medioPago=ec.tarjeta==='Transferencia'&&ec.transferenciaNombre
+      ?`Transf. a ${ec.transferenciaNombre}${ec.transferenciaAlias?' ('+ec.transferenciaAlias+')':''}`
+      :ec.tarjeta||'–';
     return `<div class="erow">
       <div class="erow-info">
         <div class="erow-name">${ec.descripcion}${ec.fecha?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px;">${fmtFecha(ec.fecha)}</span>`:''}</div>
         <div class="erow-meta" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;">
           <span class="pill ${ec.moneda==='ARS'?'opal':'pos'}">${ec.moneda}</span>
-          <span class="pill gr">${isPeriodico?periodLabel:(ec.nCuotas||1)+' cuotas'}</span>
+          <span class="pill gr">${typeLabel}</span>
           <span class="pill ${ec.esencial?'pos':'neg'}">${ec.esencial?'Esencial':'Opcional'}</span>
-          ${inflBadge}
-          <span style="font-size:10px;color:var(--muted);">${ec.tarjeta==='Transferencia'&&ec.transferenciaNombre?`Transf. a ${ec.transferenciaNombre}${ec.transferenciaAlias?' ('+ec.transferenciaAlias+')':''}`:ec.tarjeta||'–'} · ${finLabel}</span>
+          <span style="font-size:10px;color:var(--muted);">${medioPago} · Desde ${inicio} → ${fin}</span>
         </div>
-        ${!isPeriodico?`<div class="cdots" style="margin-top:5px;">${cuotaDots(ec)}</div>`:''}
       </div>
-      ${activa?`<span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:var(--neg-dk);margin:0 8px;white-space:nowrap;">-${fmtUSD(usd)} USD</span>`:`<span class="muted-text" style="margin:0 10px;font-size:11px;">inactivo</span>`}
+      <span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:var(--neg-dk);margin:0 8px;white-space:nowrap;">${monto}</span>
       <button class="btn sm ghost" onclick="editEgresoCuota('${ec.id}')">✏</button>
       <button class="btn sm danger" onclick="deleteEgresoCuota('${ec.id}')">✕</button>
     </div>`;
   }
 
-  // Next 3 months projection
-  const nextMonths=[mes,mesNext(mes),mesNext(mes,2)];
-  const projRows=nextMonths.map(m=>{
-    const t=list.reduce((s,ec)=>{
-      const v=cuotaMontoEnMes(ec,m);
-      return s+(ec.moneda==='USD'?v:arsToUsd(v,m));
-    },0);
-    return `<div style="flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center;">
-      <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">${mesLabel(m)}</div>
-      <div style="font-size:16px;font-weight:700;font-family:var(--font-display);color:var(--neg-dk);">${fmtUSD(t)}</div>
-      <div style="font-size:10px;color:var(--muted);">${fmtARS(t*getCotizacion(m))}</div>
-    </div>`;
+  // Collapsible month sections
+  const monthSections=activeMonths.map(m=>{
+    const items=list.filter(ec=>cuotaMontoEnMes(ec,m)>0)
+      .sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''));
+    const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+    const u=items.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+    const totLabel=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
+    return `<details ${m===mes?'open':''} style="margin-bottom:6px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;">
+      <summary style="cursor:pointer;padding:10px 14px;background:var(--surface);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+        <span>${mesLabel(m)}</span>
+        <span style="color:var(--neg-dk);font-size:12px;">${totLabel}</span>
+      </summary>
+      <div style="padding:6px 8px;">
+        ${items.map(ec=>itemRow(ec,m)).join('')}
+      </div>
+    </details>`;
   }).join('');
 
-  const tarjRows=Object.entries(tarjSummary).map(([t,v])=>
-    `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2);font-size:12px;">
-      <span style="font-weight:600;">${t}</span>
-      <span style="font-weight:700;color:var(--neg-dk);">${fmtUSD(v)} USD · ${fmtARS(v*cotiz)}</span>
-    </div>`
-  ).join('');
-
   document.getElementById('egresos-cuotas-content').innerHTML=`
-  <div class="g4">
-    <div class="card neg"><div class="cl">Impacto ${mesLabel(mes)}</div><div class="cv">-${fmtUSD(totalMes)} USD</div><div class="cs">${fmtARS(totalMes*cotiz)} ARS</div></div>
-    <div class="card neg-s"><div class="cl">Activos este mes</div><div class="cv">${activos.length}</div><div class="cs">${periodicos.length} periódicos · ${enCuotas.length} en cuotas</div></div>
-    <div class="card neg-s"><div class="cl">Deuda cuotas finitas</div><div class="cv">${fmtUSD(deudaTotal)}</div><div class="cs">USD total pendiente</div></div>
-    <div class="card warn"><div class="cl">Con ajuste inflación</div><div class="cv">${list.filter(x=>x.ajustaInflacion).length}</div><div class="cs">ítems indexados</div></div>
-  </div>
-
-  <div class="sh">Próximos 3 meses</div>
-  <div style="display:flex;gap:10px;margin-bottom:14px;">${projRows}</div>
-
-  ${Object.keys(tarjSummary).length?`
-  <div class="sh">Resumen por tarjeta · ${mesLabel(mes)}</div>
-  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;margin-bottom:14px;">
-    ${tarjRows}
-  </div>`:''}
-
-  <div class="sh">Periódicos y fijos</div>
-  ${periodicos.length?periodicos.map(row).join(''):`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin gastos periódicos cargados.</div>`}
-
-  <div class="sh">En cuotas</div>
-  ${list.filter(ec=>!ec.periodicidad||ec.periodicidad==='unico').map(row).join('')||`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin cuotas activas.</div>`}
-
-  <div class="sh">+ Agregar</div>
-  <div style="display:flex;gap:8px;">
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
     <button class="btn neg" onclick="addEgresoCuota('periodico')">+ Gasto periódico / fijo</button>
     <button class="btn neg" onclick="addEgresoCuota('cuotas')">+ Compra en cuotas</button>
-  </div>`;
+  </div>
+
+  <div class="g3">
+    ${kpiCard('neg','Este mes',arsHoy,usdHoy)}
+    ${kpiCard('neg-s','Próximo mes',arsProx,usdProx)}
+    ${kpiCard('warn','Deuda total',deudaARS,deudaUSD)}
+  </div>
+
+  <div class="sh">Mes en curso y próximos</div>
+  <div style="display:flex;gap:10px;margin-bottom:16px;">${next3}</div>
+
+  <div class="sh">Por mes</div>
+  ${monthSections||`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin egresos cargados.</div>`}`;
 }
 
 function _setupCuotaModal(){
