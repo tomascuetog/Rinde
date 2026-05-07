@@ -1174,6 +1174,7 @@ function usdToArs(usd,mes){ return usd*getCotizacion(mes); }
 function fmtUSD(n,dec=0){ return '$'+Math.round(n).toLocaleString('es-AR'); }
 function fmtARS(n){ return '$'+Math.round(n).toLocaleString('es-AR'); }
 function fmtPct(n){ return n.toFixed(1)+'%'; }
+function fmtFecha(f){ if(!f) return '-'; const [y,m,d]=f.split('-'); return `${d}/${m}/${y}`; }
 
 // Compute monthly value of an income for a given mes
 function ingresoEnMes(ing, mes){
@@ -1884,6 +1885,7 @@ function renderEgresosInm(){
     const ars=e.moneda==='ARS'?v:v*getCotizacion(mes);
     const activo=!e.hasta||e.hasta>=mes;
     return `<tr>
+      <td style="white-space:nowrap;font-size:12px;">${fmtFecha(e.fecha)}</td>
       <td><strong>${e.descripcion}</strong>${e.notas?`<br><span style="font-size:10px;color:var(--muted);">${e.notas}</span>`:''}
       </td>
       <td><span class="pill ${e.moneda==='ARS'?'opal':'pos'}">${e.moneda}</span></td>
@@ -1909,7 +1911,7 @@ function renderEgresosInm(){
   <div class="sh">Todos los egresos inmediatos</div>
   <div class="table-wrap">
   <table class="tbl">
-    <tr><th>Descripción</th><th>Moneda</th><th>Monto orig.</th><th>USD ${mesLabel(mes)}</th><th>ARS equiv.</th><th>Categoría</th><th>Esencial</th><th></th></tr>
+    <tr><th>Fecha</th><th>Descripción</th><th>Moneda</th><th>Monto orig.</th><th>USD ${mesLabel(mes)}</th><th>ARS equiv.</th><th>Categoría</th><th>Esencial</th><th></th></tr>
     ${list.map(row).join('')}
   </table>
   </div>
@@ -1918,6 +1920,7 @@ function renderEgresosInm(){
 }
 function addEgresoInm(){
   openModal('Nuevo egreso inmediato',[
+    {key:'fecha',label:'Fecha del gasto',type:'date',required:true},
     {key:'descripcion',label:'Descripción',type:'text',required:true},
     {key:'monto',label:'Monto',type:'number',required:true},
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
@@ -1932,6 +1935,7 @@ function addEgresoInm(){
 function editEgresoInm(id){
   const e=dbGet('egresos_inm').find(x=>x.id===id);
   openModal('Editar egreso',[
+    {key:'fecha',label:'Fecha del gasto',type:'date',required:true,value:e.fecha||''},
     {key:'descripcion',label:'Descripción',type:'text',value:e.descripcion,required:true},
     {key:'monto',label:'Monto',type:'number',value:e.monto,required:true},
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:e.moneda},
@@ -2043,7 +2047,7 @@ function renderEgresosCuotas(){
       :`<span class="toggle-inf off" style="font-size:9px;padding:1px 6px;">sin inf</span>`;
     return `<div class="erow">
       <div class="erow-info">
-        <div class="erow-name">${ec.descripcion}</div>
+        <div class="erow-name">${ec.descripcion}${ec.fecha?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px;">${fmtFecha(ec.fecha)}</span>`:''}</div>
         <div class="erow-meta" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;">
           <span class="pill ${ec.moneda==='ARS'?'opal':'pos'}">${ec.moneda}</span>
           <span class="pill gr">${isPeriodico?periodLabel:(ec.nCuotas||1)+' cuotas'}</span>
@@ -2132,6 +2136,7 @@ function addEgresoCuota(modo){
   const tOpts=tarjetas.length?tarjetas:['VISA','MC','AMEX','Débito','Transferencia'];
   const esPeriodico=modo==='periodico';
   const fields=[
+    {key:'fecha',label:'Fecha del gasto',type:'date',required:true},
     {key:'descripcion',label:'Descripción',type:'text',required:true},
     {key:'montoCuota',label:esPeriodico?'Monto':'Monto por cuota',type:'number',required:true},
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
@@ -2173,6 +2178,7 @@ function editEgresoCuota(id){
   const tOpts=tarjetas.length?tarjetas:['VISA','MC','AMEX','Débito','Transferencia'];
   const isPeriodico=ec.periodicidad&&ec.periodicidad!=='unico';
   openModal('Editar — '+ec.descripcion,[
+    {key:'fecha',label:'Fecha del gasto',type:'date',required:true,value:ec.fecha||''},
     {key:'descripcion',label:'Descripción',type:'text',value:ec.descripcion,required:true},
     {key:'montoCuota',label:'Monto por cuota / período',type:'number',value:ec.montoCuota,required:true},
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:ec.moneda},
