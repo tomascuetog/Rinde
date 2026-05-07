@@ -1854,7 +1854,7 @@ function deleteIngreso(id){ confirmDelete(()=>{ dbDelete('ingresos',id); renderI
 // =============================================
 // RENDER: EGRESOS INMEDIATOS
 // =============================================
-const CATEGORIAS=['Vivienda','Auto','Telefonía','Conectividad','River','Plataformas','Gatos','Ocio','Comida','Salud','Educación','A eliminar','Otro'];
+const CATEGORIAS=['Vivienda','Auto','Telefonía','Conectividad','River','Plataformas','Gatos','Ocio','Comida','Salud','Educación','Ropa','Viaje','A eliminar','Otro'];
 
 function renderEgresosInm(){
   const list=dbGet('egresos_inm');
@@ -2034,7 +2034,7 @@ function renderEgresosCuotas(){
           <span class="pill gr">${isPeriodico?periodLabel:(ec.nCuotas||1)+' cuotas'}</span>
           <span class="pill ${ec.esencial?'pos':'neg'}">${ec.esencial?'Esencial':'Opcional'}</span>
           ${inflBadge}
-          <span style="font-size:10px;color:var(--muted);">${ec.tarjeta||'–'} · ${finLabel}</span>
+          <span style="font-size:10px;color:var(--muted);">${ec.tarjeta==='Transferencia'&&ec.transferenciaNombre?`Transf. a ${ec.transferenciaNombre}${ec.transferenciaAlias?' ('+ec.transferenciaAlias+')':''}`:ec.tarjeta||'–'} · ${finLabel}</span>
         </div>
         ${!isPeriodico?`<div class="cdots" style="margin-top:5px;">${cuotaDots(ec)}</div>`:''}
       </div>
@@ -2095,6 +2095,23 @@ function renderEgresosCuotas(){
   </div>`;
 }
 
+function _setupCuotaModal(){
+  const sel=document.getElementById('mf-tarjeta');
+  if(!sel) return;
+  function update(){
+    const esTransf=sel.value==='Transferencia';
+    const show=(key,visible,req)=>{
+      const el=document.getElementById('mf-'+key);
+      if(!el) return;
+      el.closest('.modal-field').style.display=visible?'':'none';
+      el.required=!!(visible&&req);
+    };
+    show('transferenciaNombre', esTransf, true);
+    show('transferenciaAlias', esTransf, false);
+  }
+  sel.addEventListener('change',update);
+  update();
+}
 function addEgresoCuota(modo){
   const tarjetas=dbGet('tarjetas').map(t=>t.nombre);
   const tOpts=tarjetas.length?tarjetas:['VISA','MC','AMEX','Débito','Transferencia'];
@@ -2105,17 +2122,20 @@ function addEgresoCuota(modo){
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
     ...(esPeriodico?[
       {key:'periodicidad',label:'Frecuencia',type:'select',options:['mensual','bimensual','trimestral','cuatrimestral','semestral','anual']},
+      {key:'desde',label:'Desde (YYYY-MM)',type:'month',required:true},
       {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month'},
     ]:[
       {key:'periodicidad',label:'Tipo',type:'select',options:['unico'],value:'unico'},
       {key:'nCuotas',label:'Número de cuotas',type:'number',required:true,value:'1'},
       {key:'cuotaActual',label:'Cuota actual',type:'number',value:'1'},
+      {key:'desde',label:'Primera cuota',type:'month',required:true},
     ]),
-    {key:'desde',label:'Primera cuota / desde',type:'month',required:true},
-    {key:'tarjeta',label:'Tarjeta / medio de pago',type:'select',options:tOpts},
+    {key:'tarjeta',label:'Modo de pago',type:'select',options:tOpts},
+    {key:'transferenciaNombre',label:'A quién (nombre)',type:'text'},
+    {key:'transferenciaAlias',label:'Alias (opcional)',type:'text'},
     {key:'categoria',label:'Categoría',type:'select',options:CATEGORIAS},
-    {key:'esencial',label:'Esencial',type:'select',options:['true','false']},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['false','true'],hint:'Si es Sí, el monto futuro se actualiza con inflación proyectada'},
+    {key:'esencial',label:'Esencial',type:'select',options:['si','no']},
+    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],hint:'Si es Sí, el monto futuro se actualiza con inflación proyectada'},
     {key:'notas',label:'Notas',type:'textarea'},
   ];
   openModal(esPeriodico?'Nuevo gasto periódico / fijo':'Nueva compra en cuotas',fields,(data)=>{
@@ -2124,11 +2144,12 @@ function addEgresoCuota(modo){
       montoCuota:+data.montoCuota,
       nCuotas:+(data.nCuotas||1),
       cuotaActual:+(data.cuotaActual||1),
-      esencial:data.esencial==='true',
-      ajustaInflacion:data.ajustaInflacion==='true',
+      esencial:data.esencial==='si',
+      ajustaInflacion:data.ajustaInflacion==='si',
     });
     renderEgresosCuotas();
   });
+  _setupCuotaModal();
 }
 
 function editEgresoCuota(id){
@@ -2147,11 +2168,12 @@ function editEgresoCuota(id){
     ]:[]),
     {key:'desde',label:'Desde',type:'month',value:(ec.desde||'').slice(0,7),required:true},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month',value:(ec.hasta||'').slice(0,7)},
-    {key:'tarjeta',label:'Tarjeta',type:'select',options:tOpts,value:ec.tarjeta||tOpts[0]},
-    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:ec.moneda},
+    {key:'tarjeta',label:'Modo de pago',type:'select',options:tOpts,value:ec.tarjeta||tOpts[0]},
+    {key:'transferenciaNombre',label:'A quién (nombre)',type:'text',value:ec.transferenciaNombre||''},
+    {key:'transferenciaAlias',label:'Alias (opcional)',type:'text',value:ec.transferenciaAlias||''},
     {key:'categoria',label:'Categoría',type:'select',options:CATEGORIAS,value:ec.categoria},
-    {key:'esencial',label:'Esencial',type:'select',options:['true','false'],value:String(ec.esencial)},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['false','true'],value:String(ec.ajustaInflacion||false)},
+    {key:'esencial',label:'Esencial',type:'select',options:['si','no'],value:ec.esencial?'si':'no'},
+    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],value:(ec.ajustaInflacion||false)?'si':'no'},
     {key:'notas',label:'Notas',type:'textarea',value:ec.notas||''},
   ],(data)=>{
     dbUpdate('egresos_cuotas',id,{
@@ -2159,11 +2181,12 @@ function editEgresoCuota(id){
       montoCuota:+data.montoCuota,
       nCuotas:+(data.nCuotas||1),
       cuotaActual:+(data.cuotaActual||1),
-      esencial:data.esencial==='true',
-      ajustaInflacion:data.ajustaInflacion==='true',
+      esencial:data.esencial==='si',
+      ajustaInflacion:data.ajustaInflacion==='si',
     });
     renderEgresosCuotas();
   });
+  _setupCuotaModal();
 }
 function deleteEgresoCuota(id){ confirmDelete(()=>{ dbDelete('egresos_cuotas',id); renderEgresosCuotas(); }); }
 
