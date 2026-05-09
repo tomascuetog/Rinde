@@ -487,7 +487,8 @@ body.privacy svg text{
   <div class="ni" onclick="nav('asistente')" data-label="Asistente IA" style="background:linear-gradient(135deg,rgba(54,201,198,.15),rgba(54,201,198,.05));border:1px solid rgba(54,201,198,.2);margin:3px 8px 1px;"><span class="ni-icon" style="color:var(--pos);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 6h8M4 8.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4 14l2-2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label" style="color:rgba(230,235,224,.75);">Asistente IA</span><span class="nbadge t">nuevo</span></div>
 
   <div class="ns">Ingresos</div>
-  <div class="ni" onclick="nav('ingresos')" data-label="Ingresos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Ingresos</span></div>
+  <div class="ni" onclick="nav('ingresos')" data-label="Ingresos reales"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Ingresos reales</span></div>
+  <div class="ni" onclick="nav('ingresos-futuros')" data-label="Ingresos futuros"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 1.5"/><circle cx="12.5" cy="3.5" r="2.5" fill="var(--gold)" stroke="none"/></svg></span><span class="ni-label">Ingresos futuros</span></div>
 
   <div class="ns">Egresos</div>
   <div class="ni" onclick="nav('egresos-inm')" data-label="Débito/Transferencias"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3.5 8.5L8 13l4.5-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Débito/Transf.</span></div>
@@ -590,9 +591,16 @@ body.privacy svg text{
 
 <!-- INGRESOS -->
 <div class="panel" id="panel-ingresos">
-  <div class="ptitle">Ingresos</div>
-  <div class="psub">Pasados, presentes y futuros · moneda propia · convertidos al tipo de cambio del mes</div>
+  <div class="ptitle">Ingresos reales</div>
+  <div class="psub">Ingresos confirmados · moneda propia · convertidos al tipo de cambio del mes</div>
   <div id="ingresos-content"></div>
+</div>
+
+<!-- INGRESOS FUTUROS -->
+<div class="panel" id="panel-ingresos-futuros">
+  <div class="ptitle">Ingresos futuros</div>
+  <div class="psub">Ingresos proyectados · no impactan en reportes actuales · al confirmar pasan a Ingresos reales</div>
+  <div id="ingresos-futuros-content"></div>
 </div>
 
 <!-- EGRESOS DÉBITO/TRANSFERENCIAS -->
@@ -1060,7 +1068,7 @@ async function logout(){
 // =============================================
 const KEYS = {
   cotizaciones:'rinde_cotizaciones', inflacion:'rinde_inflacion',
-  ingresos:'rinde_ingresos', egresos_inm:'rinde_egresos_inm',
+  ingresos:'rinde_ingresos', ingresos_futuros:'rinde_ingresos_futuros', egresos_inm:'rinde_egresos_inm',
   egresos_cuotas:'rinde_egresos_cuotas', split:'rinde_split',
   cartera:'rinde_cartera', activos:'rinde_activos', tarjetas:'rinde_tarjetas',
   tareas:'rinde_tareas', objetivos:'rinde_objetivos',
@@ -1346,6 +1354,13 @@ function totalIngresosUSD(mes){
     return s+(ing.moneda==='USD'?v:arsToUsd(v,mes));
   },0);
 }
+function totalIngresosFuturosUSD(mes){
+  return dbGet('ingresos_futuros').filter(i=>!i.confirmado).reduce((s,ing)=>{
+    const v=ingresoEnMes(ing,mes);
+    if(v===0) return s;
+    return s+(ing.moneda==='USD'?v:arsToUsd(v,mes));
+  },0);
+}
 
 function totalEgresosUSD(mes){
   const inm=dbGet('egresos_inm').reduce((s,eg)=>{
@@ -1394,7 +1409,8 @@ const BC_MAP={
   'tareas':['Tareas'],
   'cotizacion':['Referencia','Cotización USD/ARS'],
   'inflacion':['Referencia','Inflación'],
-  'ingresos':['Ingresos'],
+  'ingresos':['Ingresos reales'],
+  'ingresos-futuros':['Ingresos','Ingresos futuros'],
   'egresos-inm':['Egresos','Débito/Transferencias'],
   'egresos-cuotas':['Egresos','Crédito'],
   'egresos-fijos':['Egresos','Fijos'],
@@ -1437,7 +1453,7 @@ function nav(id){
   const renders={
     dashboard:renderDashboard, tareas:renderTareas,
     cotizacion:renderCotizacion, inflacion:renderInflacion,
-    ingresos:renderIngresos, 'egresos-inm':renderEgresosInm,
+    ingresos:renderIngresos, 'ingresos-futuros':renderIngresosFuturos, 'egresos-inm':renderEgresosInm,
     'egresos-cuotas':renderEgresosCuotas, 'egresos-fijos':renderEgresosFijos, split:renderSplit,
     cartera:renderCartera, activos:renderActivos, tarjetas:renderTarjetas,
     simulador:renderSimulador, analisis:renderAnalisis,
@@ -2039,6 +2055,131 @@ function editIngreso(id){
 function deleteIngreso(id){ confirmDelete(()=>{ dbDelete('ingresos',id); renderIngresos(); }); }
 
 // =============================================
+// RENDER: INGRESOS FUTUROS
+// =============================================
+function renderIngresosFuturos(){
+  const list=dbGet('ingresos_futuros');
+  const mes=MES_ACTUAL;
+  const cotiz=getCotizacion(mes);
+  const freqLabel={mensual:'Mensual',unico:'Único',semestral:'Semestral'};
+  const MLAB=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  function mesARS(m){ const c=getCotizacion(m); return list.filter(i=>!i.confirmado).reduce((s,i)=>{ const v=ingresoEnMes(i,m); return s+(v?(i.moneda==='ARS'?v:v*c):0); },0); }
+  function mesUSD(m){ return list.filter(i=>!i.confirmado).reduce((s,i)=>{ const v=ingresoEnMes(i,m); return s+(v?(i.moneda==='USD'?v:arsToUsd(v,m)):0); },0); }
+
+  const futARS=mesARS(mes), futUSD=mesUSD(mes);
+  const proxMes=mesNext(mes);
+  const proxARS=mesARS(proxMes), proxUSD=mesUSD(proxMes);
+  const confirmed=list.filter(i=>i.confirmado).length;
+  const pending=list.filter(i=>!i.confirmado).length;
+
+  function row(i){
+    const entryMes=i.frecuencia==='semestral'&&i.mesIngreso?i.mesIngreso.slice(0,7):(i.desde||mes).slice(0,7);
+    const entryCotiz=getCotizacion(entryMes);
+    const entryARS=i.moneda==='ARS'?i.monto:i.monto*entryCotiz;
+    const entryUSD=i.moneda==='USD'?i.monto:arsToUsd(i.monto,entryMes);
+    const mm=i.mesIngreso?(+i.mesIngreso.split('-')[1]):null;
+    const mm2=mm?(mm<=6?mm+6:mm-6):null;
+    const periodo=i.frecuencia==='mensual'?(i.desde+(i.hasta?' → '+i.hasta:' → ∞')):
+                  i.frecuencia==='semestral'&&mm?(MLAB[mm-1]+' y '+MLAB[mm2-1]):
+                  i.frecuencia==='unico'?(i.desde||'-'):'-';
+    return `<tr style="${i.confirmado?'opacity:.5;text-decoration:line-through;':''}" id="ifut-row-${i.id}">
+      <td>
+        <input type="checkbox" ${i.confirmado?'checked':''} title="Confirmar ingreso" style="cursor:pointer;accent-color:var(--pos);"
+          onchange="confirmarIngresoFuturo('${i.id}',this.checked)">
+      </td>
+      <td><strong>${i.descripcion}</strong></td>
+      <td><span class="pill ${i.moneda==='ARS'?'opal':'pos'}">${i.moneda}</span></td>
+      <td class="pos-text">${fmtARS(entryARS)}</td>
+      <td class="pos-text mono">${fmtUSD(entryUSD)} USD</td>
+      <td><span class="pill gr">${freqLabel[i.frecuencia]||i.frecuencia}</span></td>
+      <td>${periodo}</td>
+      <td class="actions">
+        <button class="btn sm ghost" onclick="editIngresoFuturo('${i.id}')">✏</button>
+        <button class="btn sm danger" onclick="deleteIngresoFuturo('${i.id}')">✕</button>
+      </td>
+    </tr>`;
+  }
+
+  document.getElementById('ingresos-futuros-content').innerHTML=`
+  <div style="background:var(--warn-bg);border:1px solid var(--warn-b);border-radius:9px;padding:11px 14px;margin-bottom:16px;font-size:12px;color:var(--warn);">
+    <strong>💡 Ingresos futuros</strong> — Son proyecciones. No aparecen en reportes ni dashboard actuales. Sí se incluyen en <strong>Proyección</strong>. Al hacer ✓ en la casilla, el ingreso pasa a <strong>Ingresos reales</strong> automáticamente.
+  </div>
+  <div class="g3">
+    <div class="card pos-s"><div class="cl">Proyectado este mes</div><div class="cv">${fmtARS(futARS)}</div><div class="cs">${fmtUSD(futUSD)} USD</div></div>
+    <div class="card pos-s"><div class="cl">Proyectado próx. mes</div><div class="cv">${fmtARS(proxARS)}</div><div class="cs">${fmtUSD(proxUSD)} USD</div></div>
+    <div class="card warn"><div class="cl">Estado</div><div class="cv">${pending}</div><div class="cs">${pending} pendientes · ${confirmed} confirmados</div></div>
+  </div>
+  <div class="sh">Ingresos futuros · editables</div>
+  <div class="table-wrap">
+  <table class="tbl">
+    <tr><th>✓</th><th>Descripción</th><th>Moneda</th><th>ARS</th><th>USD</th><th>Frecuencia</th><th>Período</th><th></th></tr>
+    ${list.length?list.map(row).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">Sin ingresos futuros cargados.</td></tr>'}
+  </table>
+  </div>
+  <div class="sh">+ Agregar ingreso futuro</div>
+  <button class="btn pos" onclick="addIngresoFuturo()">+ Agregar ingreso futuro</button>`;
+}
+function confirmarIngresoFuturo(id, checked){
+  const i=dbGet('ingresos_futuros').find(x=>x.id===id);
+  if(!i) return;
+  if(checked){
+    // Move to real ingresos
+    const {id:_id,confirmado:_c,...rest}=i;
+    dbAdd('ingresos',rest);
+    dbDelete('ingresos_futuros',id);
+  } else {
+    dbUpdate('ingresos_futuros',id,{confirmado:false});
+  }
+  renderIngresosFuturos();
+}
+function addIngresoFuturo(){
+  openModal('Nuevo ingreso futuro',[
+    {key:'descripcion',label:'Descripción',type:'text',required:true},
+    {key:'monto',label:'Monto',type:'number',required:true},
+    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
+    {key:'frecuencia',label:'Frecuencia',type:'select',options:['mensual','semestral','unico']},
+    {key:'desde',label:'Desde (YYYY-MM)',type:'month'},
+    {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month'},
+    {key:'mesIngreso',label:'Primer mes de cobro',type:'month'},
+    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si']},
+    {key:'notas',label:'Notas',type:'textarea'},
+  ],(data)=>{
+    const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas,confirmado:false};
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
+    if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
+    if(data.frecuencia==='unico') obj.desde=data.desde;
+    dbAdd('ingresos_futuros',obj);
+    renderIngresosFuturos();
+  });
+  _setupIngresoModal();
+}
+function editIngresoFuturo(id){
+  const i=dbGet('ingresos_futuros').find(x=>x.id===id);
+  if(!i) return;
+  openModal('Editar ingreso futuro',[
+    {key:'descripcion',label:'Descripción',type:'text',value:i.descripcion,required:true},
+    {key:'monto',label:'Monto',type:'number',value:i.monto,required:true},
+    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:i.moneda},
+    {key:'frecuencia',label:'Frecuencia',type:'select',options:['mensual','semestral','unico'],value:i.frecuencia},
+    {key:'desde',label:'Desde (YYYY-MM)',type:'month',value:i.desde||''},
+    {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month',value:i.hasta||''},
+    {key:'mesIngreso',label:'Primer mes de cobro',type:'month',value:i.mesIngreso||''},
+    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],value:(i.ajustaInflacion||false)?'si':'no'},
+    {key:'notas',label:'Notas',type:'textarea',value:i.notas||''},
+  ],(data)=>{
+    const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
+    if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
+    if(data.frecuencia==='unico') obj.desde=data.desde;
+    dbUpdate('ingresos_futuros',id,obj);
+    renderIngresosFuturos();
+  });
+  _setupIngresoModal();
+}
+function deleteIngresoFuturo(id){ confirmDelete(()=>{ dbDelete('ingresos_futuros',id); renderIngresosFuturos(); }); }
+
+// =============================================
 // RENDER: EGRESOS INMEDIATOS
 // =============================================
 const CATEGORIAS=['Vivienda','Auto','Telefonía','Conectividad','River','Plataformas','Gatos','Ocio','Comida','Salud','Educación','Ropa','Viaje','Compras casa','A eliminar','Otro'];
@@ -2234,7 +2375,12 @@ function cardPill(tarjeta){
 let _cuotaFilter='todos';
 let _cuotaSearch='';
 function setCuotaFilter(f){_cuotaFilter=f;renderEgresosCuotas();}
-function setCuotaSearch(v){_cuotaSearch=v;renderEgresosCuotas();}
+function setCuotaSearch(v){
+  _cuotaSearch=v;
+  renderEgresosCuotas();
+  const inp=document.querySelector('#egresos-cuotas-content .fsearch input');
+  if(inp){inp.focus();try{inp.setSelectionRange(v.length,v.length);}catch(e){}}
+}
 function toggleMonth(m){
   const body=document.getElementById('mc-body-'+m);
   const chev=document.getElementById('mc-chev-'+m);
@@ -3257,8 +3403,8 @@ function renderCartera(){
     </div>
     <div class="card pos-s">
       <div class="cl">Conversor</div>
-      <div class="cv">${fmtUSD(totalUSD)} = ${fmtARS(totalUSD*usdArs)}</div>
-      ${hasARS?`<div class="cs">${fmtARS(totalARS)} = ${fmtUSD(totalARS/(usdArs||1))} USD</div>`:''}
+      <div class="cv"><span style="font-size:10px;font-weight:700;background:var(--opal-bg);color:var(--opal-dk);border-radius:4px;padding:1px 5px;margin-right:4px;font-family:var(--font);">USD</span>${fmtUSD(totalUSD)} = <span style="font-size:10px;font-weight:700;background:var(--warn-bg);color:var(--warn);border-radius:4px;padding:1px 5px;margin-right:4px;font-family:var(--font);">ARS</span>${fmtARS(totalUSD*usdArs)}</div>
+      ${hasARS?`<div class="cs"><span style="font-size:10px;font-weight:700;background:var(--warn-bg);color:var(--warn);border-radius:4px;padding:1px 5px;margin-right:4px;font-family:var(--font);">ARS</span>${fmtARS(totalARS)} = <span style="font-size:10px;font-weight:700;background:var(--opal-bg);color:var(--opal-dk);border-radius:4px;padding:1px 5px;margin-right:4px;font-family:var(--font);">USD</span>${fmtUSD(totalARS/(usdArs||1))}</div>`:''}
     </div>
     <div class="card ${rendUSD>=0?'pos-s':'neg'}">
       <div class="cl">Rendimiento total</div>
@@ -3655,13 +3801,13 @@ function renderProyeccion(){
   for(let i=0;i<12;i++) meses.push(mesNext(MES_ACTUAL,i));
 
   const rows=meses.map(mes=>{
-    const ing=totalIngresosUSD(mes);
+    const ing=totalIngresosUSD(mes)+totalIngresosFuturosUSD(mes);
     const eg=totalEgresosUSD(mes);
     const neto=ing-eg;
     const cotiz=getCotizacion(mes);
     const inf=getInflacion(mes);
     const risk=neto<0;
-    const hasAgui=ing>(totalIngresosUSD(mesNext(mes,-1))*1.3);
+    const hasAgui=ing>((totalIngresosUSD(mesNext(mes,-1))+totalIngresosFuturosUSD(mesNext(mes,-1)))*1.3);
     return {mes,ing,eg,neto,cotiz,inf,risk,hasAgui};
   });
 
@@ -4388,7 +4534,7 @@ function renderPrecios(){
 
   <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
     <input class="finput" id="search-prod" placeholder="🔍 Buscar producto..." value="${window._preciosSearch||''}"
-      oninput="window._preciosSearch=this.value;renderPrecios();" style="width:200px;">
+      oninput="window._preciosSearch=this.value;renderPrecios();const el=document.getElementById('search-prod');if(el){const p=this.value.length;el.focus();try{el.setSelectionRange(p,p);}catch(e){}}" style="width:200px;">
     <select class="fselect" onchange="window._preciosCat=this.value;renderPrecios();">
       <option value="Todos">Todas las categorías</option>
       ${cats.map(c=>`<option value="${c}" ${c===filterCat?'selected':''}>${c}</option>`).join('')}
