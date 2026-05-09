@@ -1529,6 +1529,10 @@ function renderDashboard(){
   const dateEl=document.querySelector('#panel-dashboard .psub');
   if(dateEl) dateEl.innerHTML=`${fmtFecha()} &nbsp;·&nbsp; ${mesLabel(mes)} · cotización $${fmtARS(cotiz)} · inflación ${fmtPct(infMes)}/mes`;
 
+  // ── Mes actual ──
+  const ing=totalIngresosUSD(mes);
+  const eg=totalEgresosUSD(mes);
+  const neto=ing-eg;
   // ── YTD ──
   const [curY]=mes.split('-');
   let ytdIng=0,ytdEg=0;
@@ -1608,11 +1612,11 @@ function renderDashboard(){
   <div class="g4">
 
     <!-- KPI 1: Saldo actual -->
-    <div class="card ${ytdNeto>=0?'pos':'neg'}">
-      <div class="cl">Saldo actual</div>
-      <div class="cv" style="color:${ytdNeto>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ytdNeto>=0?'+':''}${fmtUSD(ytdNeto)} USD</div>
-      <div class="cs">${ytdNeto>=0?'+':''}${fmtARS(ytdNeto*cotiz)}</div>
-      <div class="cs" style="margin-top:3px;font-size:10px;color:var(--muted);">Ene–${ytdMesLabel} ${curY} · ingresos − egresos acumulados</div>
+    <div class="card ${neto>=0?'pos':'neg'}">
+      <div class="cl">Saldo actual · ${mesLabel(mes)}</div>
+      <div class="cv" style="color:${neto>=0?'var(--pos-dk)':'var(--neg-dk)'};">${neto>=0?'+':''}${fmtUSD(neto)} USD</div>
+      <div class="cs">${neto>=0?'+':''}${fmtARS(neto*cotiz)}</div>
+      <div class="cs" style="margin-top:5px;font-size:10px;color:var(--muted);">Acumulado YTD: <span style="color:${ytdNeto>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ytdNeto>=0?'+':''}${fmtUSD(ytdNeto)}</span></div>
     </div>
 
     <!-- KPI 2: Patrimonio -->
