@@ -1536,7 +1536,7 @@ function renderDashboard(){
   // ── YTD ──
   const [curY]=mes.split('-');
   let ytdIng=0,ytdEg=0;
-  for(let m=1;m<=+mes.split('-')[1];m++){
+  for(let m=5;m<=+mes.split('-')[1];m++){
     const mm=`${curY}-${String(m).padStart(2,'0')}`;
     ytdIng+=totalIngresosUSD(mm); ytdEg+=totalEgresosUSD(mm);
   }
@@ -1608,15 +1608,15 @@ function renderDashboard(){
     </div>
   </div>
 
-  <!-- 4 KPI CARDS -->
-  <div class="g4">
+  <!-- 5 KPI CARDS -->
+  <div class="g5">
 
     <!-- KPI 1: Saldo actual -->
     <div class="card ${neto>=0?'pos':'neg'}">
       <div class="cl">Saldo actual · ${mesLabel(mes)}</div>
       <div class="cv" style="color:${neto>=0?'var(--pos-dk)':'var(--neg-dk)'};">${neto>=0?'+':''}${fmtUSD(neto)} USD</div>
       <div class="cs">${neto>=0?'+':''}${fmtARS(neto*cotiz)}</div>
-      <div class="cs" style="margin-top:5px;font-size:10px;color:var(--muted);">Acumulado YTD: <span style="color:${ytdNeto>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ytdNeto>=0?'+':''}${fmtUSD(ytdNeto)}</span></div>
+      <div class="cs" style="margin-top:5px;font-size:10px;color:var(--muted);">Acum. may–${ytdMesLabel}: <span style="color:${ytdNeto>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ytdNeto>=0?'+':''}${fmtARS(ytdNeto*usdArs)}</span></div>
     </div>
 
     <!-- KPI 2: Patrimonio -->
@@ -1644,6 +1644,17 @@ function renderDashboard(){
       <div class="cv" style="color:${ahorroProyTotal>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)} USD</div>
       <div class="cs">${ahorroProyTotal>=0?'+':''}${fmtARS(ahorroProyTotal*usdArs)}</div>
       <div class="cs" style="margin-top:3px;font-size:10px;color:var(--muted);">@ 1 USD = $${fmtARS(usdArs)} · ${mesLabel(mes)} → Dic ${curY}</div>
+    </div>
+
+    <!-- KPI 5: Patrimonio proyectado 2026 -->
+    <div class="card pos">
+      <div class="cl">Patrimonio proy. 2026</div>
+      <div class="cv" style="color:var(--pos-dk);">${fmtUSD(patriTotal+ahorroProyTotal)} USD</div>
+      <div class="cs">${fmtARS((patriTotal+ahorroProyTotal)*usdArs)}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+        <span style="font-size:10px;background:var(--pos-bg);color:var(--pos-dk);padding:1px 7px;border-radius:20px;font-weight:600;">Actual ${fmtUSD(patriTotal)}</span>
+        <span style="font-size:10px;background:var(--opal-bg);color:var(--opal-dk);padding:1px 7px;border-radius:20px;font-weight:600;">+ Ahorro ${fmtUSD(ahorroProyTotal)}</span>
+      </div>
     </div>
 
   </div>
@@ -1693,8 +1704,8 @@ function renderDashboard(){
         </div>
       </div>
       <div class="g2" style="margin-top:10px;margin-bottom:0;">
-        <div class="card pos-s"><div class="cl">Ingresado YTD</div><div class="cv">${fmtUSD(ytdIng)}</div><div class="cs">USD ene–${ytdMesLabel}</div></div>
-        <div class="card neg-s"><div class="cl">Gastado YTD</div><div class="cv">${fmtUSD(ytdEg)}</div><div class="cs">USD ene–${ytdMesLabel}</div></div>
+        <div class="card pos-s"><div class="cl">Ingresado may–${ytdMesLabel}</div><div class="cv">${fmtUSD(ytdIng)}</div><div class="cs">USD may–${ytdMesLabel}</div></div>
+        <div class="card neg-s"><div class="cl">Gastado may–${ytdMesLabel}</div><div class="cv">${fmtUSD(ytdEg)}</div><div class="cs">USD may–${ytdMesLabel}</div></div>
       </div>
     </div>
     <div>
