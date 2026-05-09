@@ -2060,25 +2060,57 @@ function renderEgresosCuotas(){
     </div>`;
   }
 
-  // 3-month projection mini-cards
-  const next3=[mes,mesNext(mes),mesNext(mes,2)].map(m=>{
-    const a=mesARS(m), u=mesUSD(m);
-    return `<div style="flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px;text-align:center;">
-      <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:4px;">${mesLabel(m)}</div>
-      ${a?`<div style="font-size:14px;font-weight:700;color:var(--neg-dk);">-${fmtARS(a)}</div>`:''}
-      ${u?`<div style="font-size:12px;font-weight:600;color:var(--neg-dk);">-${fmtUSD(u)} USD</div>`:''}
-      ${!a&&!u?`<div style="font-size:13px;color:var(--muted);">$0</div>`:''}
+  // ── Debt trajectory: current month + 7 ahead ──
+  const cotiz=getCotizacion(mes);
+  const trajMonths=[];
+  for(let i=0;i<=7;i++) trajMonths.push(mesNext(mes,i));
+  const trajData=trajMonths.map(m=>{
+    const a=mesARS(m),u=mesUSD(m);
+    return {m,a,u,total:a+u*getCotizacion(m)};
+  });
+  const maxTraj=Math.max(...trajData.map(d=>d.total),1);
+  const trajBars=trajData.map(d=>{
+    const pct=Math.max(5,Math.round(d.total/maxTraj*100));
+    const isCur=d.m===mes;
+    const barCol=isCur?'var(--neg)':'rgba(155,193,188,.1)';
+    const borderCol=isCur?'var(--neg-dk)':'transparent';
+    const label=mesLabel(d.m).split(' ')[0];
+    const tip=[d.a?'-'+fmtARS(d.a):'',d.u?'-'+fmtUSD(d.u)+' USD':''].filter(Boolean).join(' ')||'$0';
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;" title="${mesLabel(d.m)}: ${tip}">
+      <div style="width:100%;flex:1;display:flex;align-items:flex-end;">
+        <div style="width:100%;height:${pct}%;min-height:4px;background:${barCol};border-radius:3px 3px 0 0;border:1px solid ${borderCol};border-bottom:none;"></div>
+      </div>
+      <div style="font-size:9px;font-weight:${isCur?700:400};color:${isCur?'var(--neg-dk)':'var(--muted)'};">${label}</div>
     </div>`;
   }).join('');
 
-  // Build active month range: 3 back + current + 24 ahead
+  // ── Composition breakdown (current month only) ──
+  const todayItems=list.filter(ec=>cuotaMontoEnMes(ec,mes)>0);
+  const totalN=todayItems.reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0)||1;
+  const esencialN=todayItems.filter(ec=>esEs(ec)).reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0);
+  const periodicoN=todayItems.filter(ec=>ec.periodicidad&&ec.periodicidad!=='unico').reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0);
+  const esencialPct=Math.round(esencialN/totalN*100);
+  const opcionalPct=100-esencialPct;
+  const periodicoPct=Math.round(periodicoN/totalN*100);
+  const cuotasPct=100-periodicoPct;
+
+  // ── Smart insight ──
+  const noEsCount=todayItems.filter(ec=>!esEs(ec)).length;
+  const noEsUSDEq=noEsUSD+noEsARS/cotiz;
+  const insightHtml=noEsUSDEq>0?`
+  <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:8px;background:var(--warn-bg);border:1px solid var(--warn);margin-bottom:16px;font-size:12px;color:var(--warn);">
+    <span style="font-size:16px;flex-shrink:0;">💡</span>
+    <span>Revisando <strong>${noEsCount} gasto${noEsCount!==1?'s':''} opcional${noEsCount!==1?'es':''}</strong> podrías liberar hasta <strong>~${fmtUSD(noEsUSDEq)} USD/mes</strong></span>
+  </div>`:'';;
+
+  // ── Active months list ──
   const activeMonths=[];
   for(let i=-3;i<=24;i++){
     const m=mesNext(mes,i);
     if(list.some(ec=>cuotaMontoEnMes(ec,m)>0)) activeMonths.push(m);
   }
 
-  // Item row within a month section
+  // ── Item row ──
   function itemRow(ec,m){
     const v=cuotaMontoEnMes(ec,m);
     const isPeriodico=ec.periodicidad&&ec.periodicidad!=='unico';
@@ -2097,7 +2129,7 @@ function renderEgresosCuotas(){
           <span class="pill ${ec.moneda==='ARS'?'opal':'pos'}">${ec.moneda}</span>
           <span class="pill gr">${typeLabel}</span>
           <span class="pill ${esEs(ec)?'pos':'neg'}">${esEs(ec)?'Esencial':'Opcional'}</span>
-          <span style="font-size:10px;color:var(--muted);">${medioPago} · Desde ${inicio} → ${fin}</span>
+          <span style="font-size:10px;color:var(--muted);">${medioPago} · ${inicio} → ${fin}</span>
         </div>
       </div>
       <span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:var(--neg-dk);margin:0 8px;white-space:nowrap;">${monto}</span>
@@ -2106,6 +2138,7 @@ function renderEgresosCuotas(){
     </div>`;
   }
 
+  // ── Sub-section within a month (Periódicos | Cuotas) ──
   function subSection(label,items,m){
     if(!items.length) return '';
     const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
@@ -2120,10 +2153,9 @@ function renderEgresosCuotas(){
     </div>`;
   }
 
-  // Collapsible month sections with Periódicos/Fijos + Cuotas subsections
+  // ── Collapsible month sections ──
   const monthSections=activeMonths.map(m=>{
-    const items=list.filter(ec=>cuotaMontoEnMes(ec,m)>0)
-      .sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''));
+    const items=list.filter(ec=>cuotaMontoEnMes(ec,m)>0).sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''));
     const periodicos=items.filter(ec=>ec.periodicidad&&ec.periodicidad!=='unico');
     const cuotas=items.filter(ec=>!ec.periodicidad||ec.periodicidad==='unico');
     const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
@@ -2141,22 +2173,66 @@ function renderEgresosCuotas(){
     </details>`;
   }).join('');
 
+  // ── Render ──────────────────────────────────
   document.getElementById('egresos-cuotas-content').innerHTML=`
-  <div style="display:flex;gap:8px;margin-bottom:16px;">
+
+  <!-- ACTION BAR -->
+  <div style="display:flex;gap:8px;margin-bottom:20px;">
     <button class="btn neg" onclick="addEgresoCuota('periodico')">+ Gasto periódico / fijo</button>
     <button class="btn neg" onclick="addEgresoCuota('cuotas')">+ Compra en cuotas</button>
   </div>
 
-  <div class="g4">
-    ${kpiCard('neg','Este mes',arsHoy,usdHoy)}
+  <!-- FINANCIAL SNAPSHOT -->
+  <div style="display:grid;grid-template-columns:1.35fr 1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border2);border-left:3px solid var(--neg-dk);border-radius:8px;padding:14px 16px;">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">Este mes</div>
+      ${arsHoy?`<div style="font-size:26px;font-weight:800;font-family:var(--font-display);color:var(--neg-dk);letter-spacing:-.02em;line-height:1.1;">-${fmtARS(arsHoy)}</div>`:''}
+      ${usdHoy?`<div style="font-size:${arsHoy?12:24}px;font-weight:${arsHoy?500:800};color:${arsHoy?'var(--muted)':'var(--neg-dk)'};font-family:var(--font-display);margin-top:${arsHoy?4:0}px;">-${fmtUSD(usdHoy)} USD</div>`:''}
+      ${!arsHoy&&!usdHoy?`<div style="font-size:24px;font-weight:800;font-family:var(--font-display);color:var(--muted);">$0</div>`:''}
+    </div>
     ${kpiCard('neg-s','Próximo mes',arsProx,usdProx)}
     ${kpiCard('warn','Deuda total',deudaARS,deudaUSD)}
     ${kpiCard('neg-s','No esencial',noEsARS,noEsUSD)}
   </div>
 
-  <div class="sh">Mes en curso y próximos</div>
-  <div style="display:flex;gap:10px;margin-bottom:16px;">${next3}</div>
+  <!-- DEBT TRAJECTORY -->
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:16px 18px 12px;margin-bottom:16px;">
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px;">Proyección de compromisos · próximos 8 meses</div>
+    <div style="display:flex;align-items:flex-end;gap:5px;height:54px;">
+      ${trajBars}
+    </div>
+  </div>
 
+  <!-- SPENDING COMPOSITION -->
+  ${todayItems.length?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px;">Composición del mes</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:5px;">
+        <span>Esencial</span><span style="color:var(--pos-dk);">${esencialPct}%</span>
+      </div>
+      <div class="bb" style="margin-bottom:10px;height:5px;border-radius:3px;"><div class="bf" style="width:${esencialPct}%;background:var(--pos);height:5px;border-radius:3px;"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:5px;">
+        <span>Opcional</span><span style="color:var(--neg-dk);">${opcionalPct}%</span>
+      </div>
+      <div class="bb" style="height:5px;border-radius:3px;"><div class="bf" style="width:${opcionalPct}%;background:var(--neg);height:5px;border-radius:3px;"></div></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px;">Tipo de gasto</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:5px;">
+        <span>Periódico / Fijo</span><span style="color:var(--opal-dk);">${periodicoPct}%</span>
+      </div>
+      <div class="bb" style="margin-bottom:10px;height:5px;border-radius:3px;"><div class="bf" style="width:${periodicoPct}%;background:var(--opal);height:5px;border-radius:3px;"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:5px;">
+        <span>Cuotas</span><span style="color:var(--warn);">${cuotasPct}%</span>
+      </div>
+      <div class="bb" style="height:5px;border-radius:3px;"><div class="bf" style="width:${cuotasPct}%;background:var(--warn);height:5px;border-radius:3px;"></div></div>
+    </div>
+  </div>`:''}
+
+  <!-- INSIGHT -->
+  ${insightHtml}
+
+  <!-- COMMITMENTS LIST -->
   <div class="sh">Por mes</div>
   ${monthSections||`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin egresos cargados.</div>`}`;
 }
