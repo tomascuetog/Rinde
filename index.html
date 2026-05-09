@@ -1392,6 +1392,49 @@ function patrimonioDolarizado(){
   },0);
 }
 
+function patrimonioActivosFisicos(){
+  const refs=getCarteraRefs();
+  const usdArs=refs.USD_ARS||1;
+  return dbGet('activos').reduce((s,a)=>{
+    const va=a.valorActual!=null?a.valorActual:(a.precioCompra||0);
+    return s+(a.moneda==='ARS'?va/(usdArs||1):va);
+  },0);
+}
+function calcSaldoProyectado(){
+  const mes=MES_ACTUAL;
+  const FIN='2026-12';
+  const [y]=mes.split('-');
+  // YTD actual (Jan → current month inclusive)
+  let ytdNeto=0;
+  for(let m=1;m<=+mes.split('-')[1];m++){
+    const mm=`${y}-${String(m).padStart(2,'0')}`;
+    ytdNeto+=totalIngresosUSD(mm)-totalEgresosUSD(mm);
+  }
+  // Per-month rows from current to Dec 2026
+  const mesRows=[];
+  let m=mes;
+  while(m<=FIN){
+    const ingM=totalIngresosUSD(m)+totalIngresosFuturosUSD(m);
+    const egM=totalEgresosUSD(m);
+    mesRows.push({mes:m,ing:ingM,eg:egM,neto:ingM-egM,cotiz:getCotizacion(m)});
+    m=mesNext(m);
+  }
+  // Projected balance: ytdNeto (includes current month actual) + future months
+  let saldo=ytdNeto;
+  mesRows.forEach(r=>{ if(r.mes>mes) saldo+=r.neto; });
+  // Split unpaid balance
+  const splitBal=dbGet('split').reduce((s,sp)=>{
+    if(!sp.direccion){
+      const pend=(sp.personas||[]).filter(p=>!p.pagado).reduce((a,p)=>a+p.monto,0);
+      return s+arsToUsd(pend,mes);
+    }
+    const pendMonto=getSplitInstancias(sp).filter(i=>!i.pagado).reduce((a,i)=>a+i.monto,0);
+    const val=sp.moneda==='USD'?pendMonto:arsToUsd(pendMonto,mes);
+    return s+(sp.direccion==='Me deben'?val:-val);
+  },0);
+  return {ytdNeto,saldoDic:saldo+splitBal,mesRows,splitBal};
+}
+
 // =============================================
 // NAVIGATION
 // =============================================
@@ -1471,33 +1514,13 @@ function nav(id){
 // =============================================
 function renderDashboard(){
   const mes=MES_ACTUAL;
-  const ing=totalIngresosUSD(mes);
-  const eg=totalEgresosUSD(mes);
-  const neto=ing-eg;
-  const ratio=ing>0?(neto/ing*100):0;
-  const patrimonio=patrimonioDolarizado();
   const cotiz=getCotizacion(mes);
   const infMes=getInflacion(mes);
-
-  // split balance (me_deben - debo_yo, in USD)
-  const splitPend=dbGet('split').reduce((s,sp)=>{
-    if(!sp.direccion){
-      // legacy personas model
-      const pend=(sp.personas||[]).filter(p=>!p.pagado).reduce((a,p)=>a+p.monto,0);
-      const val=sp.moneda==='USD'?pend:arsToUsd(pend,mes);
-      return s+val;
-    }
-    const pendMonto=getSplitInstancias(sp).filter(i=>!i.pagado).reduce((a,i)=>a+i.monto,0);
-    const val=sp.moneda==='USD'?pendMonto:arsToUsd(pendMonto,mes);
-    return s+(sp.direccion==='Me deben'?val:-val);
-  },0);
-
-  // tareas urgentes
-  const tareasUrg=dbGet('tareas').filter(t=>!t.completada&&t.urgente).length;
+  const refs=getCarteraRefs();
+  const usdArs=refs.USD_ARS||cotiz||1;
 
   const nombre=localStorage.getItem('rinde_nombre')||'';
   const saludo=getSaludo();
-  // update panel title with greeting + clock
   const ptitleEl=document.querySelector('#panel-dashboard .ptitle');
   if(ptitleEl){
     ptitleEl.innerHTML=`${saludo}${nombre?', <em style="font-style:italic;color:var(--pos);">'+nombre+'</em>':''}! <span id="dash-clock" style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px;vertical-align:middle;font-family:var(--font);"></span>`;
@@ -1506,66 +1529,57 @@ function renderDashboard(){
   const dateEl=document.querySelector('#panel-dashboard .psub');
   if(dateEl) dateEl.innerHTML=`${fmtFecha()} &nbsp;·&nbsp; ${mesLabel(mes)} · cotización $${fmtARS(cotiz)} · inflación ${fmtPct(infMes)}/mes`;
 
-  // YTD
-  let ytdIng=0,ytdEg=0;
+  // ── YTD ──
   const [curY]=mes.split('-');
-  for(let m=1;m<=parseInt(mes.split('-')[1]);m++){
+  let ytdIng=0,ytdEg=0;
+  for(let m=1;m<=+mes.split('-')[1];m++){
     const mm=`${curY}-${String(m).padStart(2,'0')}`;
-    ytdIng+=totalIngresosUSD(mm);
-    ytdEg+=totalEgresosUSD(mm);
+    ytdIng+=totalIngresosUSD(mm); ytdEg+=totalEgresosUSD(mm);
   }
+  const ytdNeto=ytdIng-ytdEg;
+  const ytdMesLabel=mesLabel(mes).slice(0,3).toLowerCase();
 
-  // Cat breakdown
+  // ── Patrimonio ──
+  const patriCart=patrimonioDolarizado();
+  const patriAct=patrimonioActivosFisicos();
+  const patriTotal=patriCart+patriAct;
+
+  // ── Proyección a Dic 2026 ──
+  const {saldoDic,mesRows}=calcSaldoProyectado();
+  const ahorroFuturoRows=mesRows.filter(r=>r.mes>=mes);
+  const ahorroProyTotal=ahorroFuturoRows.reduce((s,r)=>s+r.neto,0);
+
+  // ── Racha ──
+  const rachaData=calcRacha();
+
+  // ── Category breakdown ──
   const cats={};
-  dbGet('egresos_inm').forEach(eg=>{
-    const v=egresoInmEnMes(eg,mes);
-    if(v===0)return;
-    const usd=eg.moneda==='USD'?v:arsToUsd(v,mes);
-    cats[eg.categoria]=(cats[eg.categoria]||0)+usd;
-  });
-  dbGet('egresos_cuotas').forEach(ec=>{
-    const v=egresoCuotaEnMes(ec,mes);
-    if(v===0)return;
-    const usd=ec.moneda==='USD'?v:arsToUsd(v,mes);
-    cats[ec.categoria]=(cats[ec.categoria]||0)+usd;
-  });
+  dbGet('egresos_inm').forEach(eg=>{ const v=egresoInmEnMes(eg,mes); if(v===0)return; cats[eg.categoria]=(cats[eg.categoria]||0)+(eg.moneda==='USD'?v:arsToUsd(v,mes)); });
+  dbGet('egresos_cuotas').forEach(ec=>{ const v=egresoCuotaEnMes(ec,mes); if(v===0)return; cats[ec.categoria]=(cats[ec.categoria]||0)+(ec.moneda==='USD'?v:arsToUsd(v,mes)); });
   const catColors={Vivienda:'var(--opal)',Auto:'var(--neg)',River:'#c4ba30',Plataformas:'var(--pos)',Telefonía:'#a078cf',Conectividad:'#78a0cf',Gatos:'#cf9878','A eliminar':'var(--neg-bg)'};
   const totalCat=Object.values(cats).reduce((a,b)=>a+b,0)||1;
 
-  // Fijo vs variable
-  let fijo=0,variable=0,esencial=0,noEsencial=0;
-  dbGet('egresos_inm').forEach(eg=>{
-    const v=egresoInmEnMes(eg,mes);
-    if(v===0)return;
-    const usd=eg.moneda==='USD'?v:arsToUsd(v,mes);
-    if(eg.tipo==='fijo')fijo+=usd; else variable+=usd;
-    if(eg.esencial)esencial+=usd; else noEsencial+=usd;
-  });
+  // ── Fijo vs variable ──
+  let fijo=0,variable=0,noEsencial=0;
+  dbGet('egresos_inm').forEach(eg=>{ const v=egresoInmEnMes(eg,mes); if(v===0)return; const usd=eg.moneda==='USD'?v:arsToUsd(v,mes); if(eg.tipo==='fijo')fijo+=usd; else variable+=usd; if(!eg.esencial)noEsencial+=usd; });
 
-  // Meses para el gráfico
+  // ── Bar chart ──
   const months=[];
   for(let i=1;i<=12;i++) months.push(`${curY}-${String(i).padStart(2,'0')}`);
   const maxEg=Math.max(...months.map(m=>totalEgresosUSD(m)),1);
-
   const barColors=months.map(m=>m===mes?'var(--neg)':(m<mes?'var(--opal)':'var(--border2)'));
   const barHeights=months.map(m=>Math.round(totalEgresosUSD(m)/maxEg*100));
   const mesLabels=['e','f','m','a','m','j','j','a','s','o','n','d'];
 
+  // ── Alerts ──
   let alertsHtml='';
-  const tareas=dbGet('tareas').filter(t=>!t.completada&&t.urgente);
-  tareas.forEach(t=>{
+  dbGet('tareas').filter(t=>!t.completada&&t.urgente).forEach(t=>{
     alertsHtml+=`<div class="alert neg"><div class="at">${t.texto}</div><div class="as">${t.fecha?'Fecha: '+mesLabel(t.fecha.slice(0,7)):''}</div></div>`;
   });
-  alertsHtml+=`<div class="alert pos"><div class="at">Aguinaldo proyectado jun 2026</div><div class="as">+${fmtUSD(arsToUsd(5500000,'2026-06'))} USD · @ cotización jun $${getCotizacion('2026-06').toLocaleString('es-AR')}</div></div>`;
-  if(infMes>3){
-    alertsHtml+=`<div class="alert warn"><div class="at">Inflación ${fmtPct(infMes)} · egresos ajustables suben</div><div class="as">Los ítems con ajuste automático se actualizarán el próximo mes</div></div>`;
-  }
-  // oct risk
-  const egOct=totalEgresosUSD('2026-10');
-  const ingOct=totalIngresosUSD('2026-10');
-  if(egOct>ingOct){
-    alertsHtml+=`<div class="alert neg"><div class="at">Octubre: egresos superan ingresos</div><div class="as">Egreso estimado: ${fmtUSD(egOct)} · Ingreso: ${fmtUSD(ingOct)}</div></div>`;
-  }
+  if(infMes>3) alertsHtml+=`<div class="alert warn"><div class="at">Inflación ${fmtPct(infMes)} este mes</div><div class="as">Los ítems con ajuste automático se actualizarán el próximo mes</div></div>`;
+  const egOct=totalEgresosUSD('2026-10'),ingOct=totalIngresosUSD('2026-10');
+  if(egOct>ingOct) alertsHtml+=`<div class="alert neg"><div class="at">Octubre: egresos superan ingresos</div><div class="as">Egreso est.: ${fmtUSD(egOct)} · Ingreso: ${fmtUSD(ingOct)}</div></div>`;
+  if(!alertsHtml) alertsHtml='<div class="alert pos"><div class="at">Sin alertas urgentes</div><div class="as">Todo en orden</div></div>';
 
   const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,val])=>`
     <div style="margin-bottom:6px;">
@@ -1575,58 +1589,91 @@ function renderDashboard(){
       <div class="bb"><div class="bf" style="width:${Math.round(val/totalCat*100)}%;background:${catColors[cat]||'var(--opal)'};"></div></div>
     </div>`).join('');
 
-  // Compute score & racha
-  const scoreData=calcScore();
-  const rachaData=calcRacha();
-  const sc=scoreData.total;
-  const scColor=scoreColor(sc);
-  const scLabel=scoreLabel(sc);
-  const scCirc=2*Math.PI*26;
-  const scDash=scCirc*(sc/850);
-
   document.getElementById('dash-content').innerHTML=`
 
-  <!-- SCORE + RACHA HERO -->
-  <div style="display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;background:var(--sidebar);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;">
-    <!-- Score -->
-    <div onclick="nav('analisis')" style="display:flex;align-items:center;gap:14px;cursor:pointer;" title="Ver análisis">
-      <svg width="70" height="70" viewBox="0 0 60 60">
-        <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="7"/>
-        <circle cx="30" cy="30" r="26" fill="none" stroke="${scColor}" stroke-width="7"
-          stroke-dasharray="${scDash} ${scCirc-scDash}" stroke-linecap="round" transform="rotate(-90 30 30)"/>
-        <text x="30" y="26" text-anchor="middle" font-size="13" font-weight="800" fill="${scColor}" font-family="Bricolage Grotesque,sans-serif">${sc}</text>
-        <text x="30" y="38" text-anchor="middle" font-size="7.5" fill="rgba(255,255,255,.5)" font-family="Outfit,sans-serif">/ 850</text>
-      </svg>
-      <div>
-        <div style="font-size:10px;font-weight:700;color:rgba(155,193,188,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Score Rinde</div>
-        <div style="font-size:18px;font-weight:800;font-family:var(--font-display);color:${scColor};letter-spacing:-.02em;">${scLabel}</div>
-        <div style="font-size:11px;color:rgba(155,193,188,.55);margin-top:2px;">${scoreData.nivel.emoji} ${scoreData.nivel.nombre}${scoreData.nextNivel?` · falta ${scoreData.nextNivel.min-sc} pts para ${scoreData.nextNivel.nombre}`:' · nivel máximo'}</div>
-      </div>
+  <!-- RACHA -->
+  <div style="display:flex;align-items:center;gap:16px;background:var(--sidebar);border-radius:var(--radius);padding:13px 20px;margin-bottom:16px;">
+    <div style="font-size:30px;line-height:1;filter:${rachaData.racha>0?'none':'grayscale(1) opacity(.35)'};">🔥</div>
+    <div>
+      <div style="font-size:9px;font-weight:700;color:rgba(155,193,188,.45);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1px;">Racha</div>
+      <div style="font-size:22px;font-weight:800;font-family:var(--font-display);color:${rachaColor(rachaData.racha)};letter-spacing:-.03em;line-height:1;">${rachaData.racha} <span style="font-size:13px;font-weight:600;color:rgba(155,193,188,.5);">mes${rachaData.racha!==1?'es':''} consecutivos en positivo</span></div>
     </div>
-    <!-- Divider -->
-    <div></div>
-    <!-- Racha -->
-    <div onclick="nav('analisis')" style="display:flex;align-items:center;gap:12px;cursor:pointer;" title="Meses consecutivos en positivo">
-      <div style="font-size:36px;line-height:1;filter:${rachaData.racha>0?'none':'grayscale(1) opacity(.4)'};">🔥</div>
-      <div>
-        <div style="font-size:10px;font-weight:700;color:rgba(155,193,188,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Racha</div>
-        <div style="font-size:28px;font-weight:800;font-family:var(--font-display);color:${rachaColor(rachaData.racha)};letter-spacing:-.03em;">${rachaData.racha} <span style="font-size:14px;font-weight:600;color:rgba(155,193,188,.55);">meses</span></div>
-        <div style="font-size:11px;color:rgba(155,193,188,.55);">Récord: ${rachaData.record} · ${rachaData.riesgo?'<span style="color:var(--neg);">⚠ en riesgo este mes</span>':'en positivo este mes'}</div>
-      </div>
+    <div style="margin-left:auto;text-align:right;">
+      <div style="font-size:10px;color:rgba(155,193,188,.4);margin-bottom:2px;">Récord: <strong style="color:rgba(155,193,188,.7);">${rachaData.record} meses</strong></div>
+      ${rachaData.riesgo?`<div style="font-size:11px;color:var(--neg);font-weight:600;">⚠ En riesgo este mes</div>`:`<div style="font-size:11px;color:rgba(155,193,188,.5);">${rachaData.mesPositivo?'✓ En positivo este mes':'–'}</div>`}
     </div>
   </div>
 
-  <div class="g5">
-    <div class="card pos"><div class="cl">Patrimonio</div><div class="cv">${fmtUSD(patrimonio)} USD</div><div class="cs">${fmtARS(patrimonio*cotiz)} ARS</div></div>
-    <div class="card pos-s"><div class="cl">Ingresos mes</div><div class="cv">+${fmtUSD(ing)} USD</div><div class="cs">${fmtARS(ing*cotiz)} ARS</div></div>
-    <div class="card neg"><div class="cl">Egresos mes</div><div class="cv">-${fmtUSD(eg)} USD</div><div class="cs">${fmtARS(eg*cotiz)} ARS</div></div>
-    <div class="card pos-s"><div class="cl">Ahorro mes</div><div class="cv">${neto>=0?'+':''}${fmtUSD(neto)} USD</div><div class="cs">Ratio: ${fmtPct(ratio)}</div></div>
-    <div class="card ${splitPend>=0?'pos-s':'neg-s'}"><div class="cl">Saldo split</div><div class="cv">${splitPend>=0?'+':''}${fmtUSD(splitPend)} USD</div><div class="cs">${splitPend>=0?'Me deben más de lo que debo':'Debo más de lo que me deben'}</div></div>
+  <!-- 4 KPI CARDS -->
+  <div class="g4">
+
+    <!-- KPI 1: Saldo actual -->
+    <div class="card ${ytdNeto>=0?'pos':'neg'}">
+      <div class="cl">Saldo actual</div>
+      <div class="cv" style="color:${ytdNeto>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ytdNeto>=0?'+':''}${fmtUSD(ytdNeto)} USD</div>
+      <div class="cs">${ytdNeto>=0?'+':''}${fmtARS(ytdNeto*cotiz)}</div>
+      <div class="cs" style="margin-top:3px;font-size:10px;color:var(--muted);">Ene–${ytdMesLabel} ${curY} · ingresos − egresos acumulados</div>
+    </div>
+
+    <!-- KPI 2: Patrimonio -->
+    <div class="card pos">
+      <div class="cl">Patrimonio</div>
+      <div class="cv">${fmtUSD(patriTotal)} USD</div>
+      <div class="cs">${fmtARS(patriTotal*usdArs)}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+        <span style="font-size:10px;background:var(--pos-bg);color:var(--pos-dk);padding:1px 7px;border-radius:20px;font-weight:600;">Cartera ${fmtUSD(patriCart)}</span>
+        <span style="font-size:10px;background:var(--opal-bg);color:var(--opal-dk);padding:1px 7px;border-radius:20px;font-weight:600;">Físicos ${fmtUSD(patriAct)}</span>
+      </div>
+    </div>
+
+    <!-- KPI 3: Proyectado Dic 2026 -->
+    <div class="card ${saldoDic>=0?'pos-s':'neg'}">
+      <div class="cl">Proyectado Dic 2026</div>
+      <div class="cv" style="color:${saldoDic>=0?'var(--pos-dk)':'var(--neg-dk)'};">${saldoDic>=0?'+':''}${fmtUSD(saldoDic)} USD</div>
+      <div class="cs">${saldoDic>=0?'+':''}${fmtARS(saldoDic*usdArs)}</div>
+      <div class="cs" style="margin-top:3px;font-size:10px;color:var(--muted);">Saldo acum. + proy. ingresos/egresos/split</div>
+    </div>
+
+    <!-- KPI 4: Ahorro proyectado -->
+    <div class="card ${ahorroProyTotal>=0?'pos-s':'neg-s'}">
+      <div class="cl">Ahorro proy. a Dic 2026</div>
+      <div class="cv" style="color:${ahorroProyTotal>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)} USD</div>
+      <div class="cs">${ahorroProyTotal>=0?'+':''}${fmtARS(ahorroProyTotal*usdArs)}</div>
+      <div class="cs" style="margin-top:3px;font-size:10px;color:var(--muted);">@ 1 USD = $${fmtARS(usdArs)} · ${mesLabel(mes)} → Dic ${curY}</div>
+    </div>
+
   </div>
+
+  <!-- AHORRO POR MES (collapsible) -->
+  <details style="margin-bottom:14px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;">
+    <summary style="cursor:pointer;padding:10px 14px;font-size:12px;font-weight:700;color:var(--muted);user-select:none;list-style:none;display:flex;align-items:center;gap:8px;">
+      <span>▶</span> Ahorro proyectado por mes · ${mesLabel(mes)} → Dic ${curY}
+      <span style="margin-left:auto;font-family:var(--font-mono);font-size:12px;font-weight:700;color:${ahorroProyTotal>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)} USD</span>
+    </summary>
+    <div class="table-wrap" style="margin:0;border-top:1px solid var(--border2);">
+      <table class="tbl">
+        <tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Neto USD</th><th>Neto ARS</th></tr>
+        ${ahorroFuturoRows.map(r=>`<tr style="${r.neto<0?'background:rgba(215,38,61,.04)':''}">
+          <td style="font-weight:600;">${mesLabel(r.mes)}${r.mes===mes?'<span class="pill opal" style="font-size:9px;margin-left:6px;">actual</span>':r.mes<mes?'<span class="pill gr" style="font-size:9px;margin-left:6px;">real</span>':''}</td>
+          <td class="pos-text">${fmtUSD(r.ing)}</td>
+          <td class="neg-text">-${fmtUSD(r.eg)}</td>
+          <td class="${r.neto>=0?'pos-text':'neg-text'} mono">${r.neto>=0?'+':''}${fmtUSD(r.neto)}</td>
+          <td class="${r.neto>=0?'pos-text':'neg-text'} mono">${r.neto>=0?'+':''}${fmtARS(r.neto*r.cotiz)}</td>
+        </tr>`).join('')}
+        <tr style="font-weight:700;border-top:2px solid var(--border2);">
+          <td>Total</td><td></td><td></td>
+          <td class="${ahorroProyTotal>=0?'pos-text':'neg-text'} mono">${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)}</td>
+          <td class="${ahorroProyTotal>=0?'pos-text':'neg-text'} mono">${ahorroProyTotal>=0?'+':''}${fmtARS(ahorroProyTotal*usdArs)}</td>
+        </tr>
+      </table>
+    </div>
+  </details>
+
+  <!-- 2 COLUMN: categories + chart -->
   <div class="g2">
     <div>
       <div class="sh">Egresos por categoría · ${mesLabel(mes)}</div>
-      ${catRows}
+      ${catRows||'<div style="color:var(--muted);font-size:12px;">Sin egresos este mes.</div>'}
       <div style="display:flex;gap:8px;margin-top:12px;">
         <div class="card" style="flex:1;text-align:center;padding:10px;">
           <div class="cl">Fijo</div><div class="cv" style="color:var(--opal);font-size:16px;">${fmtUSD(fijo)}</div>
@@ -1642,32 +1689,18 @@ function renderDashboard(){
         </div>
       </div>
       <div class="g2" style="margin-top:10px;margin-bottom:0;">
-        <div class="card pos-s"><div class="cl">Ingresado YTD</div><div class="cv">${fmtUSD(ytdIng)}</div><div class="cs">USD ene–${mesLabel(mes).slice(0,3).toLowerCase()}</div></div>
-        <div class="card neg-s"><div class="cl">Gastado YTD</div><div class="cv">${fmtUSD(ytdEg)}</div><div class="cs">USD ene–${mesLabel(mes).slice(0,3).toLowerCase()}</div></div>
+        <div class="card pos-s"><div class="cl">Ingresado YTD</div><div class="cv">${fmtUSD(ytdIng)}</div><div class="cs">USD ene–${ytdMesLabel}</div></div>
+        <div class="card neg-s"><div class="cl">Gastado YTD</div><div class="cv">${fmtUSD(ytdEg)}</div><div class="cs">USD ene–${ytdMesLabel}</div></div>
       </div>
     </div>
     <div>
-      <div class="sh">Egresos mensuales 2026</div>
+      <div class="sh">Egresos mensuales ${curY}</div>
       <div class="mbar" style="margin-bottom:4px;">
         ${months.map((m,i)=>`<div class="mb" style="height:${barHeights[i]||2}%;background:${barColors[i]};" title="${mesLabel(m)}: ${fmtUSD(totalEgresosUSD(m))}"></div>`).join('')}
       </div>
       <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);font-weight:600;margin-bottom:14px;">
         ${mesLabels.map((l,i)=>`<span style="color:${months[i]===mes?'var(--neg)':'var(--muted)'}">${l}</span>`).join('')}
       </div>
-
-      <!-- Score breakdown -->
-      <div class="sh">Desglose del score</div>
-      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;">
-        ${scoreData.breakdown.map(b=>`
-          <div class="score-row">
-            <span class="score-row-label">${b.label}<span style="color:var(--muted);font-size:10px;margin-left:6px;">${b.detail}</span></span>
-            <div style="width:80px;margin:0 8px;">
-              <div class="bb"><div class="bf" style="width:${Math.round(b.pts/b.max*100)}%;background:${b.pts/b.max>0.7?'var(--pos)':b.pts/b.max>0.4?'var(--warn-b)':'var(--neg)'};"></div></div>
-            </div>
-            <span class="score-row-pts" style="color:${b.pts/b.max>0.7?'var(--pos-dk)':b.pts/b.max>0.4?'var(--warn)':'var(--neg-dk)'};">${b.pts}/${b.max}</span>
-          </div>`).join('')}
-      </div>
-
       <div class="sh">Alertas</div>
       ${alertsHtml}
     </div>
@@ -2060,77 +2093,127 @@ function deleteIngreso(id){ confirmDelete(()=>{ dbDelete('ingresos',id); renderI
 function renderIngresosFuturos(){
   const list=dbGet('ingresos_futuros');
   const mes=MES_ACTUAL;
-  const cotiz=getCotizacion(mes);
   const freqLabel={mensual:'Mensual',unico:'Único',semestral:'Semestral'};
   const MLAB=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const HORIZON=mesNext(mes,11); // show up to 12 months ahead
 
   function mesARS(m){ const c=getCotizacion(m); return list.filter(i=>!i.confirmado).reduce((s,i)=>{ const v=ingresoEnMes(i,m); return s+(v?(i.moneda==='ARS'?v:v*c):0); },0); }
   function mesUSD(m){ return list.filter(i=>!i.confirmado).reduce((s,i)=>{ const v=ingresoEnMes(i,m); return s+(v?(i.moneda==='USD'?v:arsToUsd(v,m)):0); },0); }
-
   const futARS=mesARS(mes), futUSD=mesUSD(mes);
-  const proxMes=mesNext(mes);
-  const proxARS=mesARS(proxMes), proxUSD=mesUSD(proxMes);
-  const confirmed=list.filter(i=>i.confirmado).length;
-  const pending=list.filter(i=>!i.confirmado).length;
+  const proxARS=mesARS(mesNext(mes)), proxUSD=mesUSD(mesNext(mes));
+  const pendingCount=list.filter(i=>!i.confirmado).length;
+  const confirmedCount=list.filter(i=>i.confirmado).length;
 
-  function row(i){
+  // Render a single entry (unico/semestral) with one checkbox
+  function rowSimple(i){
     const entryMes=i.frecuencia==='semestral'&&i.mesIngreso?i.mesIngreso.slice(0,7):(i.desde||mes).slice(0,7);
     const entryCotiz=getCotizacion(entryMes);
     const entryARS=i.moneda==='ARS'?i.monto:i.monto*entryCotiz;
     const entryUSD=i.moneda==='USD'?i.monto:arsToUsd(i.monto,entryMes);
     const mm=i.mesIngreso?(+i.mesIngreso.split('-')[1]):null;
     const mm2=mm?(mm<=6?mm+6:mm-6):null;
-    const periodo=i.frecuencia==='mensual'?(i.desde+(i.hasta?' → '+i.hasta:' → ∞')):
-                  i.frecuencia==='semestral'&&mm?(MLAB[mm-1]+' y '+MLAB[mm2-1]):
-                  i.frecuencia==='unico'?(i.desde||'-'):'-';
-    return `<tr style="${i.confirmado?'opacity:.5;text-decoration:line-through;':''}" id="ifut-row-${i.id}">
-      <td>
-        <input type="checkbox" ${i.confirmado?'checked':''} title="Confirmar ingreso" style="cursor:pointer;accent-color:var(--pos);"
-          onchange="confirmarIngresoFuturo('${i.id}',this.checked)">
-      </td>
-      <td><strong>${i.descripcion}</strong></td>
+    const periodo=i.frecuencia==='semestral'&&mm?(MLAB[mm-1]+' y '+MLAB[mm2-1]):(i.desde||'-');
+    const done=i.confirmado;
+    return `<tr style="${done?'opacity:.45;':''}" id="ifut-row-${i.id}">
+      <td><input type="checkbox" ${done?'checked disabled':''} title="Confirmar ingreso" style="cursor:pointer;accent-color:var(--pos);"
+        onchange="confirmarIngresoFuturo('${i.id}',this.checked)"></td>
+      <td><strong>${i.descripcion}</strong> ${done?'<span class="pill pos" style="font-size:9px;">✓ Confirmado</span>':''}</td>
       <td><span class="pill ${i.moneda==='ARS'?'opal':'pos'}">${i.moneda}</span></td>
       <td class="pos-text">${fmtARS(entryARS)}</td>
       <td class="pos-text mono">${fmtUSD(entryUSD)} USD</td>
       <td><span class="pill gr">${freqLabel[i.frecuencia]||i.frecuencia}</span></td>
       <td>${periodo}</td>
-      <td class="actions">
-        <button class="btn sm ghost" onclick="editIngresoFuturo('${i.id}')">✏</button>
-        <button class="btn sm danger" onclick="deleteIngresoFuturo('${i.id}')">✕</button>
+      <td class="actions"><button class="btn sm ghost" onclick="editIngresoFuturo('${i.id}')">✏</button><button class="btn sm danger" onclick="deleteIngresoFuturo('${i.id}')">✕</button></td>
+    </tr>`;
+  }
+
+  // Render a monthly entry as collapsible per-month rows
+  function rowMensual(i){
+    const confirmed=i.confirmedMonths||[];
+    const desde=i.desde||mes;
+    const hasta=i.hasta||HORIZON;
+    const meses=[];
+    let m=desde>mes?desde:mes;
+    while(m<=hasta&&m<=HORIZON){ meses.push(m); m=mesNext(m); }
+    const pendingMeses=meses.filter(m=>!confirmed.includes(m)).length;
+    const detailId=`ifut-det-${i.id}`;
+    const subRows=meses.map(m=>{
+      const v=ingresoEnMes(i,m);
+      if(v===0) return '';
+      const c=getCotizacion(m);
+      const ars=i.moneda==='ARS'?v:v*c;
+      const usd=i.moneda==='USD'?v:arsToUsd(v,m);
+      const isConf=confirmed.includes(m);
+      return `<tr style="${isConf?'opacity:.4;':''}" id="ifut-mes-${i.id}-${m}">
+        <td style="padding-left:24px;"><input type="checkbox" ${isConf?'checked disabled':''} style="cursor:pointer;accent-color:var(--pos);"
+          onchange="confirmarMesIngresoFuturo('${i.id}','${m}')"></td>
+        <td style="color:var(--muted);font-size:12px;">${mesLabel(m)} ${isConf?'<span class="pill pos" style="font-size:9px;">✓</span>':''}</td>
+        <td><span class="pill ${i.moneda==='ARS'?'opal':'pos'}" style="font-size:9px;">${i.moneda}</span></td>
+        <td class="pos-text" style="font-size:12px;">${fmtARS(ars)}</td>
+        <td class="pos-text mono" style="font-size:12px;">${fmtUSD(usd)} USD</td>
+        <td colspan="3"></td>
+      </tr>`;
+    }).filter(Boolean).join('');
+    return `<tr style="background:var(--s3);">
+      <td colspan="8" style="padding:0;">
+        <details id="${detailId}" style="width:100%;">
+          <summary style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:9px 14px;list-style:none;font-size:13px;font-weight:600;user-select:none;">
+            <span style="font-size:10px;color:var(--muted);">▶</span>
+            ${i.descripcion}
+            <span class="pill opal" style="font-size:10px;">${mesLabel(desde)} → ${mesLabel(hasta)}</span>
+            <span class="pill gr" style="font-size:10px;">${pendingMeses} mes${pendingMeses!==1?'es':''} pend.</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--muted);">${fmtARS(i.monto)}/mes</span>
+            <button class="btn sm ghost" onclick="event.preventDefault();editIngresoFuturo('${i.id}')" style="margin-left:4px;">✏</button>
+            <button class="btn sm danger" onclick="event.preventDefault();deleteIngresoFuturo('${i.id}')" style="margin-left:2px;">✕</button>
+          </summary>
+          <table style="width:100%;border-collapse:collapse;">
+            ${subRows||'<tr><td colspan="8" style="padding:8px 24px;color:var(--muted);font-size:12px;">Sin meses activos.</td></tr>'}
+          </table>
+        </details>
       </td>
     </tr>`;
   }
 
+  function renderEntry(i){ return i.frecuencia==='mensual'?rowMensual(i):rowSimple(i); }
+
   document.getElementById('ingresos-futuros-content').innerHTML=`
   <div style="background:var(--warn-bg);border:1px solid var(--warn-b);border-radius:9px;padding:11px 14px;margin-bottom:16px;font-size:12px;color:var(--warn);">
-    <strong>💡 Ingresos futuros</strong> — Son proyecciones. No aparecen en reportes ni dashboard actuales. Sí se incluyen en <strong>Proyección</strong>. Al hacer ✓ en la casilla, el ingreso pasa a <strong>Ingresos reales</strong> automáticamente.
+    <strong>Ingresos futuros</strong> — Proyecciones. No impactan en reportes actuales, sí en <strong>Proyección</strong>. Al hacer ✓ el ingreso pasa a <strong>Ingresos reales</strong>. Los mensuales se pueden confirmar mes a mes.
   </div>
   <div class="g3">
     <div class="card pos-s"><div class="cl">Proyectado este mes</div><div class="cv">${fmtARS(futARS)}</div><div class="cs">${fmtUSD(futUSD)} USD</div></div>
     <div class="card pos-s"><div class="cl">Proyectado próx. mes</div><div class="cv">${fmtARS(proxARS)}</div><div class="cs">${fmtUSD(proxUSD)} USD</div></div>
-    <div class="card warn"><div class="cl">Estado</div><div class="cv">${pending}</div><div class="cs">${pending} pendientes · ${confirmed} confirmados</div></div>
+    <div class="card warn"><div class="cl">Estado</div><div class="cv">${pendingCount}</div><div class="cs">${pendingCount} pendientes · ${confirmedCount} confirmados</div></div>
   </div>
   <div class="sh">Ingresos futuros · editables</div>
   <div class="table-wrap">
   <table class="tbl">
     <tr><th>✓</th><th>Descripción</th><th>Moneda</th><th>ARS</th><th>USD</th><th>Frecuencia</th><th>Período</th><th></th></tr>
-    ${list.length?list.map(row).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">Sin ingresos futuros cargados.</td></tr>'}
+    ${list.length?list.map(renderEntry).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">Sin ingresos futuros cargados.</td></tr>'}
   </table>
   </div>
   <div class="sh">+ Agregar ingreso futuro</div>
   <button class="btn pos" onclick="addIngresoFuturo()">+ Agregar ingreso futuro</button>`;
 }
 function confirmarIngresoFuturo(id, checked){
+  if(!checked) return;
   const i=dbGet('ingresos_futuros').find(x=>x.id===id);
   if(!i) return;
-  if(checked){
-    // Move to real ingresos
-    const {id:_id,confirmado:_c,...rest}=i;
-    dbAdd('ingresos',rest);
-    dbDelete('ingresos_futuros',id);
-  } else {
-    dbUpdate('ingresos_futuros',id,{confirmado:false});
+  const {id:_id,confirmado:_c,...rest}=i;
+  dbAdd('ingresos',{...rest,confirmado:undefined});
+  dbUpdate('ingresos_futuros',id,{confirmado:true});
+  renderIngresosFuturos();
+}
+function confirmarMesIngresoFuturo(id, m){
+  const i=dbGet('ingresos_futuros').find(x=>x.id===id);
+  if(!i) return;
+  const confirmed=i.confirmedMonths||[];
+  if(confirmed.includes(m)) return;
+  const v=ingresoEnMes(i,m);
+  if(v>0){
+    dbAdd('ingresos',{descripcion:i.descripcion,monto:v,moneda:i.moneda,frecuencia:'unico',desde:m,notas:i.notas||''});
   }
+  dbUpdate('ingresos_futuros',id,{confirmedMonths:[...confirmed,m]});
   renderIngresosFuturos();
 }
 function addIngresoFuturo(){
