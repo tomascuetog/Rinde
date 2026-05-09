@@ -1229,8 +1229,22 @@ function totalEgresosUSD(mes){
   return inm+cuotas;
 }
 
+function getCarteraRefs(){ try{ return JSON.parse(localStorage.getItem('rinde_cartera_refs'))||{}; }catch(e){ return {}; } }
+function setCarteraRef(key,val){ const r=getCarteraRefs(); r[key]=+val||0; localStorage.setItem('rinde_cartera_refs',JSON.stringify(r)); renderCartera(); }
+function updateCarteraPrecioActual(id,val){ dbUpdate('cartera',id,{precioActual:+val||0}); renderCartera(); }
 function patrimonioDolarizado(){
-  return dbGet('cartera').reduce((s,c)=>s+c.precioActual*c.cantidad, 0);
+  const list=dbGet('cartera');
+  const refs=getCarteraRefs();
+  const usdArs=refs.USD_ARS||1;
+  return list.reduce((s,c)=>{
+    if(c.tipo==='Moneda extranjera') return s+c.cantidad;
+    if(c.tipo==='Criptomoneda') return s+(c.precioActual||0)*c.cantidad;
+    if(c.tipo==='Bono/Acción Negociable'){
+      const val=(c.precioActual||0)*c.cantidad;
+      return s+(c.moneda==='ARS'?val/usdArs:val);
+    }
+    return s+(c.precioActual||0)*c.cantidad;
+  },0);
 }
 
 // =============================================
@@ -2146,26 +2160,28 @@ function renderEgresosCuotas(){
     </div>`;
   }
 
-  // ── Sub-section within a month (Periódicos | Cuotas) ──
-  function subSection(label,items,m){
+  // ── Group by category within a month ──
+  function byCat(items,m){
     if(!items.length) return '';
-    const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
-    const u=items.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
-    const sub=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
-    return `<div style="margin:6px 0 2px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;background:var(--sidebar);border-radius:6px;margin-bottom:4px;">
-        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">${label}</span>
-        <span style="font-size:11px;font-weight:700;color:var(--neg-dk);">${sub}</span>
-      </div>
-      ${items.map(ec=>itemRow(ec,m)).join('')}
-    </div>`;
+    const cats=[...new Set(items.map(ec=>ec.categoria||'Sin categoría'))].sort();
+    return cats.map(cat=>{
+      const ci=items.filter(ec=>(ec.categoria||'Sin categoría')===cat);
+      const a=ci.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+      const u=ci.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+      const sub=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
+      return `<div style="margin:6px 0 2px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;background:var(--sidebar);border-radius:6px;margin-bottom:4px;">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">${cat}</span>
+          <span style="font-size:11px;font-weight:700;color:var(--neg-dk);">${sub}</span>
+        </div>
+        ${ci.map(ec=>itemRow(ec,m)).join('')}
+      </div>`;
+    }).join('');
   }
 
   // ── Collapsible month sections ──
   const monthSections=activeMonths.map(m=>{
     const items=list.filter(ec=>cuotaMontoEnMes(ec,m)>0).sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''));
-    const periodicos=items.filter(ec=>ec.periodicidad&&ec.periodicidad!=='unico');
-    const cuotas=items.filter(ec=>!ec.periodicidad||ec.periodicidad==='unico');
     const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
     const u=items.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
     const totLabel=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
@@ -2174,10 +2190,7 @@ function renderEgresosCuotas(){
         <span>${mesLabel(m)}</span>
         <span style="color:var(--neg-dk);font-size:12px;">${totLabel}</span>
       </summary>
-      <div style="padding:6px 8px;">
-        ${subSection('Periódicos / Fijos',periodicos,m)}
-        ${subSection('Cuotas',cuotas,m)}
-      </div>
+      <div style="padding:6px 8px;">${byCat(items,m)}</div>
     </details>`;
   }).join('');
 
@@ -2442,6 +2455,24 @@ function renderEgresosFijos(){
     </div>`;
   }
 
+  function byCat(items,m){
+    if(!items.length) return '';
+    const cats=[...new Set(items.map(ec=>ec.categoria||'Sin categoría'))].sort();
+    return cats.map(cat=>{
+      const ci=items.filter(ec=>(ec.categoria||'Sin categoría')===cat);
+      const a=ci.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+      const u=ci.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+      const sub=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
+      return `<div style="margin:6px 0 2px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;background:var(--sidebar);border-radius:6px;margin-bottom:4px;">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">${cat}</span>
+          <span style="font-size:11px;font-weight:700;color:var(--neg-dk);">${sub}</span>
+        </div>
+        ${ci.map(ec=>itemRow(ec,m)).join('')}
+      </div>`;
+    }).join('');
+  }
+
   const monthSections=activeMonths.map(m=>{
     const items=list.filter(ec=>cuotaMontoEnMes(ec,m)>0).sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''));
     const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
@@ -2451,7 +2482,7 @@ function renderEgresosFijos(){
       <summary style="cursor:pointer;padding:10px 14px;background:var(--surface);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;user-select:none;">
         <span>${mesLabel(m)}</span><span style="color:var(--neg-dk);font-size:12px;">${totLabel}</span>
       </summary>
-      <div style="padding:6px 8px;">${items.map(ec=>itemRow(ec,m)).join('')}</div>
+      <div style="padding:6px 8px;">${byCat(items,m)}</div>
     </details>`;
   }).join('');
 
@@ -2591,6 +2622,7 @@ function renderSplit(){
       </div>
       <span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:var(--${dirClass}-dk);margin:0 8px;white-space:nowrap;">${sign}${montoLabel}</span>
       <div class="chk ${inst.pagado?'done':''}" onclick="checkSplitEntry('${sp.id}','${inst.mes}')" style="cursor:pointer;">${inst.pagado?'✓':''}</div>
+      <button class="btn sm ghost" style="margin-left:4px;" onclick="editSplit('${sp.id}')">✏</button>
       <button class="btn sm danger" style="margin-left:4px;" onclick="deleteSplit('${sp.id}')">✕</button>
     </div>`;
   }
@@ -2618,6 +2650,30 @@ function renderSplit(){
     </details>`;
   }).join('');
 
+  const personBalance={};
+  list.forEach(sp=>{
+    if(!sp.direccion) return;
+    const cp=sp.contraparte||'Desconocido';
+    if(!personBalance[cp]) personBalance[cp]={deboARS:0,deboUSD:0,meDebenARS:0,meDebenUSD:0};
+    getSplitInstancias(sp).forEach(inst=>{
+      if(inst.pagado) return;
+      if(sp.direccion==='Yo debo'){ if(sp.moneda==='ARS') personBalance[cp].deboARS+=inst.monto; else personBalance[cp].deboUSD+=inst.monto; }
+      else { if(sp.moneda==='ARS') personBalance[cp].meDebenARS+=inst.monto; else personBalance[cp].meDebenUSD+=inst.monto; }
+    });
+  });
+  const personas=Object.keys(personBalance);
+  const personTable=personas.length?`
+    <div class="sh">Saldo por persona</div>
+    <div style="margin-bottom:12px;">
+    ${personas.map(cp=>{
+      const pb=personBalance[cp];
+      const lines=[];
+      if(pb.deboARS||pb.deboUSD){ const p2=[pb.deboARS?fmtARS(pb.deboARS):'',pb.deboUSD?fmtUSD(pb.deboUSD)+' USD':''].filter(Boolean).join(' + '); lines.push(`<span class="pill neg">Debo ${p2}</span>`); }
+      if(pb.meDebenARS||pb.meDebenUSD){ const p2=[pb.meDebenARS?fmtARS(pb.meDebenARS):'',pb.meDebenUSD?fmtUSD(pb.meDebenUSD)+' USD':''].filter(Boolean).join(' + '); lines.push(`<span class="pill pos">Me debe ${p2}</span>`); }
+      return `<div class="erow" style="padding:8px 12px;"><div class="erow-name" style="font-weight:600;">${cp}</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${lines.join('')||'<span class="pill gr">Saldado</span>'}</div></div>`;
+    }).join('')}
+    </div>`:'' ;
+
   document.getElementById('split-content').innerHTML=`
   <div style="display:flex;gap:8px;margin-bottom:16px;">
     <button class="btn pos" onclick="addSplit()">+ Nuevo registro</button>
@@ -2626,6 +2682,7 @@ function renderSplit(){
     ${kpiSplit('pos-s','Me deben',meDebenARS,meDebenUSD)}
     ${kpiSplit('neg','Debo yo',deboARS,deboUSD)}
   </div>
+  ${personTable}
   <div class="sh">Por mes</div>
   ${months.length?monthSections:`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin gastos compartidos registrados.</div>`}`;
 }
@@ -2661,31 +2718,36 @@ function checkSplitEntry(spId, instMes){
 function _setupSplitModal(){
   const tipoSel=document.getElementById('mf-tipo');
   if(!tipoSel) return;
+  const nCuotasEl=document.getElementById('mf-nCuotas');
+  const MAX_CUOTAS=12;
+  const show=(key,visible,req)=>{
+    const el=document.getElementById('mf-'+key);
+    if(!el) return;
+    el.closest('.modal-field').style.display=visible?'':'none';
+    el.required=!!(visible&&req);
+  };
   function update(){
     const tipo=tipoSel.value;
-    const show=(key,visible,req)=>{
-      const el=document.getElementById('mf-'+key);
-      if(!el) return;
-      el.closest('.modal-field').style.display=visible?'':'none';
-      el.required=!!(visible&&req);
-    };
+    const n=Math.max(1,Math.min(MAX_CUOTAS,+(nCuotasEl&&nCuotasEl.value)||2));
     show('monto', tipo!=='cuotas', tipo!=='cuotas');
     show('hasta', tipo==='mensual', false);
     show('nCuotas', tipo==='cuotas', true);
-    show('montos', tipo==='cuotas', true);
+    for(let i=1;i<=MAX_CUOTAS;i++) show('cuota_'+i, tipo==='cuotas'&&i<=n, false);
   }
   tipoSel.addEventListener('change',update);
+  if(nCuotasEl) nCuotasEl.addEventListener('input',update);
   update();
 }
 
 function addSplit(){
+  const cuotaFields=Array.from({length:12},(_,i)=>({key:`cuota_${i+1}`,label:`Cuota ${i+1}`,type:'number'}));
   openModal('Nuevo registro compartido',[
     {key:'direccion',label:'Dirección',type:'select',options:['Yo debo','Me deben'],required:true},
     {key:'descripcion',label:'Descripción',type:'text',required:true},
     {key:'contraparte',label:'A quién / De quién',type:'text',required:true},
     {key:'monto',label:'Monto',type:'number',required:true},
-    {key:'montos',label:'Monto por cuota (separados por coma)',type:'text',hint:'Ej: 100,150,200'},
-    {key:'nCuotas',label:'N° de cuotas',type:'number'},
+    {key:'nCuotas',label:'N° de cuotas',type:'number',value:'2'},
+    ...cuotaFields,
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
     {key:'tipo',label:'Tipo',type:'select',options:['unico','mensual','cuotas']},
     {key:'desde',label:'Desde (YYYY-MM)',type:'month',required:true},
@@ -2694,8 +2756,9 @@ function addSplit(){
   ],(data)=>{
     const entry={direccion:data.direccion,descripcion:data.descripcion,contraparte:data.contraparte,moneda:data.moneda,tipo:data.tipo,notas:data.notas||''};
     if(data.tipo==='cuotas'){
-      const ma=(data.montos||'').split(',').map(s=>+(s.trim())||0);
-      entry.nCuotas=+data.nCuotas||ma.length;
+      const n=+data.nCuotas||2;
+      const ma=Array.from({length:n},(_,i)=>+data[`cuota_${i+1}`]||0);
+      entry.nCuotas=n;
       entry.montos=ma;
       entry.desde=data.desde;
     } else if(data.tipo==='mensual'){
@@ -2722,20 +2785,34 @@ function editSplit(id){
     ],(data)=>{ dbUpdate('split',id,data); renderSplit(); });
     return;
   }
+  const cuotaFields=Array.from({length:12},(_,i)=>({key:`cuota_${i+1}`,label:`Cuota ${i+1}`,type:'number',value:sp.montos&&sp.montos[i]!=null?sp.montos[i]:''}));
   openModal('Editar registro compartido',[
     {key:'direccion',label:'Dirección',type:'select',options:['Yo debo','Me deben'],value:sp.direccion,required:true},
     {key:'descripcion',label:'Descripción',type:'text',value:sp.descripcion,required:true},
     {key:'contraparte',label:'A quién / De quién',type:'text',value:sp.contraparte||'',required:true},
     {key:'monto',label:'Monto',type:'number',value:sp.monto||'',required:true},
+    {key:'nCuotas',label:'N° de cuotas',type:'number',value:sp.nCuotas||2},
+    ...cuotaFields,
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:sp.moneda},
     {key:'tipo',label:'Tipo',type:'select',options:['unico','mensual','cuotas'],value:sp.tipo},
     {key:'desde',label:'Desde (YYYY-MM)',type:'month',value:sp.desde||'',required:true},
     {key:'hasta',label:'Hasta (YYYY-MM)',type:'month',value:sp.hasta||''},
     {key:'notas',label:'Notas',type:'textarea',value:sp.notas||''},
   ],(data)=>{
-    dbUpdate('split',id,{...sp,...data,monto:+data.monto||sp.monto});
+    const updated={...sp,...data};
+    if(data.tipo==='cuotas'){
+      const n=+data.nCuotas||2;
+      updated.nCuotas=n;
+      updated.montos=Array.from({length:n},(_,i)=>+data[`cuota_${i+1}`]||0);
+      delete updated.monto;
+    } else {
+      updated.monto=+data.monto||sp.monto;
+      delete updated.montos;
+    }
+    dbUpdate('split',id,updated);
     renderSplit();
   });
+  _setupSplitModal();
 }
 
 function deleteSplit(id){ confirmDelete(()=>{ dbDelete('split',id); renderSplit(); }); }
@@ -2745,86 +2822,145 @@ function deleteSplit(id){ confirmDelete(()=>{ dbDelete('split',id); renderSplit(
 // =============================================
 function renderCartera(){
   const list=dbGet('cartera');
-  const mes=MES_ACTUAL;
-  const cotiz=getCotizacion(mes);
-  const total=list.reduce((s,c)=>s+c.precioActual*c.cantidad,0);
-  const totalCompra=list.reduce((s,c)=>s+c.precioCompra*c.cantidad,0);
-  const rend=totalCompra>0?((total-totalCompra)/totalCompra*100):0;
+  const refs=getCarteraRefs();
+  const usdArs=refs.USD_ARS||1;
 
-  function row(c){
-    const valor=c.precioActual*c.cantidad;
-    const rendI=c.precioCompra>0?((c.precioActual-c.precioCompra)/c.precioCompra*100):0;
-    const tipoColors={ON:'warn',ETF:'opal',Stablecoin:'gr',Accion:'pos'};
-    return `<tr>
-      <td><strong>${c.activo}</strong></td>
-      <td><span class="pill ${tipoColors[c.tipo]||'gr'}">${c.tipo}</span></td>
-      <td>${c.broker}</td>
-      <td><span class="pill ${c.moneda==='USD'?'pos':'opal'}">${c.moneda}</span></td>
-      <td>${c.cantidad}</td>
-      <td>${fmtUSD(c.precioCompra)}</td>
-      <td>${fmtUSD(c.precioActual)}</td>
-      <td class="${rendI>=0?'pos-text':'neg-text'} mono">${rendI>=0?'+':''}${rendI.toFixed(1)}%</td>
-      <td class="pos-text mono">${fmtUSD(valor)} USD</td>
-      <td>${fmtARS(valor*cotiz)}</td>
-      <td class="actions">
-        <button class="btn sm ghost" onclick="editCartera('${c.id}')">✏</button>
-        <button class="btn sm danger" onclick="deleteCartera('${c.id}')">✕</button>
-      </td>
-    </tr>`;
+  function entryValues(c){
+    const pa=c.precioActual||0;
+    const pc=c.precioCompra||0;
+    if(c.tipo==='Moneda extranjera'){
+      const rARS=(usdArs-pc)*c.cantidad;
+      return {vUSD:c.cantidad, vARS:c.cantidad*usdArs, rUSD:rARS/(usdArs||1), rARS};
+    }
+    if(c.tipo==='Criptomoneda'){
+      const vUSD=pa*c.cantidad;
+      return {vUSD, vARS:vUSD*usdArs, rUSD:(pa-pc)*c.cantidad, rARS:(pa-pc)*c.cantidad*usdArs};
+    }
+    if(c.moneda==='ARS'){
+      const vARS=pa*c.cantidad;
+      return {vUSD:vARS/(usdArs||1), vARS, rUSD:(pa-pc)*c.cantidad/(usdArs||1), rARS:(pa-pc)*c.cantidad};
+    }
+    const vUSD=pa*c.cantidad;
+    return {vUSD, vARS:vUSD*usdArs, rUSD:(pa-pc)*c.cantidad, rARS:(pa-pc)*c.cantidad*usdArs};
   }
 
+  let totalUSD=0, totalARS=0, rendUSD=0;
+  const computed=list.map(c=>{
+    const v=entryValues(c);
+    if(c.tipo==='Moneda extranjera') totalUSD+=c.cantidad;
+    else if(c.tipo==='Criptomoneda') totalUSD+=v.vUSD;
+    else { if(c.moneda==='ARS') totalARS+=v.vARS; else totalUSD+=v.vUSD; }
+    rendUSD+=v.rUSD;
+    return {...c,...v};
+  });
+
+  const tieneValorEditable=c=>c.tipo==='Criptomoneda'||c.tipo==='Bono/Acción Negociable';
+  const tipoColors={'Moneda extranjera':'opal','Criptomoneda':'pos','Bono/Acción Negociable':'warn'};
+
+  function grupoSection(tipo){
+    const items=computed.filter(c=>c.tipo===tipo);
+    if(!items.length) return '';
+    const priceHeader=tipo==='Moneda extranjera'?'Ref. USD/ARS':tipo==='Criptomoneda'?'Precio actual (USD)':'Precio actual';
+    const rows=items.map(c=>{
+      const priceCell=tieneValorEditable(c)
+        ?`<input type="number" value="${c.precioActual||''}" style="width:90px;font-family:var(--font-display);font-size:12px;background:var(--sidebar);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;color:inherit;" onchange="updateCarteraPrecioActual('${c.id}',this.value)" placeholder="0">`
+        :`<span style="font-size:12px;color:var(--muted);">${fmtARS(usdArs)}</span>`;
+      const valueStr=c.tipo==='Moneda extranjera'?`${fmtUSD(c.cantidad)} · ${fmtARS(c.vARS)}`
+        :c.moneda==='ARS'?fmtARS(c.vARS):`${fmtUSD(c.vUSD)} USD`;
+      const rendStr=(c.rUSD>=0?'+':'')+fmtUSD(c.rUSD)+' USD';
+      return `<tr>
+        <td><strong>${c.activo}</strong></td>
+        <td>${c.cantidad}</td>
+        <td style="font-size:11px;color:var(--muted);">${fmtARS(c.precioCompra||0)}</td>
+        <td>${priceCell}</td>
+        <td class="mono">${valueStr}</td>
+        <td class="${c.rUSD>=0?'pos-text':'neg-text'} mono">${rendStr}</td>
+        <td class="actions">
+          <button class="btn sm ghost" onclick="editCartera('${c.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteCartera('${c.id}')">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+    return `<div class="sh" style="margin-top:10px;display:flex;align-items:center;gap:8px;"><span class="pill ${tipoColors[tipo]||'gr'}">${tipo}</span></div>
+    <div class="table-wrap"><table class="tbl">
+      <tr><th>Activo</th><th>Cantidad</th><th>Compra</th><th>${priceHeader}</th><th>Valor</th><th>Rend.</th><th></th></tr>
+      ${rows}
+    </table></div>`;
+  }
+
+  const hasARS=totalARS>0;
   document.getElementById('cartera-content').innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+    <button class="btn pos" onclick="addCartera()">+ Agregar activo</button>
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;">
+      <span style="color:var(--muted);font-weight:600;">1 USD =</span>
+      <input type="number" value="${refs.USD_ARS||''}" style="width:100px;font-family:var(--font-display);font-size:14px;font-weight:700;background:transparent;border:none;border-bottom:2px solid var(--pos);padding:2px 4px;color:inherit;" oninput="setCarteraRef('USD_ARS',this.value)" placeholder="cotización">
+      <span style="color:var(--muted);font-weight:600;">ARS</span>
+    </div>
+  </div>
   <div class="g3">
-    <div class="card pos"><div class="cl">Total USD</div><div class="cv">${fmtUSD(total)}</div><div class="cs">${fmtARS(total*cotiz)} ARS</div></div>
-    <div class="card pos-s"><div class="cl">Rendimiento total</div><div class="cv">${rend>=0?'+':''}${rend.toFixed(1)}%</div><div class="cs">${fmtUSD(total-totalCompra)} USD ganados</div></div>
-    <div class="card pos-s"><div class="cl">Posiciones</div><div class="cv">${list.length}</div></div>
+    <div class="card pos">
+      <div class="cl">Lo que tengo</div>
+      <div class="cv">${fmtUSD(totalUSD)} USD</div>
+      ${hasARS?`<div class="cs">${fmtARS(totalARS)} ARS</div>`:''}
+    </div>
+    <div class="card pos-s">
+      <div class="cl">Conversor</div>
+      <div class="cv">${fmtUSD(totalUSD)} = ${fmtARS(totalUSD*usdArs)}</div>
+      ${hasARS?`<div class="cs">${fmtARS(totalARS)} = ${fmtUSD(totalARS/(usdArs||1))} USD</div>`:''}
+    </div>
+    <div class="card ${rendUSD>=0?'pos-s':'neg'}">
+      <div class="cl">Rendimiento total</div>
+      <div class="cv">${rendUSD>=0?'+':''}${fmtUSD(Math.abs(rendUSD))} USD</div>
+      <div class="cs">${rendUSD>=0?'+':''}${fmtARS(Math.abs(rendUSD*usdArs))}</div>
+    </div>
   </div>
-  <div class="sh">Distribución</div>
-  ${['ON','ETF','Stablecoin','Accion'].map(t=>{
-    const v=list.filter(c=>c.tipo===t).reduce((s,c)=>s+c.precioActual*c.cantidad,0);
-    if(!v) return '';
-    return `<div style="margin-bottom:5px;"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:2px;"><span>${t}</span><span class="pos-text">${fmtPct(v/total*100)} · ${fmtUSD(v)} USD</span></div><div class="bb"><div class="bf" style="width:${Math.round(v/total*100)}%;background:var(--pos);"></div></div></div>`;
-  }).join('')}
-  <div class="sh">Posiciones</div>
-  <div class="table-wrap">
-  <table class="tbl">
-    <tr><th>Activo</th><th>Tipo</th><th>Broker</th><th>Moneda</th><th>Cant.</th><th>Compra</th><th>Actual</th><th>Rend.</th><th>Valor USD</th><th>ARS equiv.</th><th></th></tr>
-    ${list.map(row).join('')}
-  </table>
-  </div>
-  <div class="sh">+ Agregar posición</div>
-  <button class="btn pos" onclick="addCartera()">+ Agregar activo</button>`;
+  ${grupoSection('Moneda extranjera')}
+  ${grupoSection('Criptomoneda')}
+  ${grupoSection('Bono/Acción Negociable')}
+  ${!list.length?`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin activos registrados.</div>`:''}`;
+}
+function _setupCarteraModal(){
+  const tipoSel=document.getElementById('mf-tipo');
+  if(!tipoSel) return;
+  const show=(key,visible)=>{
+    const el=document.getElementById('mf-'+key);
+    if(!el) return;
+    el.closest('.modal-field').style.display=visible?'':'none';
+  };
+  function update(){ show('moneda', tipoSel.value==='Bono/Acción Negociable'); }
+  tipoSel.addEventListener('change',update);
+  update();
 }
 function addCartera(){
   openModal('Nueva posición',[
-    {key:'activo',label:'Nombre del activo',type:'text',required:true},
-    {key:'tipo',label:'Tipo',type:'select',options:['ON','ETF','Stablecoin','Accion','Otro']},
-    {key:'broker',label:'Broker / plataforma',type:'text'},
-    {key:'moneda',label:'Moneda',type:'select',options:['USD','ARS']},
-    {key:'cantidad',label:'Cantidad',type:'number',value:'1'},
-    {key:'precioCompra',label:'Precio de compra',type:'number',required:true},
-    {key:'precioActual',label:'Precio actual',type:'number',required:true},
+    {key:'activo',label:'Nombre del activo',type:'text',required:true,hint:'Ej: USD, BTC, AL30'},
+    {key:'tipo',label:'Tipo',type:'select',options:['Moneda extranjera','Criptomoneda','Bono/Acción Negociable'],required:true},
+    {key:'moneda',label:'Moneda del precio',type:'select',options:['ARS','USD']},
+    {key:'cantidad',label:'Cantidad',type:'number',required:true,value:'1'},
+    {key:'precioCompra',label:'Precio de compra',type:'number',required:true,hint:'Moneda extran.: ARS/unidad · Crypto: USD/unidad · Bono: ARS o USD/unidad'},
     {key:'notas',label:'Notas',type:'textarea'},
   ],(data)=>{
-    dbAdd('cartera',{...data,cantidad:+data.cantidad,precioCompra:+data.precioCompra,precioActual:+data.precioActual});
+    dbAdd('cartera',{activo:data.activo,tipo:data.tipo,moneda:data.moneda||'USD',cantidad:+data.cantidad,precioCompra:+data.precioCompra,precioActual:0,notas:data.notas||''});
     renderCartera();
   });
+  _setupCarteraModal();
 }
 function editCartera(id){
   const c=dbGet('cartera').find(x=>x.id===id);
+  if(!c) return;
   openModal('Editar posición',[
-    {key:'activo',label:'Nombre',type:'text',value:c.activo,required:true},
-    {key:'tipo',label:'Tipo',type:'select',options:['ON','ETF','Stablecoin','Accion','Otro'],value:c.tipo},
-    {key:'broker',label:'Broker',type:'text',value:c.broker||''},
-    {key:'moneda',label:'Moneda',type:'select',options:['USD','ARS'],value:c.moneda},
-    {key:'cantidad',label:'Cantidad',type:'number',value:c.cantidad},
+    {key:'activo',label:'Nombre del activo',type:'text',value:c.activo,required:true},
+    {key:'tipo',label:'Tipo',type:'select',options:['Moneda extranjera','Criptomoneda','Bono/Acción Negociable'],value:c.tipo||'Criptomoneda',required:true},
+    {key:'moneda',label:'Moneda del precio',type:'select',options:['ARS','USD'],value:c.moneda||'USD'},
+    {key:'cantidad',label:'Cantidad',type:'number',value:c.cantidad,required:true},
     {key:'precioCompra',label:'Precio de compra',type:'number',value:c.precioCompra,required:true},
-    {key:'precioActual',label:'Precio actual',type:'number',value:c.precioActual,required:true},
     {key:'notas',label:'Notas',type:'textarea',value:c.notas||''},
   ],(data)=>{
-    dbUpdate('cartera',id,{...data,cantidad:+data.cantidad,precioCompra:+data.precioCompra,precioActual:+data.precioActual});
+    dbUpdate('cartera',id,{...c,activo:data.activo,tipo:data.tipo,moneda:data.moneda||c.moneda||'USD',cantidad:+data.cantidad,precioCompra:+data.precioCompra,notas:data.notas||''});
     renderCartera();
   });
+  _setupCarteraModal();
 }
 function deleteCartera(id){ confirmDelete(()=>{ dbDelete('cartera',id); renderCartera(); }); }
 
