@@ -1853,7 +1853,7 @@ function deleteIngreso(id){ confirmDelete(()=>{ dbDelete('ingresos',id); renderI
 // =============================================
 // RENDER: EGRESOS INMEDIATOS
 // =============================================
-const CATEGORIAS=['Vivienda','Auto','Telefonía','Conectividad','River','Plataformas','Gatos','Ocio','Comida','Salud','Educación','Ropa','Viaje','A eliminar','Otro'];
+const CATEGORIAS=['Vivienda','Auto','Telefonía','Conectividad','River','Plataformas','Gatos','Ocio','Comida','Salud','Educación','Ropa','Viaje','Compras casa','A eliminar','Otro'];
 
 function renderEgresosInm(){
   const list=dbGet('egresos_inm');
@@ -2044,8 +2044,10 @@ function renderEgresosCuotas(){
     return s+(ec.montoCuota||0)*rest;
   },0);
 
-  const noEsARS=list.filter(ec=>ec.moneda==='ARS'&&!ec.esencial).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
-  const noEsUSD=list.filter(ec=>ec.moneda==='USD'&&!ec.esencial).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
+  // Handle both boolean false and legacy string 'no' for esencial field
+  const esEs=(ec)=>ec.esencial===true||ec.esencial==='si';
+  const noEsARS=list.filter(ec=>ec.moneda==='ARS'&&!esEs(ec)).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
+  const noEsUSD=list.filter(ec=>ec.moneda==='USD'&&!esEs(ec)).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
 
   // KPI card helper
   function kpiCard(cls,label,ars,usd){
@@ -2094,7 +2096,7 @@ function renderEgresosCuotas(){
         <div class="erow-meta" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;">
           <span class="pill ${ec.moneda==='ARS'?'opal':'pos'}">${ec.moneda}</span>
           <span class="pill gr">${typeLabel}</span>
-          <span class="pill ${ec.esencial?'pos':'neg'}">${ec.esencial?'Esencial':'Opcional'}</span>
+          <span class="pill ${esEs(ec)?'pos':'neg'}">${esEs(ec)?'Esencial':'Opcional'}</span>
           <span style="font-size:10px;color:var(--muted);">${medioPago} · Desde ${inicio} → ${fin}</span>
         </div>
       </div>
@@ -2104,10 +2106,26 @@ function renderEgresosCuotas(){
     </div>`;
   }
 
-  // Collapsible month sections
+  function subSection(label,items,m){
+    if(!items.length) return '';
+    const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+    const u=items.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+    const sub=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
+    return `<div style="margin:6px 0 2px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;background:var(--sidebar);border-radius:6px;margin-bottom:4px;">
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">${label}</span>
+        <span style="font-size:11px;font-weight:700;color:var(--neg-dk);">${sub}</span>
+      </div>
+      ${items.map(ec=>itemRow(ec,m)).join('')}
+    </div>`;
+  }
+
+  // Collapsible month sections with Periódicos/Fijos + Cuotas subsections
   const monthSections=activeMonths.map(m=>{
     const items=list.filter(ec=>cuotaMontoEnMes(ec,m)>0)
       .sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''));
+    const periodicos=items.filter(ec=>ec.periodicidad&&ec.periodicidad!=='unico');
+    const cuotas=items.filter(ec=>!ec.periodicidad||ec.periodicidad==='unico');
     const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
     const u=items.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
     const totLabel=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
@@ -2117,7 +2135,8 @@ function renderEgresosCuotas(){
         <span style="color:var(--neg-dk);font-size:12px;">${totLabel}</span>
       </summary>
       <div style="padding:6px 8px;">
-        ${items.map(ec=>itemRow(ec,m)).join('')}
+        ${subSection('Periódicos / Fijos',periodicos,m)}
+        ${subSection('Cuotas',cuotas,m)}
       </div>
     </details>`;
   }).join('');
