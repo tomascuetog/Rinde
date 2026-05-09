@@ -389,8 +389,9 @@ body.privacy svg text{
   <div class="ns">Compartidos</div>
   <div class="ni" onclick="nav('split')" data-label="Gastos compartidos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.21 2.015-4 4.5-4S10 10.79 10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12.5 9.5c1.38.5 2.5 1.7 2.5 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Gastos compartidos</span></div>
 
-  <div class="ns">Inversiones</div>
+  <div class="ns">Activos</div>
   <div class="ni" onclick="nav('cartera')" data-label="Cartera"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 12V6a1 1 0 011-1h10a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.5"/><path d="M5 5V3.5A1.5 1.5 0 016.5 2h3A1.5 1.5 0 0111 3.5V5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8.5" r="1.5" fill="currentColor"/></svg></span><span class="ni-label">Cartera</span></div>
+  <div class="ni" onclick="nav('activos')" data-label="Activos físicos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 14V7.5L8 2l6 5.5V14a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span><span class="ni-label">Activos físicos</span></div>
   <div class="ni" onclick="nav('simulador')" data-label="¿Puedo?"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M6 6.5c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L8 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r="1" fill="currentColor"/></svg></span><span class="ni-label">¿Puedo?</span></div>
 
   <div class="ns">Objetivos</div>
@@ -503,8 +504,15 @@ body.privacy svg text{
 <!-- CARTERA -->
 <div class="panel" id="panel-cartera">
   <div class="ptitle">Cartera</div>
-  <div class="psub">ONs · ETFs · Stablecoins · update manual de precios</div>
+  <div class="psub">Moneda extranjera · Cripto · Bonos y acciones</div>
   <div id="cartera-content"></div>
+</div>
+
+<!-- ACTIVOS FÍSICOS -->
+<div class="panel" id="panel-activos">
+  <div class="ptitle">Activos físicos</div>
+  <div class="psub">Bienes materiales que compraste y podés revender · auto, casa, electrónica</div>
+  <div id="activos-content"></div>
 </div>
 
 <!-- TARJETAS -->
@@ -932,7 +940,7 @@ const KEYS = {
   cotizaciones:'rinde_cotizaciones', inflacion:'rinde_inflacion',
   ingresos:'rinde_ingresos', egresos_inm:'rinde_egresos_inm',
   egresos_cuotas:'rinde_egresos_cuotas', split:'rinde_split',
-  cartera:'rinde_cartera', tarjetas:'rinde_tarjetas',
+  cartera:'rinde_cartera', activos:'rinde_activos', tarjetas:'rinde_tarjetas',
   tareas:'rinde_tareas', objetivos:'rinde_objetivos',
   productos:'rinde_productos', platos:'rinde_platos',
   actividad:'rinde_actividad', mapa:'rinde_mapa',
@@ -1273,7 +1281,7 @@ function nav(id){
     cotizacion:renderCotizacion, inflacion:renderInflacion,
     ingresos:renderIngresos, 'egresos-inm':renderEgresosInm,
     'egresos-cuotas':renderEgresosCuotas, 'egresos-fijos':renderEgresosFijos, split:renderSplit,
-    cartera:renderCartera, tarjetas:renderTarjetas,
+    cartera:renderCartera, activos:renderActivos, tarjetas:renderTarjetas,
     simulador:renderSimulador, analisis:renderAnalisis,
     proyeccion:renderProyeccion, objetivos:renderObjetivos,
     optimizador:renderOptimizador, precios:renderPrecios,
@@ -2963,6 +2971,103 @@ function editCartera(id){
   _setupCarteraModal();
 }
 function deleteCartera(id){ confirmDelete(()=>{ dbDelete('cartera',id); renderCartera(); }); }
+
+// =============================================
+// RENDER: ACTIVOS FÍSICOS
+// =============================================
+function renderActivos(){
+  const list=dbGet('activos');
+  const refs=getCarteraRefs();
+  const usdArs=refs.USD_ARS||1;
+
+  let totalUSD=0, rendUSD=0;
+  const computed=list.map(a=>{
+    const pc=a.precioCompra||0;
+    const va=a.valorActual!=null?a.valorActual:pc;
+    const pcUSD=a.moneda==='ARS'?pc/(usdArs||1):pc;
+    const vaUSD=a.moneda==='ARS'?va/(usdArs||1):va;
+    const rUSD=vaUSD-pcUSD;
+    totalUSD+=vaUSD;
+    rendUSD+=rUSD;
+    return {...a,pcUSD,vaUSD,rUSD,va};
+  });
+
+  const tipoColors={Inmueble:'pos',Vehículo:'warn',Electrónica:'opal','Mueble/Decoración':'gr',Otro:'gr'};
+
+  function row(a){
+    const compraStr=a.moneda==='ARS'?fmtARS(a.precioCompra||0):`${fmtUSD(a.precioCompra||0)} USD`;
+    const actualCell=`<input type="number" value="${a.va||''}" style="width:110px;font-family:var(--font-display);font-size:12px;background:var(--sidebar);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;color:inherit;" onchange="updateActivoValor('${a.id}',this.value)" placeholder="0">`;
+    const rendStr=(a.rUSD>=0?'+':'')+fmtUSD(a.rUSD)+' USD';
+    return `<tr>
+      <td><strong>${a.nombre}</strong></td>
+      <td><span class="pill ${tipoColors[a.tipo]||'gr'}">${a.tipo||'Otro'}</span></td>
+      <td style="font-size:11px;color:var(--muted);">${a.fechaCompra||'-'}</td>
+      <td class="mono">${compraStr}</td>
+      <td>${actualCell} <span style="font-size:10px;color:var(--muted);">${a.moneda||'USD'}</span></td>
+      <td class="${a.rUSD>=0?'pos-text':'neg-text'} mono">${rendStr}</td>
+      <td class="actions">
+        <button class="btn sm ghost" onclick="editActivo('${a.id}')">✏</button>
+        <button class="btn sm danger" onclick="deleteActivo('${a.id}')">✕</button>
+      </td>
+    </tr>`;
+  }
+
+  document.getElementById('activos-content').innerHTML=`
+  <div style="display:flex;gap:8px;margin-bottom:14px;">
+    <button class="btn pos" onclick="addActivo()">+ Agregar activo</button>
+  </div>
+  <div class="g2">
+    <div class="card pos">
+      <div class="cl">Valor actual total</div>
+      <div class="cv">${fmtUSD(totalUSD)} USD</div>
+      <div class="cs">${fmtARS(totalUSD*usdArs)}</div>
+    </div>
+    <div class="card ${rendUSD>=0?'pos-s':'neg'}">
+      <div class="cl">Rendimiento total</div>
+      <div class="cv">${rendUSD>=0?'+':''}${fmtUSD(Math.abs(rendUSD))} USD</div>
+      <div class="cs">${rendUSD>=0?'+':''}${fmtARS(Math.abs(rendUSD*usdArs))}</div>
+    </div>
+  </div>
+  ${list.length?`
+  <div class="sh">Mis activos</div>
+  <div class="table-wrap"><table class="tbl">
+    <tr><th>Nombre</th><th>Tipo</th><th>Compra</th><th>Precio compra</th><th>Valor actual (est.)</th><th>Rend.</th><th></th></tr>
+    ${computed.map(row).join('')}
+  </table></div>`:`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin activos registrados. Agregá tu auto, casa o cualquier bien que pueda revenderse.</div>`}`;
+}
+function updateActivoValor(id,val){ dbUpdate('activos',id,{valorActual:+val||0}); renderActivos(); }
+function addActivo(){
+  openModal('Nuevo activo físico',[
+    {key:'nombre',label:'Nombre',type:'text',required:true,hint:'Ej: Toyota Corolla 2020, Dpto. Palermo 3A'},
+    {key:'tipo',label:'Tipo',type:'select',options:['Inmueble','Vehículo','Electrónica','Mueble/Decoración','Otro'],required:true},
+    {key:'moneda',label:'Moneda',type:'select',options:['USD','ARS']},
+    {key:'fechaCompra',label:'Fecha de compra (YYYY-MM)',type:'month'},
+    {key:'precioCompra',label:'Precio de compra',type:'number',required:true},
+    {key:'valorActual',label:'Valor actual estimado',type:'number',hint:'Si no sabés, dejalo igual al precio de compra'},
+    {key:'notas',label:'Notas',type:'textarea'},
+  ],(data)=>{
+    const pc=+data.precioCompra||0;
+    dbAdd('activos',{nombre:data.nombre,tipo:data.tipo,moneda:data.moneda||'USD',fechaCompra:data.fechaCompra||'',precioCompra:pc,valorActual:+data.valorActual||pc,notas:data.notas||''});
+    renderActivos();
+  });
+}
+function editActivo(id){
+  const a=dbGet('activos').find(x=>x.id===id);
+  if(!a) return;
+  openModal('Editar activo físico',[
+    {key:'nombre',label:'Nombre',type:'text',value:a.nombre,required:true},
+    {key:'tipo',label:'Tipo',type:'select',options:['Inmueble','Vehículo','Electrónica','Mueble/Decoración','Otro'],value:a.tipo||'Otro'},
+    {key:'moneda',label:'Moneda',type:'select',options:['USD','ARS'],value:a.moneda||'USD'},
+    {key:'fechaCompra',label:'Fecha de compra (YYYY-MM)',type:'month',value:a.fechaCompra||''},
+    {key:'precioCompra',label:'Precio de compra',type:'number',value:a.precioCompra,required:true},
+    {key:'valorActual',label:'Valor actual estimado',type:'number',value:a.valorActual!=null?a.valorActual:''},
+    {key:'notas',label:'Notas',type:'textarea',value:a.notas||''},
+  ],(data)=>{
+    dbUpdate('activos',id,{...a,nombre:data.nombre,tipo:data.tipo,moneda:data.moneda||a.moneda||'USD',fechaCompra:data.fechaCompra||a.fechaCompra||'',precioCompra:+data.precioCompra,valorActual:+data.valorActual||a.valorActual,notas:data.notas||''});
+    renderActivos();
+  });
+}
+function deleteActivo(id){ confirmDelete(()=>{ dbDelete('activos',id); renderActivos(); }); }
 
 // =============================================
 // RENDER: TARJETAS
