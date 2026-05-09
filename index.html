@@ -382,8 +382,9 @@ body.privacy svg text{
   <div class="ni" onclick="nav('ingresos')" data-label="Ingresos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Ingresos</span></div>
 
   <div class="ns">Egresos</div>
-  <div class="ni" onclick="nav('egresos-inm')" data-label="Inmediatos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3.5 8.5L8 13l4.5-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Inmediatos</span></div>
-  <div class="ni" onclick="nav('egresos-cuotas')" data-label="Cuotas / Fijo"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="10.5" cy="10" r="1" fill="currentColor"/></svg></span><span class="ni-label">Cuotas / Fijo</span></div>
+  <div class="ni" onclick="nav('egresos-inm')" data-label="Débito/Transferencias"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3.5 8.5L8 13l4.5-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Débito/Transf.</span></div>
+  <div class="ni" onclick="nav('egresos-cuotas')" data-label="Crédito"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="10.5" cy="10" r="1" fill="currentColor"/></svg></span><span class="ni-label">Crédito</span></div>
+  <div class="ni" onclick="nav('egresos-fijos')" data-label="Fijos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5h12M2 8h8M2 11h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="ni-label">Fijos</span></div>
 
   <div class="ns">Compartidos</div>
   <div class="ni" onclick="nav('split')" data-label="Gastos compartidos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.21 2.015-4 4.5-4S10 10.79 10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12.5 9.5c1.38.5 2.5 1.7 2.5 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Gastos compartidos</span></div>
@@ -471,18 +472,25 @@ body.privacy svg text{
   <div id="ingresos-content"></div>
 </div>
 
-<!-- EGRESOS INMEDIATOS -->
+<!-- EGRESOS DÉBITO/TRANSFERENCIAS -->
 <div class="panel" id="panel-egresos-inm">
-  <div class="ptitle">Egresos — inmediatos</div>
-  <div class="psub">Débitos y transferencias · con flag de ajuste por inflación</div>
+  <div class="ptitle">Débito / Transferencias</div>
+  <div class="psub">Gastos directos de cuenta · débito y transferencias</div>
   <div id="egresos-inm-content"></div>
 </div>
 
-<!-- EGRESOS CUOTAS/FIJO -->
+<!-- EGRESOS CRÉDITO (cuotas) -->
 <div class="panel" id="panel-egresos-cuotas">
-  <div class="ptitle">Cuotas / Fijo</div>
-  <div class="psub">Gastos periódicos, en cuotas o fijos · con frecuencia, tarjeta y ajuste por inflación</div>
+  <div class="ptitle">Crédito</div>
+  <div class="psub">Compras en cuotas · tarjeta de crédito</div>
   <div id="egresos-cuotas-content"></div>
+</div>
+
+<!-- EGRESOS FIJOS -->
+<div class="panel" id="panel-egresos-fijos">
+  <div class="ptitle">Fijos</div>
+  <div class="psub">Gastos periódicos y recurrentes · suscripciones, servicios, habituales</div>
+  <div id="egresos-fijos-content"></div>
 </div>
 
 <!-- SPLIT -->
@@ -1250,7 +1258,7 @@ function nav(id){
     dashboard:renderDashboard, tareas:renderTareas,
     cotizacion:renderCotizacion, inflacion:renderInflacion,
     ingresos:renderIngresos, 'egresos-inm':renderEgresosInm,
-    'egresos-cuotas':renderEgresosCuotas, split:renderSplit,
+    'egresos-cuotas':renderEgresosCuotas, 'egresos-fijos':renderEgresosFijos, split:renderSplit,
     cartera:renderCartera, tarjetas:renderTarjetas,
     simulador:renderSimulador, analisis:renderAnalisis,
     proyeccion:renderProyeccion, objetivos:renderObjetivos,
@@ -2021,7 +2029,7 @@ function cuotaMontoEnMes(ec, mes){
 function egresoCuotaEnMes(ec,mes){ return cuotaMontoEnMes(ec,mes); }
 
 function renderEgresosCuotas(){
-  const list=dbGet('egresos_cuotas');
+  const list=dbGet('egresos_cuotas').filter(ec=>!ec.periodicidad||ec.periodicidad==='unico');
   const mes=MES_ACTUAL;
 
   // Totals per currency for a given month
@@ -2178,8 +2186,7 @@ function renderEgresosCuotas(){
 
   <!-- ACTION BAR -->
   <div style="display:flex;gap:8px;margin-bottom:20px;">
-    <button class="btn neg" onclick="addEgresoCuota('periodico')">+ Gasto periódico / fijo</button>
-    <button class="btn neg" onclick="addEgresoCuota('cuotas')">+ Compra en cuotas</button>
+    <button class="btn neg" onclick="addEgresoCuota('cuotas')">+ Nueva compra en cuotas</button>
   </div>
 
   <!-- FINANCIAL SNAPSHOT -->
@@ -2290,7 +2297,7 @@ function addEgresoCuota(modo){
       esencial:data.esencial==='si',
       ajustaInflacion:data.ajustaInflacion==='si',
     });
-    renderEgresosCuotas();
+    renderEgresosCuotas(); renderEgresosFijos();
   });
   _setupCuotaModal();
 }
@@ -2328,11 +2335,170 @@ function editEgresoCuota(id){
       esencial:data.esencial==='si',
       ajustaInflacion:data.ajustaInflacion==='si',
     });
-    renderEgresosCuotas();
+    renderEgresosCuotas(); renderEgresosFijos();
   });
   _setupCuotaModal();
 }
-function deleteEgresoCuota(id){ confirmDelete(()=>{ dbDelete('egresos_cuotas',id); renderEgresosCuotas(); }); }
+function deleteEgresoCuota(id){ confirmDelete(()=>{ dbDelete('egresos_cuotas',id); renderEgresosCuotas(); renderEgresosFijos(); }); }
+
+// =============================================
+// RENDER: EGRESOS FIJOS
+// =============================================
+function renderEgresosFijos(){
+  // Migrate: periódicos with no 'hasta' → 2026-12
+  const all=dbGet('egresos_cuotas');
+  let dirty=false;
+  all.forEach(ec=>{ if(ec.periodicidad&&ec.periodicidad!=='unico'&&!ec.hasta){ ec.hasta='2026-12'; dirty=true; } });
+  if(dirty) dbSet('egresos_cuotas',all);
+
+  const list=all.filter(ec=>ec.periodicidad&&ec.periodicidad!=='unico');
+  const mes=MES_ACTUAL;
+
+  function mesARS(m){ return list.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0); }
+  function mesUSD(m){ return list.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0); }
+
+  const arsHoy=mesARS(mes), usdHoy=mesUSD(mes);
+  const proxMes=mesNext(mes);
+  const arsProx=mesARS(proxMes), usdProx=mesUSD(proxMes);
+
+  // Hasta dic 2026
+  const FIN='2026-12';
+  let hastaFinARS=0, hastaFinUSD=0;
+  for(let m=mes; m<=FIN; m=mesNext(m)){ hastaFinARS+=mesARS(m); hastaFinUSD+=mesUSD(m); }
+
+  const esEs=(ec)=>ec.esencial===true||ec.esencial==='si';
+  const noEsARS=list.filter(ec=>ec.moneda==='ARS'&&!esEs(ec)).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
+  const noEsUSD=list.filter(ec=>ec.moneda==='USD'&&!esEs(ec)).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
+
+  function kpiCard(cls,label,ars,usd){
+    const hA=ars>0,hU=usd>0;
+    return `<div class="card ${cls}">
+      <div class="cl">${label}</div>
+      ${hA?`<div class="cv">${fmtARS(ars)}</div>`:''}
+      ${hU?`<div class="${hA?'cs':'cv'}">${fmtUSD(usd)} USD</div>`:''}
+      ${!hA&&!hU?`<div class="cv">$0</div>`:''}
+    </div>`;
+  }
+
+  // Trajectory (8 months)
+  const cotiz=getCotizacion(mes);
+  const trajMonths=[];
+  for(let i=0;i<=7;i++) trajMonths.push(mesNext(mes,i));
+  const trajData=trajMonths.map(m=>({m,a:mesARS(m),u:mesUSD(m),total:mesARS(m)+mesUSD(m)*getCotizacion(m)}));
+  const maxTraj=Math.max(...trajData.map(d=>d.total),1);
+  const trajBars=trajData.map(d=>{
+    const pct=Math.max(5,Math.round(d.total/maxTraj*100));
+    const isCur=d.m===mes;
+    const tip=[d.a?'-'+fmtARS(d.a):'',d.u?'-'+fmtUSD(d.u)+' USD':''].filter(Boolean).join(' ')||'$0';
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;" title="${mesLabel(d.m)}: ${tip}">
+      <div style="width:100%;flex:1;display:flex;align-items:flex-end;">
+        <div style="width:100%;height:${pct}%;min-height:4px;background:${isCur?'var(--neg)':'rgba(155,193,188,.1)'};border-radius:3px 3px 0 0;${isCur?'border:1px solid var(--neg-dk);border-bottom:none;':''}"></div>
+      </div>
+      <div style="font-size:9px;font-weight:${isCur?700:400};color:${isCur?'var(--neg-dk)':'var(--muted)'};">${mesLabel(d.m).split(' ')[0]}</div>
+    </div>`;
+  }).join('');
+
+  // Composition: Esencial/Opcional only (all are periódico)
+  const todayItems=list.filter(ec=>cuotaMontoEnMes(ec,mes)>0);
+  const totalN=todayItems.reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0)||1;
+  const esencialN=todayItems.filter(ec=>esEs(ec)).reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0);
+  const esencialPct=Math.round(esencialN/totalN*100);
+  const opcionalPct=100-esencialPct;
+
+  // Insight
+  const noEsCount=todayItems.filter(ec=>!esEs(ec)).length;
+  const noEsUSDEq=noEsUSD+noEsARS/cotiz;
+  const insightHtml=noEsUSDEq>0?`
+  <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:8px;background:var(--warn-bg);border:1px solid var(--warn);margin-bottom:16px;font-size:12px;color:var(--warn);">
+    <span style="font-size:16px;flex-shrink:0;">💡</span>
+    <span>Revisando <strong>${noEsCount} gasto${noEsCount!==1?'s':''} opcional${noEsCount!==1?'es':''}</strong> podrías liberar hasta <strong>~${fmtUSD(noEsUSDEq)} USD/mes</strong></span>
+  </div>`:'';
+
+  // Active months
+  const activeMonths=[];
+  for(let i=-3;i<=24;i++){ const m=mesNext(mes,i); if(list.some(ec=>cuotaMontoEnMes(ec,m)>0)) activeMonths.push(m); }
+
+  function itemRow(ec,m){
+    const v=cuotaMontoEnMes(ec,m);
+    const inicio=ec.desde?ec.desde.slice(0,7):'';
+    const fin=ec.hasta?ec.hasta.slice(0,7):'indefinido';
+    const monto=ec.moneda==='ARS'?`-${fmtARS(v)}`:`-${fmtUSD(v)} USD`;
+    const medioPago=ec.tarjeta==='Transferencia'&&ec.transferenciaNombre
+      ?`Transf. a ${ec.transferenciaNombre}${ec.transferenciaAlias?' ('+ec.transferenciaAlias+')':''}`
+      :ec.tarjeta||'–';
+    return `<div class="erow">
+      <div class="erow-info">
+        <div class="erow-name">${ec.descripcion}${ec.fecha?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px;">${fmtFecha(ec.fecha)}</span>`:''}</div>
+        <div class="erow-meta" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;">
+          <span class="pill ${ec.moneda==='ARS'?'opal':'pos'}">${ec.moneda}</span>
+          <span class="pill gr">${PERIOD_LABELS[ec.periodicidad]||ec.periodicidad}</span>
+          <span class="pill ${esEs(ec)?'pos':'neg'}">${esEs(ec)?'Esencial':'Opcional'}</span>
+          <span style="font-size:10px;color:var(--muted);">${medioPago} · ${inicio} → ${fin}</span>
+        </div>
+      </div>
+      <span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:var(--neg-dk);margin:0 8px;white-space:nowrap;">${monto}</span>
+      <button class="btn sm ghost" onclick="editEgresoCuota('${ec.id}')">✏</button>
+      <button class="btn sm danger" onclick="deleteEgresoCuota('${ec.id}')">✕</button>
+    </div>`;
+  }
+
+  const monthSections=activeMonths.map(m=>{
+    const items=list.filter(ec=>cuotaMontoEnMes(ec,m)>0).sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''));
+    const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+    const u=items.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
+    const totLabel=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
+    return `<details ${m===mes?'open':''} style="margin-bottom:6px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;">
+      <summary style="cursor:pointer;padding:10px 14px;background:var(--surface);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+        <span>${mesLabel(m)}</span><span style="color:var(--neg-dk);font-size:12px;">${totLabel}</span>
+      </summary>
+      <div style="padding:6px 8px;">${items.map(ec=>itemRow(ec,m)).join('')}</div>
+    </details>`;
+  }).join('');
+
+  document.getElementById('egresos-fijos-content').innerHTML=`
+
+  <div style="display:flex;gap:8px;margin-bottom:20px;">
+    <button class="btn neg" onclick="addEgresoCuota('periodico')">+ Nuevo fijo / periódico</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.35fr 1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border2);border-left:3px solid var(--neg-dk);border-radius:8px;padding:14px 16px;">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">Este mes</div>
+      ${arsHoy?`<div style="font-size:26px;font-weight:800;font-family:var(--font-display);color:var(--neg-dk);letter-spacing:-.02em;line-height:1.1;">-${fmtARS(arsHoy)}</div>`:''}
+      ${usdHoy?`<div style="font-size:${arsHoy?12:24}px;font-weight:${arsHoy?500:800};color:${arsHoy?'var(--muted)':'var(--neg-dk)'};font-family:var(--font-display);margin-top:${arsHoy?4:0}px;">-${fmtUSD(usdHoy)} USD</div>`:''}
+      ${!arsHoy&&!usdHoy?`<div style="font-size:24px;font-weight:800;font-family:var(--font-display);color:var(--muted);">$0</div>`:''}
+    </div>
+    ${kpiCard('neg-s','Próximo mes',arsProx,usdProx)}
+    ${kpiCard('warn','Hasta dic \'26',hastaFinARS,hastaFinUSD)}
+    ${kpiCard('neg-s','No esencial',noEsARS,noEsUSD)}
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:16px 18px 12px;margin-bottom:16px;">
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px;">Proyección de compromisos · próximos 8 meses</div>
+    <div style="display:flex;align-items:flex-end;gap:5px;height:54px;">${trajBars}</div>
+  </div>
+
+  ${todayItems.length?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px;">Composición del mes</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:5px;"><span>Esencial</span><span style="color:var(--pos-dk);">${esencialPct}%</span></div>
+      <div class="bb" style="margin-bottom:10px;height:5px;border-radius:3px;"><div class="bf" style="width:${esencialPct}%;background:var(--pos);height:5px;border-radius:3px;"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:5px;"><span>Opcional</span><span style="color:var(--neg-dk);">${opcionalPct}%</span></div>
+      <div class="bb" style="height:5px;border-radius:3px;"><div class="bf" style="width:${opcionalPct}%;background:var(--neg);height:5px;border-radius:3px;"></div></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;justify-content:center;">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px;">Resumen anual</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Comprometido hasta dic '26</div>
+      ${hastaFinARS?`<div style="font-size:16px;font-weight:700;color:var(--neg-dk);">-${fmtARS(hastaFinARS)}</div>`:''}
+      ${hastaFinUSD?`<div style="font-size:${hastaFinARS?12:16}px;font-weight:700;color:var(--neg-dk);">-${fmtUSD(hastaFinUSD)} USD</div>`:''}
+    </div>
+  </div>`:''}
+
+  ${insightHtml}
+
+  <div class="sh">Por mes</div>
+  ${monthSections||`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin gastos fijos cargados.</div>`}`;
+}
 
 // =============================================
 // RENDER: SPLIT
