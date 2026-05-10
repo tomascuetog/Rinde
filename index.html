@@ -5155,16 +5155,70 @@ const TABLAS_CAMPOS_META={
   ],
 };
 
-function renderTablas(){
+// Propagate a rename to all data tables that reference the old value
+function propagateTablasRename(key,oldVal,newVal){
+  if(key==='categorias'){
+    dbSet('egresos_inm', dbGet('egresos_inm').map(e=>e.categoria===oldVal?{...e,categoria:newVal}:e));
+    dbSet('egresos_cuotas', dbGet('egresos_cuotas').map(e=>e.categoria===oldVal?{...e,categoria:newVal}:e));
+  }
+  if(key==='tiposActivo'){
+    dbSet('activos', dbGet('activos').map(a=>a.tipo===oldVal?{...a,tipo:newVal}:a));
+  }
+  if(key==='modosPago'){
+    dbSet('egresos_cuotas', dbGet('egresos_cuotas').map(e=>e.tarjeta===oldVal?{...e,tarjeta:newVal}:e));
+  }
+  if(key==='frecuenciasIng'){
+    dbSet('ingresos', dbGet('ingresos').map(i=>i.frecuencia===oldVal?{...i,frecuencia:newVal}:i));
+    dbSet('ingresos_futuros', dbGet('ingresos_futuros').map(i=>i.frecuencia===oldVal?{...i,frecuencia:newVal}:i));
+  }
+  if(key==='frecuenciasEg'){
+    dbSet('egresos_cuotas', dbGet('egresos_cuotas').map(e=>e.periodicidad===oldVal?{...e,periodicidad:newVal}:e));
+  }
+  if(key==='monedas'){
+    ['egresos_inm','egresos_cuotas','ingresos','ingresos_futuros','split','activos'].forEach(k=>{
+      dbSet(k, dbGet(k).map(r=>r.moneda===oldVal?{...r,moneda:newVal}:r));
+    });
+  }
+}
+function renameTablasItem(key,idx,newVal){
+  newVal=(newVal||'').trim(); if(!newVal) return;
   const cfg=getTablasConfig();
+  if(!cfg[key]) cfg[key]=[...TABLAS_DEFAULTS[key]||[]];
+  const oldVal=cfg[key][idx];
+  if(oldVal===newVal) return;
+  cfg[key][idx]=newVal;
+  saveTablasConfig(cfg);
+  propagateTablasRename(key,oldVal,newVal);
+}
+function startTablasEdit(key,idx){ window._tablasEditing={key,idx}; renderTablas(); }
+function confirmTablasEdit(key,idx){
+  const inp=document.getElementById(`tedit-${key}-${idx}`);
+  if(!inp) return;
+  renameTablasItem(key,idx,inp.value);
+  window._tablasEditing=null;
+}
+function cancelTablasEdit(){ window._tablasEditing=null; renderTablas(); }
+
+function renderTablas(){
+  const ed=window._tablasEditing||null;
 
   function listCard(title,key,addHint){
     const items=getTablasList(key);
-    const rows=items.map((it,i)=>`
-      <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);">
+    const rows=items.map((it,i)=>{
+      const isEditing=ed&&ed.key===key&&ed.idx===i;
+      if(isEditing){
+        return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);">
+          <input id="tedit-${key}-${i}" type="text" value="${it}" style="flex:1;font-size:13px;padding:3px 6px;border:1px solid var(--opal);border-radius:5px;background:var(--surface);color:var(--text);" onkeydown="if(event.key==='Enter')confirmTablasEdit('${key}',${i});if(event.key==='Escape')cancelTablasEdit();">
+          <button class="btn sm pos" onclick="confirmTablasEdit('${key}',${i})">✓</button>
+          <button class="btn sm ghost" onclick="cancelTablasEdit()">✕</button>
+        </div>`;
+      }
+      return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);">
         <span style="flex:1;font-size:13px;">${it}</span>
-        <button class="btn sm danger" onclick="removeTablasItem('${key}',${i})">✕</button>
-      </div>`).join('');
+        <button class="btn sm ghost" onclick="startTablasEdit('${key}',${i})" title="Editar">✏</button>
+        <button class="btn sm danger" onclick="removeTablasItem('${key}',${i})" title="Eliminar">✕</button>
+      </div>`;
+    }).join('');
     return `
       <div class="card" style="display:flex;flex-direction:column;gap:0;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -5217,6 +5271,9 @@ function renderTablas(){
     ${camposCard('Activos')}
   </div>
   <div style="font-size:11px;color:var(--muted);padding:8px 0;">Los campos marcados como <strong>siempre</strong> no se pueden ocultar porque son necesarios para guardar el registro.</div>`;
+
+  // Auto-focus el input de edición si hay uno activo
+  if(ed){ const inp=document.getElementById(`tedit-${ed.key}-${ed.idx}`); if(inp){ inp.focus(); inp.select(); } }
 }
 
 function renderAsistente(){
