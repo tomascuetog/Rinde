@@ -3895,18 +3895,40 @@ function renderProyeccion(){
   const meses=[];
   for(let i=0;i<12;i++) meses.push(mesNext(MES_ACTUAL,i));
 
+  // Split unpaid instancias for the given month (paid ones already moved to ingresos/egresos_inm)
+  function splitIngMes(mes){
+    return dbGet('split').reduce((s,sp)=>{
+      if(sp.direccion!=='Me deben') return s;
+      return s+getSplitInstancias(sp)
+        .filter(inst=>inst.mes===mes&&!inst.pagado)
+        .reduce((a,inst)=>a+(sp.moneda==='USD'?inst.monto:arsToUsd(inst.monto,mes)),0);
+    },0);
+  }
+  function splitEgMes(mes){
+    return dbGet('split').reduce((s,sp)=>{
+      if(sp.direccion!=='Yo debo') return s;
+      return s+getSplitInstancias(sp)
+        .filter(inst=>inst.mes===mes&&!inst.pagado)
+        .reduce((a,inst)=>a+(sp.moneda==='USD'?inst.monto:arsToUsd(inst.monto,mes)),0);
+    },0);
+  }
+
   const rows=meses.map(mes=>{
-    const ing=totalIngresosUSD(mes)+totalIngresosFuturosUSD(mes);
-    const eg=totalEgresosUSD(mes);
+    const ingReal=totalIngresosUSD(mes);
+    const ingFut=totalIngresosFuturosUSD(mes);
+    const ingSplt=splitIngMes(mes);
+    const ing=ingReal+ingFut+ingSplt;
+    const egBase=totalEgresosUSD(mes); // Débito/Transf + Crédito + Fijos
+    const egSplt=splitEgMes(mes);
+    const eg=egBase+egSplt;
     const neto=ing-eg;
     const cotiz=getCotizacion(mes);
     const inf=getInflacion(mes);
     const risk=neto<0;
     const hasAgui=ing>((totalIngresosUSD(mesNext(mes,-1))+totalIngresosFuturosUSD(mesNext(mes,-1)))*1.3);
-    return {mes,ing,eg,neto,cotiz,inf,risk,hasAgui};
+    return {mes,ing,eg,neto,cotiz,inf,risk,hasAgui,ingReal,ingFut,ingSplt,egBase,egSplt};
   });
 
-  // Proyección de portafolio acumulado
   let portafolio=patrimonioDolarizado();
   const portProj=rows.map(r=>{
     const ahorro=Math.max(0,r.neto);
@@ -3925,21 +3947,31 @@ function renderProyeccion(){
   <div class="sh">Proyección mes a mes · ${mesLabel(meses[0])} → ${mesLabel(meses[meses.length-1])}</div>
   <div class="table-wrap">
   <table class="tbl">
-    <tr><th>Mes</th><th>Cotiz. USD</th><th>Inflac.</th><th>Ingresos</th><th>Egresos</th><th>Neto</th><th>Portafolio est.</th></tr>
+    <tr><th>Mes</th><th>Cotiz. USD</th><th>Inflac.</th><th>Ingresos USD</th><th>Egresos USD</th><th>Neto</th><th>Portafolio est.</th></tr>
     ${rows.map((r,i)=>`<tr style="${r.risk?'background:rgba(237,106,90,.06)':''}">
       <td><strong style="color:${r.risk?'var(--neg-dk)':r.hasAgui?'var(--pos-dk)':'var(--text)'}">${mesLabel(r.mes)}${r.hasAgui?' ✦':r.risk?' ⚠':''}</strong></td>
       <td class="muted-text">${fmtARS(r.cotiz)}</td>
       <td class="${r.inf>4?'neg-text':'warn-text'}">${fmtPct(r.inf)}</td>
-      <td class="pos-text">${fmtUSD(r.ing)}</td>
-      <td class="neg-text">${fmtUSD(r.eg)}</td>
+      <td class="pos-text">
+        ${fmtUSD(r.ing)}
+        <div style="font-size:9px;color:var(--muted);margin-top:2px;line-height:1.5;">
+          ${r.ingReal>0?`<span>Real ${fmtUSD(r.ingReal)}</span> `:''}${r.ingFut>0?`<span>Fut ${fmtUSD(r.ingFut)}</span> `:''}${r.ingSplt>0?`<span>Split +${fmtUSD(r.ingSplt)}</span>`:''}
+        </div>
+      </td>
+      <td class="neg-text">
+        ${fmtUSD(r.eg)}
+        <div style="font-size:9px;color:var(--muted);margin-top:2px;line-height:1.5;">
+          ${r.egBase>0?`<span>Base ${fmtUSD(r.egBase)}</span> `:''}${r.egSplt>0?`<span>Split +${fmtUSD(r.egSplt)}</span>`:''}
+        </div>
+      </td>
       <td class="${r.neto>=0?'pos-text':'neg-text'} mono">${r.neto>=0?'+':''}${fmtUSD(r.neto)}</td>
       <td style="font-weight:700;">${fmtUSD(portProj[i])} USD</td>
     </tr>`).join('')}
   </table>
   </div>
   <div style="margin-top:14px;background:var(--pos-bg);border-radius:9px;padding:12px 15px;border:1px solid #a8e8e7;">
-    <div style="font-size:12px;font-weight:700;color:var(--pos-dk);margin-bottom:4px;">Cómo se calcula</div>
-    <div style="font-size:12px;color:var(--pos-dk);">Ingresos y egresos se proyectan con inflación aplicada a los ítems marcados. Cotización proyectada usada para conversión ARS/USD. El portafolio crece al 7.5% anual blend sobre el saldo, más el ahorro neto de cada mes.</div>
+    <div style="font-size:12px;font-weight:700;color:var(--pos-dk);margin-bottom:4px;">Composición</div>
+    <div style="font-size:12px;color:var(--pos-dk);">Ingresos = Reales + Futuros + Gastos compartidos (Me deben, no saldados) · Egresos = Débito/Transf + Crédito + Fijos + Gastos compartidos (Yo debo, no saldados) · Todo en USD a cotización proyectada del mes.</div>
   </div>`;
 }
 
