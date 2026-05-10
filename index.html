@@ -1600,8 +1600,8 @@ function renderDashboard(){
     </div>
   </div>
 
-  <!-- 5 KPI CARDS -->
-  <div class="g5">
+  <!-- 4 KPI CARDS -->
+  <div class="g4">
 
     <!-- KPI 1: Saldo actual -->
     <div class="card ${neto>=0?'pos':'neg'}">
@@ -1630,15 +1630,7 @@ function renderDashboard(){
       <div class="cs" style="margin-top:3px;font-size:10px;color:var(--muted);">Saldo acum. + proy. ingresos/egresos/split</div>
     </div>
 
-    <!-- KPI 4: Ahorro proyectado -->
-    <div class="card ${ahorroProyTotal>=0?'pos-s':'neg-s'}">
-      <div class="cl">Ahorro proy. a Dic 2026</div>
-      <div class="cv" style="color:${ahorroProyTotal>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)} USD</div>
-      <div class="cs">${ahorroProyTotal>=0?'+':''}${fmtARS(ahorroProyTotal*usdArs)}</div>
-      <div class="cs" style="margin-top:3px;font-size:10px;color:var(--muted);">@ 1 USD = $${fmtARS(usdArs)} · ${mesLabel(mes)} → Dic ${curY}</div>
-    </div>
-
-    <!-- KPI 5: Patrimonio proyectado 2026 -->
+    <!-- KPI 4: Patrimonio proyectado 2026 -->
     <div class="card pos">
       <div class="cl">Patrimonio proy. 2026</div>
       <div class="cv">${fmtUSD(patriTotal+ahorroProyTotal)} USD</div>
