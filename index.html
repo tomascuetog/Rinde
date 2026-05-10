@@ -1328,7 +1328,9 @@ function ingresoEnMes(ing, mes){
 }
 
 function egresoInmEnMes(eg, mes){
-  if(eg.desde && mes < eg.desde.slice(0,7)) return 0;
+  // One-time entry (no desde): only counts in its specific fecha month
+  if(!eg.desde) return (eg.fecha && eg.fecha.slice(0,7)===mes) ? eg.monto : 0;
+  if(mes < eg.desde.slice(0,7)) return 0;
   if(eg.hasta && mes > eg.hasta.slice(0,7)) return 0;
   let monto = eg.monto;
   if(eg.ajustaInflacion && mes > eg.desde.slice(0,7)){
