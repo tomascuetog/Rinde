@@ -1567,23 +1567,13 @@ function renderDashboard(){
   let fijo=0,variable=0,noEsencial=0;
   dbGet('egresos_inm').forEach(eg=>{ const v=egresoInmEnMes(eg,mes); if(v===0)return; const usd=eg.moneda==='USD'?v:arsToUsd(v,mes); if(eg.tipo==='fijo')fijo+=usd; else variable+=usd; if(!eg.esencial)noEsencial+=usd; });
 
-  // ── Bar chart ──
+  // ── Bar chart (May–Dec, doble barra: ingresos + egresos) ──
   const months=[];
-  for(let i=1;i<=12;i++) months.push(`${curY}-${String(i).padStart(2,'0')}`);
-  const maxEg=Math.max(...months.map(m=>totalEgresosUSD(m)),1);
-  const barColors=months.map(m=>m===mes?'var(--neg)':(m<mes?'var(--opal)':'var(--border2)'));
-  const barHeights=months.map(m=>Math.round(totalEgresosUSD(m)/maxEg*100));
-  const mesLabels=['e','f','m','a','m','j','j','a','s','o','n','d'];
-
-  // ── Alerts ──
-  let alertsHtml='';
-  dbGet('tareas').filter(t=>!t.completada&&t.urgente).forEach(t=>{
-    alertsHtml+=`<div class="alert neg"><div class="at">${t.texto}</div><div class="as">${t.fecha?'Fecha: '+mesLabel(t.fecha.slice(0,7)):''}</div></div>`;
-  });
-  if(infMes>3) alertsHtml+=`<div class="alert warn"><div class="at">Inflación ${fmtPct(infMes)} este mes</div><div class="as">Los ítems con ajuste automático se actualizarán el próximo mes</div></div>`;
-  const egOct=totalEgresosUSD('2026-10'),ingOct=totalIngresosUSD('2026-10');
-  if(egOct>ingOct) alertsHtml+=`<div class="alert neg"><div class="at">Octubre: egresos superan ingresos</div><div class="as">Egreso est.: ${fmtUSD(egOct)} · Ingreso: ${fmtUSD(ingOct)}</div></div>`;
-  if(!alertsHtml) alertsHtml='<div class="alert pos"><div class="at">Sin alertas urgentes</div><div class="as">Todo en orden</div></div>';
+  for(let i=5;i<=12;i++) months.push(`${curY}-${String(i).padStart(2,'0')}`);
+  const maxBar=Math.max(...months.flatMap(m=>[totalIngresosUSD(m)+totalIngresosFuturosUSD(m),totalEgresosUSD(m)]),1);
+  const barIngHeights=months.map(m=>Math.round((totalIngresosUSD(m)+totalIngresosFuturosUSD(m))/maxBar*100));
+  const barEgHeights=months.map(m=>Math.round(totalEgresosUSD(m)/maxBar*100));
+  const mesLabels=['may','jun','jul','ago','sep','oct','nov','dic'];
 
   const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,val])=>`
     <div style="margin-bottom:6px;">
@@ -1614,9 +1604,9 @@ function renderDashboard(){
     <!-- KPI 1: Saldo actual -->
     <div class="card ${neto>=0?'pos':'neg'}">
       <div class="cl">Saldo actual · ${mesLabel(mes)}</div>
-      <div class="cv" style="color:${neto>=0?'var(--pos-dk)':'var(--neg-dk)'};">${neto>=0?'+':''}${fmtUSD(neto)} USD</div>
-      <div class="cs">${neto>=0?'+':''}${fmtARS(neto*cotiz)}</div>
-      <div class="cs" style="margin-top:5px;font-size:10px;color:var(--muted);">Acum. may–${ytdMesLabel}: <span style="color:${ytdNeto>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ytdNeto>=0?'+':''}${fmtARS(ytdNeto*usdArs)}</span></div>
+      <div class="cv">${neto>=0?'+':''}${fmtARS(neto*cotiz)}</div>
+      <div class="cs">${neto>=0?'+':''}${fmtUSD(neto)} USD</div>
+      <div class="cs" style="margin-top:5px;font-size:10px;">Acum. may–${ytdMesLabel}: ${ytdNeto>=0?'+':''}${fmtARS(ytdNeto*usdArs)}</div>
     </div>
 
     <!-- KPI 2: Patrimonio -->
@@ -1649,11 +1639,11 @@ function renderDashboard(){
     <!-- KPI 5: Patrimonio proyectado 2026 -->
     <div class="card pos">
       <div class="cl">Patrimonio proy. 2026</div>
-      <div class="cv" style="color:var(--pos-dk);">${fmtUSD(patriTotal+ahorroProyTotal)} USD</div>
+      <div class="cv">${fmtUSD(patriTotal+ahorroProyTotal)} USD</div>
       <div class="cs">${fmtARS((patriTotal+ahorroProyTotal)*usdArs)}</div>
       <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-        <span style="font-size:10px;background:var(--pos-bg);color:var(--pos-dk);padding:1px 7px;border-radius:20px;font-weight:600;">Actual ${fmtUSD(patriTotal)}</span>
-        <span style="font-size:10px;background:var(--opal-bg);color:var(--opal-dk);padding:1px 7px;border-radius:20px;font-weight:600;">+ Ahorro ${fmtUSD(ahorroProyTotal)}</span>
+        <span style="font-size:10px;background:rgba(255,255,255,.18);color:rgba(255,255,255,.9);padding:1px 7px;border-radius:20px;font-weight:600;">Actual ${fmtUSD(patriTotal)}</span>
+        <span style="font-size:10px;background:rgba(255,255,255,.18);color:rgba(255,255,255,.9);padding:1px 7px;border-radius:20px;font-weight:600;">+ Ahorro ${fmtUSD(ahorroProyTotal)}</span>
       </div>
     </div>
 
@@ -1709,15 +1699,22 @@ function renderDashboard(){
       </div>
     </div>
     <div>
-      <div class="sh">Egresos mensuales ${curY}</div>
-      <div class="mbar" style="margin-bottom:4px;">
-        ${months.map((m,i)=>`<div class="mb" style="height:${barHeights[i]||2}%;background:${barColors[i]};" title="${mesLabel(m)}: ${fmtUSD(totalEgresosUSD(m))}"></div>`).join('')}
+      <div class="sh" style="display:flex;align-items:center;gap:8px;">
+        Ingresos y Egresos may–dic ${curY}
+        <span style="font-size:9px;color:var(--muted);display:flex;gap:6px;align-items:center;font-weight:500;">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--pos);vertical-align:middle;"></span>Ing
+          <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--neg);vertical-align:middle;"></span>Eg
+        </span>
+      </div>
+      <div class="mbar" style="margin-bottom:4px;gap:4px;">
+        ${months.map((m,i)=>`<div style="display:flex;align-items:flex-end;gap:1px;flex:1;" title="${mesLabel(m)} · Ing: ${fmtUSD(totalIngresosUSD(m)+totalIngresosFuturosUSD(m))} · Eg: ${fmtUSD(totalEgresosUSD(m))}">
+          <div class="mb" style="height:${barIngHeights[i]||2}%;background:${m<=mes?'var(--pos)':'rgba(31,138,91,.35)'};flex:1;"></div>
+          <div class="mb" style="height:${barEgHeights[i]||2}%;background:${m<=mes?'var(--neg)':'rgba(215,38,61,.35)'};flex:1;"></div>
+        </div>`).join('')}
       </div>
       <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);font-weight:600;margin-bottom:14px;">
-        ${mesLabels.map((l,i)=>`<span style="color:${months[i]===mes?'var(--neg)':'var(--muted)'}">${l}</span>`).join('')}
+        ${mesLabels.map((l,i)=>`<span style="color:${months[i]===mes?'var(--text)':'var(--muted)'}">${l}</span>`).join('')}
       </div>
-      <div class="sh">Alertas</div>
-      ${alertsHtml}
     </div>
   </div>`;
 }
