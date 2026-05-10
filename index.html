@@ -519,6 +519,7 @@ body.privacy svg text{
   <div class="ni" onclick="nav('precios')" data-label="Mis productos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 2h2l1.5 7h5l1.5-4.5H4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="13" r="1.2" fill="currentColor"/><circle cx="11.5" cy="13" r="1.2" fill="currentColor"/></svg></span><span class="ni-label">Mis productos</span></div>
   <div class="ni" onclick="nav('actividad')" data-label="Actividad"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="ni-label">Actividad</span></div>
   <div class="ni" onclick="nav('mejoras')" data-label="Mejoras"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 9.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Mejoras</span><span class="nbadge r" id="mejoras-badge" style="display:none"></span></div>
+  <div class="ni" onclick="nav('tablas')" data-label="Tablas"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 5.5h13M5.5 5.5v9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Tablas</span></div>
 
   <div class="sb">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 6px;">
@@ -725,6 +726,13 @@ body.privacy svg text{
   <div class="ptitle">Mejoras</div>
   <div class="psub">Ticketera de mejoras y bugs de Rinde</div>
   <div id="mejoras-content"></div>
+</div>
+
+<!-- TABLAS -->
+<div class="panel" id="panel-tablas">
+  <div class="ptitle">Tablas</div>
+  <div class="psub">Configurá los desplegables y campos que aparecen en cada formulario</div>
+  <div id="tablas-content"></div>
 </div>
 
 </div><!-- /main -->
@@ -1076,6 +1084,35 @@ const KEYS = {
   actividad:'rinde_actividad', mapa:'rinde_mapa',
   mejoras:'rinde_mejoras',
 };
+
+// ── TABLAS CONFIG ──────────────────────────────
+const TABLAS_DEFAULTS={
+  monedas:['ARS','USD'],
+  frecuenciasIng:['mensual','semestral','unico'],
+  frecuenciasEg:['mensual','bimensual','trimestral','cuatrimestral','semestral','anual'],
+  categorias:['Vivienda','Auto','Telefonía','Conectividad','River','Plataformas','Gatos','Ocio','Comida','Salud','Educación','Ropa','Viaje','Compras casa','A eliminar','Otro'],
+  modosPago:['VISA','MC','AMEX','Débito','Transferencia'],
+  tiposActivo:['Inmueble','Vehículo','Electrónica','Mueble/Decoración','Otro'],
+  camposIngresos:['descripcion','monto','moneda','frecuencia','desde','hasta','ajustaInflacion','notas'],
+  camposEgresos:['fecha','descripcion','monto','moneda','categoria','esencial','notas'],
+  camposSplit:['direccion','descripcion','contraparte','monto','moneda','tipo','desde','hasta','notas'],
+  camposActivos:['nombre','tipo','moneda','fechaCompra','precioCompra','valorActual','notas'],
+};
+function getTablasConfig(){ try{ const s=JSON.parse(localStorage.getItem('rinde_tablas')||'{}'); return Object.assign({},TABLAS_DEFAULTS,s); }catch(e){ return Object.assign({},TABLAS_DEFAULTS); } }
+function saveTablasConfig(cfg){ localStorage.setItem('rinde_tablas',JSON.stringify(cfg)); if(document.getElementById('panel-tablas')?.classList.contains('active')) renderTablas(); }
+function getTablasList(key){ const cfg=getTablasConfig(); return Array.isArray(cfg[key])?cfg[key]:TABLAS_DEFAULTS[key]||[]; }
+function getMonedas(){ return getTablasList('monedas'); }
+function getCategorias(){ return getTablasList('categorias'); }
+function getModosPago(){ return getTablasList('modosPago'); }
+function getTiposActivo(){ return getTablasList('tiposActivo'); }
+function getFrecuenciasIng(){ return getTablasList('frecuenciasIng'); }
+function getFrecuenciasEg(){ return getTablasList('frecuenciasEg'); }
+function getCamposVisibles(modulo){ return new Set(getTablasList('campos'+modulo)); }
+function filterModalCampos(modulo,fields){ const v=getCamposVisibles(modulo); return fields.filter(f=>v.has(f.key)||f.required); }
+function addTablasItem(key,val){ val=(val||'').trim(); if(!val) return; const cfg=getTablasConfig(); if(!cfg[key]) cfg[key]=[...TABLAS_DEFAULTS[key]||[]]; if(!cfg[key].includes(val)) cfg[key].push(val); saveTablasConfig(cfg); }
+function removeTablasItem(key,idx){ const cfg=getTablasConfig(); if(!cfg[key]) cfg[key]=[...TABLAS_DEFAULTS[key]||[]]; cfg[key].splice(idx,1); saveTablasConfig(cfg); }
+function toggleTablaCampo(modulo,campo){ const cfg=getTablasConfig(); const key='campos'+modulo; if(!cfg[key]) cfg[key]=[...TABLAS_DEFAULTS[key]||[]]; const idx=cfg[key].indexOf(campo); if(idx>=0) cfg[key].splice(idx,1); else cfg[key].push(campo); saveTablasConfig(cfg); }
+function resetTablasList(key){ const cfg=getTablasConfig(); cfg[key]=[...TABLAS_DEFAULTS[key]]; saveTablasConfig(cfg); }
 
 function dbGet(key){ try{ return JSON.parse(localStorage.getItem(KEYS[key]))||[]; }catch(e){ return []; } }
 function dbSet(key,val){
@@ -1472,6 +1509,7 @@ const BC_MAP={
   'actividad':['Actividad'],
   'asistente':['Asistente'],
   'mejoras':['Mejoras'],
+  'tablas':['Configuración','Tablas'],
 };
 function updateTopbar(id){
   const bc=document.getElementById('topbar-bc');
@@ -1507,6 +1545,7 @@ function nav(id){
     actividad:renderActividad,
     asistente:renderAsistente,
     mejoras:renderMejoras,
+    tablas:renderTablas,
   };
   if(renders[id]) renders[id]();
 }
@@ -2049,17 +2088,17 @@ function _setupIngresoModal(){
   update();
 }
 function addIngreso(){
-  openModal('Nuevo ingreso',[
+  openModal('Nuevo ingreso',filterModalCampos('Ingresos',[
     {key:'descripcion',label:'Descripción',type:'text',required:true},
     {key:'monto',label:'Monto',type:'number',required:true},
-    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
-    {key:'frecuencia',label:'Frecuencia',type:'select',options:['mensual','semestral','unico']},
+    {key:'moneda',label:'Moneda',type:'select',options:getMonedas()},
+    {key:'frecuencia',label:'Frecuencia',type:'select',options:getFrecuenciasIng()},
     {key:'desde',label:'Desde (YYYY-MM)',type:'month'},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month'},
     {key:'mesIngreso',label:'Primer mes de cobro',type:'month'},
     {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si']},
     {key:'notas',label:'Notas',type:'textarea'},
-  ],(data)=>{
+  ]),(data)=>{
     const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
     if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
     if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
@@ -2071,17 +2110,17 @@ function addIngreso(){
 }
 function editIngreso(id){
   const i=dbGet('ingresos').find(x=>x.id===id);
-  openModal('Editar ingreso',[
+  openModal('Editar ingreso',filterModalCampos('Ingresos',[
     {key:'descripcion',label:'Descripción',type:'text',value:i.descripcion,required:true},
     {key:'monto',label:'Monto',type:'number',value:i.monto,required:true},
-    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:i.moneda},
-    {key:'frecuencia',label:'Frecuencia',type:'select',options:['mensual','semestral','unico'],value:i.frecuencia},
+    {key:'moneda',label:'Moneda',type:'select',options:getMonedas(),value:i.moneda},
+    {key:'frecuencia',label:'Frecuencia',type:'select',options:getFrecuenciasIng(),value:i.frecuencia},
     {key:'desde',label:'Desde (YYYY-MM)',type:'month',value:i.desde||''},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month',value:i.hasta||''},
     {key:'mesIngreso',label:'Primer mes de cobro',type:'month',value:i.mesIngreso||''},
     {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],value:(i.ajustaInflacion||false)?'si':'no'},
     {key:'notas',label:'Notas',type:'textarea',value:i.notas||''},
-  ],(data)=>{
+  ]),(data)=>{
     const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
     if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
     if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
@@ -2368,30 +2407,30 @@ function renderEgresosInm(){
   ${sections||`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin egresos cargados.</div>`}`;
 }
 function addEgresoInm(){
-  openModal('Nuevo egreso inmediato',[
+  openModal('Nuevo egreso inmediato',filterModalCampos('Egresos',[
     {key:'fecha',label:'Fecha del gasto',type:'date',required:true},
     {key:'descripcion',label:'Descripción',type:'text',required:true},
     {key:'monto',label:'Monto',type:'number',required:true},
-    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
-    {key:'categoria',label:'Categoría',type:'select',options:CATEGORIAS},
+    {key:'moneda',label:'Moneda',type:'select',options:getMonedas()},
+    {key:'categoria',label:'Categoría',type:'select',options:getCategorias()},
     {key:'esencial',label:'Esencial',type:'select',options:['si','no']},
     {key:'notas',label:'Notas',type:'textarea'},
-  ],(data)=>{
+  ]),(data)=>{
     dbAdd('egresos_inm',{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si'});
     renderEgresosInm();
   });
 }
 function editEgresoInm(id){
   const e=dbGet('egresos_inm').find(x=>x.id===id);
-  openModal('Editar egreso',[
+  openModal('Editar egreso',filterModalCampos('Egresos',[
     {key:'fecha',label:'Fecha del gasto',type:'date',required:true,value:e.fecha||''},
     {key:'descripcion',label:'Descripción',type:'text',value:e.descripcion,required:true},
     {key:'monto',label:'Monto',type:'number',value:e.monto,required:true},
-    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD'],value:e.moneda},
-    {key:'categoria',label:'Categoría',type:'select',options:CATEGORIAS,value:e.categoria},
+    {key:'moneda',label:'Moneda',type:'select',options:getMonedas(),value:e.moneda},
+    {key:'categoria',label:'Categoría',type:'select',options:getCategorias(),value:e.categoria},
     {key:'esencial',label:'Esencial',type:'select',options:['si','no'],value:e.esencial?'si':'no'},
     {key:'notas',label:'Notas',type:'textarea',value:e.notas||''},
-  ],(data)=>{
+  ]),(data)=>{
     dbUpdate('egresos_inm',id,{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si'});
     renderEgresosInm();
   });
@@ -3327,19 +3366,19 @@ function _setupSplitModal(){
 
 function addSplit(){
   const cuotaFields=Array.from({length:12},(_,i)=>({key:`cuota_${i+1}`,label:`Cuota ${i+1}`,type:'number'}));
-  openModal('Nuevo registro compartido',[
+  openModal('Nuevo registro compartido',filterModalCampos('Split',[
     {key:'direccion',label:'Dirección',type:'select',options:['Yo debo','Me deben'],required:true},
     {key:'descripcion',label:'Descripción',type:'text',required:true},
     {key:'contraparte',label:'A quién / De quién',type:'text',required:true},
     {key:'monto',label:'Monto',type:'number',required:true},
     {key:'nCuotas',label:'N° de cuotas',type:'number',value:'2'},
     ...cuotaFields,
-    {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
+    {key:'moneda',label:'Moneda',type:'select',options:getMonedas()},
     {key:'tipo',label:'Tipo',type:'select',options:['unico','mensual','cuotas']},
     {key:'desde',label:'Desde (YYYY-MM)',type:'month',required:true},
     {key:'hasta',label:'Hasta (YYYY-MM)',type:'month'},
     {key:'notas',label:'Notas',type:'textarea'},
-  ],(data)=>{
+  ]),(data)=>{
     const entry={direccion:data.direccion,descripcion:data.descripcion,contraparte:data.contraparte,moneda:data.moneda,tipo:data.tipo,notas:data.notas||''};
     if(data.tipo==='cuotas'){
       const n=+data.nCuotas||2;
@@ -3616,15 +3655,15 @@ function renderActivos(){
 }
 function updateActivoValor(id,val){ dbUpdate('activos',id,{valorActual:+val||0}); renderActivos(); }
 function addActivo(){
-  openModal('Nuevo activo físico',[
+  openModal('Nuevo activo físico',filterModalCampos('Activos',[
     {key:'nombre',label:'Nombre',type:'text',required:true,hint:'Ej: Toyota Corolla 2020, Dpto. Palermo 3A'},
-    {key:'tipo',label:'Tipo',type:'select',options:['Inmueble','Vehículo','Electrónica','Mueble/Decoración','Otro'],required:true},
-    {key:'moneda',label:'Moneda',type:'select',options:['USD','ARS']},
+    {key:'tipo',label:'Tipo',type:'select',options:getTiposActivo(),required:true},
+    {key:'moneda',label:'Moneda',type:'select',options:getMonedas()},
     {key:'fechaCompra',label:'Fecha de compra (YYYY-MM)',type:'month'},
     {key:'precioCompra',label:'Precio de compra',type:'number',required:true},
     {key:'valorActual',label:'Valor actual estimado',type:'number',hint:'Si no sabés, dejalo igual al precio de compra'},
     {key:'notas',label:'Notas',type:'textarea'},
-  ],(data)=>{
+  ]),(data)=>{
     const pc=+data.precioCompra||0;
     dbAdd('activos',{nombre:data.nombre,tipo:data.tipo,moneda:data.moneda||'USD',fechaCompra:data.fechaCompra||'',precioCompra:pc,valorActual:+data.valorActual||pc,notas:data.notas||''});
     renderActivos();
@@ -3633,15 +3672,15 @@ function addActivo(){
 function editActivo(id){
   const a=dbGet('activos').find(x=>x.id===id);
   if(!a) return;
-  openModal('Editar activo físico',[
+  openModal('Editar activo físico',filterModalCampos('Activos',[
     {key:'nombre',label:'Nombre',type:'text',value:a.nombre,required:true},
-    {key:'tipo',label:'Tipo',type:'select',options:['Inmueble','Vehículo','Electrónica','Mueble/Decoración','Otro'],value:a.tipo||'Otro'},
-    {key:'moneda',label:'Moneda',type:'select',options:['USD','ARS'],value:a.moneda||'USD'},
+    {key:'tipo',label:'Tipo',type:'select',options:getTiposActivo(),value:a.tipo||getTiposActivo()[0]||'Otro'},
+    {key:'moneda',label:'Moneda',type:'select',options:getMonedas(),value:a.moneda||'USD'},
     {key:'fechaCompra',label:'Fecha de compra (YYYY-MM)',type:'month',value:a.fechaCompra||''},
     {key:'precioCompra',label:'Precio de compra',type:'number',value:a.precioCompra,required:true},
     {key:'valorActual',label:'Valor actual estimado',type:'number',value:a.valorActual!=null?a.valorActual:''},
     {key:'notas',label:'Notas',type:'textarea',value:a.notas||''},
-  ],(data)=>{
+  ]),(data)=>{
     dbUpdate('activos',id,{...a,nombre:data.nombre,tipo:data.tipo,moneda:data.moneda||a.moneda||'USD',fechaCompra:data.fechaCompra||a.fechaCompra||'',precioCompra:+data.precioCompra,valorActual:+data.valorActual||a.valorActual,notas:data.notas||''});
     renderActivos();
   });
@@ -5070,6 +5109,115 @@ ${cuotas.filter(ec=>egresoCuotaEnMes(ec,mes)>0).map(ec=>`- ${ec.descripcion}: ${
 
 function getApiKey(){ return localStorage.getItem('rinde_api_key')||''; }
 function saveApiKey(k){ localStorage.setItem('rinde_api_key',k.trim()); }
+
+// =============================================
+// RENDER: TABLAS
+// =============================================
+const TABLAS_CAMPOS_META={
+  Ingresos:[
+    {key:'descripcion',label:'Descripción',required:true},
+    {key:'monto',label:'Monto',required:true},
+    {key:'moneda',label:'Moneda',required:true},
+    {key:'frecuencia',label:'Frecuencia',required:true},
+    {key:'desde',label:'Desde (mes)'},
+    {key:'hasta',label:'Hasta (mes)'},
+    {key:'ajustaInflacion',label:'Ajusta inflación'},
+    {key:'notas',label:'Notas'},
+  ],
+  Egresos:[
+    {key:'fecha',label:'Fecha',required:true},
+    {key:'descripcion',label:'Descripción',required:true},
+    {key:'monto',label:'Monto',required:true},
+    {key:'moneda',label:'Moneda',required:true},
+    {key:'categoria',label:'Categoría'},
+    {key:'esencial',label:'Esencial'},
+    {key:'notas',label:'Notas'},
+  ],
+  Split:[
+    {key:'direccion',label:'Dirección',required:true},
+    {key:'descripcion',label:'Descripción',required:true},
+    {key:'contraparte',label:'Contraparte'},
+    {key:'monto',label:'Monto',required:true},
+    {key:'moneda',label:'Moneda',required:true},
+    {key:'tipo',label:'Tipo'},
+    {key:'desde',label:'Desde (mes)'},
+    {key:'hasta',label:'Hasta (mes)'},
+    {key:'notas',label:'Notas'},
+  ],
+  Activos:[
+    {key:'nombre',label:'Nombre',required:true},
+    {key:'tipo',label:'Tipo de activo',required:true},
+    {key:'moneda',label:'Moneda',required:true},
+    {key:'precioCompra',label:'Precio de compra',required:true},
+    {key:'fechaCompra',label:'Fecha de compra'},
+    {key:'valorActual',label:'Valor actual estimado'},
+    {key:'notas',label:'Notas'},
+  ],
+};
+
+function renderTablas(){
+  const cfg=getTablasConfig();
+
+  function listCard(title,key,addHint){
+    const items=getTablasList(key);
+    const rows=items.map((it,i)=>`
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);">
+        <span style="flex:1;font-size:13px;">${it}</span>
+        <button class="btn sm danger" onclick="removeTablasItem('${key}',${i})">✕</button>
+      </div>`).join('');
+    return `
+      <div class="card" style="display:flex;flex-direction:column;gap:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div class="cl" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">${title}</div>
+          <button class="btn sm ghost" onclick="resetTablasList('${key}')" title="Restaurar defaults" style="font-size:10px;">↺</button>
+        </div>
+        <div style="flex:1;min-height:40px;">${rows||'<div style="color:var(--muted);font-size:12px;padding:4px 0;">Sin ítems</div>'}</div>
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <input type="text" id="inp-${key}" placeholder="${addHint}" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);" onkeydown="if(event.key==='Enter'){addTablasItem('${key}',this.value);this.value='';}">
+          <button class="btn sm pos" onclick="addTablasItem('${key}',document.getElementById('inp-${key}').value);document.getElementById('inp-${key}').value=''">+</button>
+        </div>
+      </div>`;
+  }
+
+  function camposCard(modulo){
+    const meta=TABLAS_CAMPOS_META[modulo]||[];
+    const visible=getCamposVisibles(modulo);
+    const rows=meta.map(f=>{
+      const on=visible.has(f.key);
+      const req=f.required;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border2);">
+        <label style="display:flex;align-items:center;gap:7px;cursor:${req?'default':'pointer'};flex:1;font-size:12px;">
+          <input type="checkbox" ${on?'checked':''} ${req?'disabled':''} onchange="toggleTablaCampo('${modulo}','${f.key}')" style="cursor:${req?'default':'pointer'};">
+          ${f.label}${req?'<span style="font-size:9px;color:var(--muted);margin-left:4px;">siempre</span>':''}
+        </label>
+      </div>`;
+    }).join('');
+    return `
+      <div class="card">
+        <div class="cl" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">${modulo}</div>
+        ${rows}
+      </div>`;
+  }
+
+  document.getElementById('tablas-content').innerHTML=`
+  <div class="sh">Desplegables</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+    ${listCard('Monedas','monedas','Ej: EUR')}
+    ${listCard('Frecuencias · Ingresos','frecuenciasIng','Ej: bimensual')}
+    ${listCard('Frecuencias · Egresos','frecuenciasEg','Ej: cuatrimestral')}
+    ${listCard('Categorías de gasto','categorias','Ej: Mascota')}
+    ${listCard('Modos de pago','modosPago','Ej: Naranja X')}
+    ${listCard('Tipos de activo físico','tiposActivo','Ej: Arte')}
+  </div>
+  <div class="sh">Campos en formularios</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+    ${camposCard('Ingresos')}
+    ${camposCard('Egresos')}
+    ${camposCard('Split')}
+    ${camposCard('Activos')}
+  </div>
+  <div style="font-size:11px;color:var(--muted);padding:8px 0;">Los campos marcados como <strong>siempre</strong> no se pueden ocultar porque son necesarios para guardar el registro.</div>`;
+}
 
 function renderAsistente(){
   const apiKey=getApiKey();
