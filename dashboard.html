@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rinde · Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+:root{
+  --sun-50:#FEF7E6;--sun-100:#FDE8B3;--sun-200:#FAD07A;--sun-300:#F5B942;--sun-400:#E8A93C;--sun-500:#C98A1F;--sun-600:#8E5F12;
+  --sky-50:#EEF5FB;--sky-100:#D1E6F5;--sky-200:#A4CCE9;--sky-300:#77B2DD;--sky-400:#6AA3D9;--sky-500:#3D7DB3;--sky-600:#265E8E;
+  --ink-900:#15181C;--ink-800:#1F2328;--ink-700:#2C3139;--ink-600:#3D4452;--ink-500:#5C6370;--ink-400:#7D8694;--ink-300:#A8B0BB;--ink-200:#CDD3DA;--ink-100:#ECEEF2;--ink-50:#F5F6F9;
+  --paper:#FAFAF7;
+  --neg:#D7263D;--neg-soft:#FCE9EC;--neg-ink:#8A1325;
+  --pos:#1F8A5B;--pos-soft:#E4F4EC;--pos-ink:#0E5037;
+  --warn:#C98A1F;--warn-soft:#FDF2D8;
+  --shadow-sm:0 1px 2px rgba(20,24,30,.04),0 1px 1px rgba(20,24,30,.03);
+  --shadow-md:0 6px 18px -8px rgba(20,24,30,.18),0 2px 6px rgba(20,24,30,.05);
+  --shadow-lg:0 24px 48px -20px rgba(20,24,30,.25);
+  --radius-sm:8px;--radius:12px;--radius-lg:16px;--radius-xl:22px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink-900);min-height:100vh;-webkit-font-smoothing:antialiased}
+.mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--paper)}
+::-webkit-scrollbar-thumb{background:var(--ink-200);border-radius:5px;border:2px solid var(--paper)}
+
+/* Layout */
+.app{display:flex;min-height:100vh;max-width:1520px;margin:0 auto}
+.sidebar{width:248px;min-width:248px;background:linear-gradient(180deg,#0F1418 0%,#151B22 100%);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{flex:1;min-width:0;padding:0 32px 56px;overflow-x:hidden}
+
+/* Sidebar */
+.sb-header{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,.06)}
+.sb-logo{display:flex;align-items:center;gap:10px}
+.sb-wordmark{font-size:20px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.sb-wordmark span:first-child{color:#6AA3D9}
+.sb-wordmark span:last-child{color:#E8A93C}
+.sb-nav{flex:1;padding:12px 0}
+.sb-group{margin-bottom:2px}
+.sb-group-label{padding:14px 18px 4px;font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#7d8694}
+.sb-item{display:flex;align-items:center;gap:9px;padding:7px 16px;margin:1px 6px;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;color:#9BA3AE;font-size:13.5px;font-weight:500;position:relative;text-decoration:none}
+.sb-item:hover{background:rgba(255,255,255,.05);color:#C8CDD5}
+.sb-item.active{background:linear-gradient(90deg,rgba(232,169,60,.18),rgba(232,169,60,.04));color:#E8C87A;box-shadow:inset 2px 0 0 var(--sun-400)}
+.sb-item.active svg{color:var(--sun-300)}
+.sb-badge{margin-left:auto;font-size:10.5px;font-weight:700;padding:1.5px 6px;border-radius:10px;background:#E8A93C;color:#1A1000}
+.sb-badge.new{background:#6AA3D9;color:#05233B}
+.sb-footer{padding:14px 18px;border-top:1px solid rgba(255,255,255,.06);color:#4D5560;font-size:11px}
+.sb-footer .mono{font-size:10.5px}
+
+/* Topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 0 0;position:sticky;top:0;z-index:10;background:var(--paper)}
+.breadcrumb{font-size:15px;font-weight:700;color:var(--ink-900)}
+.topbar-actions{display:flex;align-items:center;gap:8px}
+.icon-btn{width:36px;height:36px;border-radius:var(--radius-sm);border:1px solid var(--ink-100);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;color:var(--ink-500);position:relative}
+.icon-btn:hover{border-color:var(--ink-200);box-shadow:var(--shadow-sm)}
+.notif-dot{position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:#D7263D;border:1.5px solid #fff}
+.avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#6AA3D9,#3D7DB3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;cursor:pointer}
+
+/* Greeting */
+.greeting{padding:20px 0 0}
+.greeting h1{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin-bottom:10px}
+.greeting h1 .name{background:linear-gradient(90deg,var(--sun-400),var(--sun-500));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.greeting-sub{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.greeting-date{font-size:13.5px;color:var(--ink-500)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12.5px;font-weight:500}
+.pill-green{background:var(--pos-soft);color:var(--pos-ink)}
+.pill-red{background:var(--neg-soft);color:var(--neg-ink)}
+.pill-dark{background:linear-gradient(90deg,#0F1418,#1A2129);color:#C8CDD5}
+.greeting-actions{display:flex;gap:10px;margin-top:14px;align-items:center}
+.btn-month{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--ink-200);background:#fff;font-size:13.5px;font-weight:500;color:var(--ink-700);cursor:pointer;transition:all .15s}
+.btn-month:hover{border-color:var(--ink-300);box-shadow:var(--shadow-sm)}
+.btn-cta{display:flex;align-items:center;gap:0;padding:0 16px 0 0;border-radius:var(--radius-sm);border:none;background:var(--ink-900);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s;height:36px;overflow:hidden}
+.btn-cta:hover{background:var(--ink-800);box-shadow:var(--shadow-md)}
+.btn-cta-sq{width:36px;height:36px;background:var(--sun-400);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--ink-900);margin-right:10px;flex-shrink:0}
+
+/* Content grid */
+.content{padding:28px 0 0}
+.grid12{display:grid;grid-template-columns:repeat(12,1fr);gap:20px}
+.col8{grid-column:span 8}
+.col4{grid-column:span 4}
+.col7{grid-column:span 7}
+.col5{grid-column:span 5}
+.col12{grid-column:span 12}
+
+/* Card base */
+.card{background:#fff;border:1px solid var(--ink-100);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden;transition:all .15s}
+.card:hover{box-shadow:var(--shadow-md)}
+.card-hd{padding:16px 20px 0}
+.card-bd{padding:16px 20px 20px}
+.card-title{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-500)}
+.card-sub{font-size:12px;color:var(--ink-400);margin-top:2px}
+.section-label{font-size:11px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-400);margin-bottom:14px}
+
+/* Hero health */
+.hero-card{background:linear-gradient(135deg,#0F1418 0%,#1A2129 100%);border:none;border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);overflow:visible;position:relative;margin-bottom:20px}
+.hero-glow{position:absolute;top:-60px;right:-40px;width:280px;height:280px;background:radial-gradient(circle,rgba(232,169,60,.18) 0%,transparent 70%);pointer-events:none;border-radius:50%}
+.hero-inner{display:grid;grid-template-columns:280px 1fr;gap:0;padding:28px 32px}
+.hero-gauge-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.gauge-label{font-size:11px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#7D8694;margin-bottom:4px}
+.gauge-score{text-align:center;margin-top:-24px}
+.gauge-num{font-size:46px;font-weight:800;color:#fff;font-family:'JetBrains Mono',monospace;line-height:1}
+.gauge-denom{font-size:14px;color:#7D8694;margin-top:2px}
+.gauge-grade{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--sun-400);margin-top:4px}
+.hero-body{padding-left:32px;border-left:1px solid rgba(255,255,255,.08)}
+.hero-title{font-size:18px;font-weight:700;color:#fff;margin-bottom:6px}
+.hero-desc{font-size:13px;color:#7D8694;line-height:1.6;margin-bottom:20px}
+.hero-desc b{color:#E4F4EC}
+.hero-pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.pilar{background:rgba(255,255,255,.04);border-radius:var(--radius-sm);padding:12px}
+.pilar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.pilar-name{font-size:11px;color:#7D8694;font-weight:500}
+.pilar-tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px}
+.pilar-tag.green{background:rgba(31,138,91,.25);color:#6EEAB4}
+.pilar-tag.amber{background:rgba(201,138,31,.25);color:#F5C25A}
+.pilar-val{font-size:14px;font-weight:700;color:#fff;font-family:'JetBrains Mono',monospace;margin-bottom:6px}
+.pilar-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:5px}
+.pilar-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.pilar-meta{font-size:11px;color:#5C6370}
+
+/* KPI cards */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.kpi-card{background:#fff;border:1px solid var(--ink-100);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden;transition:all .15s;cursor:default;position:relative}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.kpi-stripe{position:absolute;left:0;top:0;bottom:0;width:4px}
+.kpi-inner{padding:16px 18px 14px}
+.kpi-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.kpi-name{font-size:11px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-500)}
+.kpi-icon{width:32px;height:32px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center}
+.kpi-amount{display:flex;align-items:baseline;gap:6px;margin-bottom:4px}
+.kpi-num{font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1}
+.kpi-currency{font-size:11px;font-weight:600;color:var(--ink-400);background:var(--ink-50);padding:2px 6px;border-radius:4px;align-self:center}
+.kpi-sub{font-size:12px;color:var(--ink-400);margin-bottom:8px}
+.kpi-delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 8px;border-radius:10px;margin-bottom:10px}
+.kpi-delta.pos{background:var(--pos-soft);color:var(--pos-ink)}
+.kpi-delta.neg{background:var(--neg-soft);color:var(--neg-ink)}
+.kpi-delta.warn{background:var(--warn-soft);color:var(--warn)}
+.kpi-delta.info{background:var(--sky-50);color:var(--sky-600)}
+.kpi-meta{font-size:11.5px;color:var(--ink-400)}
+
+/* Charts */
+.chart-wrap{overflow-x:auto}
+svg text{font-family:'JetBrains Mono',monospace}
+
+/* Donut */
+.donut-grid{display:grid;grid-template-columns:200px 1fr;gap:20px;align-items:start}
+.cat-list{display:flex;flex-direction:column;gap:2px}
+.cat-row{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius-sm);cursor:default;transition:background .12s}
+.cat-row:hover{background:var(--ink-50)}
+.cat-swatch{width:14px;height:14px;border-radius:3px}
+.cat-name{font-size:13px;font-weight:500;color:var(--ink-800)}
+.cat-trend{font-size:11px;margin-top:1px}
+.cat-amount{text-align:right}
+.cat-amt-val{font-size:13px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.cat-pct{font-size:11px;color:var(--ink-400)}
+
+/* Quality rows */
+.quality-row{margin-bottom:14px}
+.quality-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.quality-swatch{width:12px;height:12px;border-radius:2px;margin-right:6px;display:inline-block}
+.quality-name{font-size:13px;font-weight:600;color:var(--ink-800)}
+.quality-val{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.quality-bar{height:10px;border-radius:5px;background:var(--ink-100);overflow:hidden;margin-bottom:5px}
+.quality-fill{height:100%;border-radius:5px}
+.quality-meta{font-size:11.5px;color:var(--ink-400)}
+.card-footer-dashed{border-top:1px dashed var(--ink-100);padding:12px 20px;display:flex;align-items:flex-start;gap:9px;font-size:12px;color:var(--ink-500);line-height:1.5}
+
+/* AI cards */
+.insight-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.insight-card{background:#fff;border:1px solid var(--ink-100);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden;transition:all .15s}
+.insight-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.insight-hd{padding:16px 18px 12px;display:flex;align-items:flex-start;gap:12px}
+.insight-icon{width:34px;height:34px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.insight-tag{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:10px;margin-bottom:4px;display:inline-block}
+.insight-tag.opp{background:var(--pos-soft);color:var(--pos-ink)}
+.insight-tag.warn{background:var(--warn-soft);color:var(--warn)}
+.insight-tag.alert{background:var(--neg-soft);color:var(--neg-ink)}
+.insight-title{font-size:15px;font-weight:700;color:var(--ink-900);line-height:1.3}
+.insight-body{padding:0 18px 14px;font-size:13px;color:var(--ink-500);line-height:1.6}
+.insight-body b{color:var(--ink-800)}
+.insight-footer{padding:12px 18px;border-top:1px solid var(--ink-50);display:flex;gap:8px}
+.btn-sm{font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;border:none}
+.btn-sm.primary{background:var(--ink-900);color:#fff}
+.btn-sm.secondary{background:var(--ink-50);color:var(--ink-600);border:1px solid var(--ink-100)}
+.btn-sm:hover{opacity:.85}
+
+/* Goals */
+.goal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.goal-card{background:linear-gradient(180deg,#FBFAF5,#fff);border:1px solid var(--ink-100);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow-sm);transition:all .15s}
+.goal-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.goal-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.goal-icon{width:28px;height:28px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center}
+.goal-name{font-size:14px;font-weight:700;color:var(--ink-900);flex:1}
+.goal-pct{font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.goal-bar{height:8px;border-radius:4px;background:var(--ink-100);overflow:hidden;margin-bottom:10px}
+.goal-fill{height:100%;border-radius:4px}
+.goal-vals{display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px}
+.goal-cur{font-family:'JetBrains Mono',monospace;font-weight:600}
+.goal-tot{color:var(--ink-400);font-family:'JetBrains Mono',monospace}
+.goal-footer{display:flex;align-items:center;justify-content:space-between}
+.goal-eta{font-size:12px;color:var(--ink-400)}
+.goal-status{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px}
+.goal-status.ok{background:var(--pos-soft);color:var(--pos-ink)}
+.goal-status.behind{background:var(--warn-soft);color:var(--warn)}
+
+/* Due dates */
+.bills-list{display:flex;flex-direction:column;gap:2px}
+.bill-row{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:12px;padding:10px 8px;border-radius:var(--radius-sm);transition:background .12s;cursor:default}
+.bill-row:hover{background:var(--ink-50)}
+.date-chip{width:48px;height:48px;border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.date-chip.normal{background:var(--ink-50);border:1px solid var(--ink-100)}
+.date-chip.today{background:var(--sun-400);border:1px solid var(--sun-500)}
+.date-chip.urgent{background:#FCE9EC;border:1px solid #F5B4BC}
+.date-chip .day{font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1}
+.date-chip.normal .day{color:var(--ink-700)}
+.date-chip.today .day{color:var(--ink-900)}
+.date-chip.urgent .day{color:var(--neg)}
+.date-chip .mon{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.date-chip.normal .mon{color:var(--ink-400)}
+.date-chip.today .mon{color:var(--ink-700)}
+.date-chip.urgent .mon{color:var(--neg)}
+.bill-name{font-size:13.5px;font-weight:600;color:var(--ink-800)}
+.bill-meta{display:flex;align-items:center;gap:6px;margin-top:2px;font-size:11.5px;color:var(--ink-400)}
+.bill-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.bill-tag{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:8px}
+.bill-days{font-size:11.5px;color:var(--ink-500)}
+.bill-amount{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;text-align:right}
+.bill-amount.neg{color:var(--neg)}
+.bill-amount.pos{color:var(--pos)}
+
+/* Movements */
+.mov-list{display:flex;flex-direction:column;gap:2px}
+.mov-row{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:12px;padding:10px 8px;border-radius:var(--radius-sm);transition:background .12s;cursor:default}
+.mov-row:hover{background:var(--ink-50)}
+.mov-icon{width:34px;height:34px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mov-name{font-size:13.5px;font-weight:600;color:var(--ink-800)}
+.mov-meta{font-size:11.5px;color:var(--ink-400);margin-top:2px}
+.mov-amount{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;text-align:right;white-space:nowrap}
+.mov-amount.neg{color:var(--neg)}
+.mov-amount.pos{color:var(--pos)}
+
+/* Tabs */
+.tab-group{display:flex;background:var(--ink-50);border-radius:var(--radius-sm);padding:3px;gap:2px}
+.tab-btn{padding:5px 12px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .12s;border:none;background:transparent;color:var(--ink-500)}
+.tab-btn.active{background:#fff;color:var(--ink-900);box-shadow:var(--shadow-sm);font-weight:600}
+
+/* Stack bar */
+.stack-bar{height:36px;border-radius:var(--radius-sm);overflow:hidden;display:flex;margin-bottom:16px}
+.stack-seg{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;transition:width .3s;overflow:hidden;white-space:nowrap}
+.legend-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.legend-card{background:var(--ink-50);border-radius:var(--radius-sm);padding:10px 12px}
+.legend-lbl{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-500);margin-bottom:4px}
+.legend-val{font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.legend-sub{font-size:11px;color:var(--ink-400);margin-top:2px}
+
+/* Panel header */
+.panel-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 14px}
+.panel-hd-left{display:flex;flex-direction:column;gap:2px}
+.panel-title{font-size:14px;font-weight:700;color:var(--ink-900)}
+.panel-sub{font-size:12px;color:var(--ink-400)}
+.panel-actions{display:flex;align-items:center;gap:10px}
+.link-sm{font-size:12.5px;font-weight:500;color:var(--sky-500);cursor:pointer;text-decoration:none;transition:color .12s}
+.link-sm:hover{color:var(--sky-600)}
+.legend-row{display:flex;align-items:center;gap:14px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-500)}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+.leg-dot.dashed{border:2px dashed var(--pos);background:transparent;border-radius:50%}
+
+@media(max-width:1280px){
+  .sidebar{width:200px;min-width:200px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .hero-inner{grid-template-columns:1fr}
+  .hero-pillars{grid-template-columns:repeat(2,1fr)}
+  .hero-body{padding-left:0;border-left:none;border-top:1px solid rgba(255,255,255,.08);padding-top:20px;margin-top:16px}
+  .insight-grid{grid-template-columns:1fr}
+  .col8,.col4,.col7,.col5{grid-column:span 12}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState} = React;
+
+// ── Icons ──────────────────────────────────────────────────────────────────────
+function Icon({d,size=16,strokeWidth=1.7,className='',style={}}){
+  return(
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round"
+      strokeLinejoin="round" className={className} style={style}>
+      <path d={d}/>
+    </svg>
+  );
+}
+
+const IC={
+  dash:"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z",
+  task:"M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11",
+  ai:"M12 2a10 10 0 110 20A10 10 0 0112 2zm0 6v4l3 3",
+  ingreso:"M12 5v14M5 12l7-7 7 7",
+  egreso:"M12 19V5M5 12l7 7 7-7",
+  card:"M2 7h20v14H2zM2 11h20",
+  fixed:"M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18",
+  share:"M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13",
+  wallet:"M2 7h20v14H2zM16 3v4M8 3v4",
+  asset:"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z",
+  goal:"M12 22C6.48 22 2 17.52 2 12S6.48 2 12 2s10 4.48 10 10-4.48 10-10 10zm0-18v8l5 3",
+  bar:"M18 20V10M12 20V4M6 20v-6",
+  trend:"M22 12h-4l-3 9L9 3l-3 9H2",
+  usd:"M12 2v2m0 16v2M17 7H9.5C8.12 7 7 8.12 7 9.5S8.12 12 9.5 12h5c1.38 0 2.5 1.12 2.5 2.5S15.88 18 14.5 18H7",
+  inflate:"M12 22C6.48 22 2 17.52 2 12S6.48 2 12 2s10 4.48 10 10-4.48 10-10 10zM8 12h8M12 8v8",
+  search:"M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z",
+  bell:"M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0",
+  chev:"M6 9l6 6 6-6",
+  arrUp:"M12 19V5M5 12l7-7 7 7",
+  arrDn:"M12 5v14M5 12l7 7 7-7",
+  flame:"M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 01-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z",
+  bolt:"M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+  shield:"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  scale:"M12 3v18M3 6h18M3 18s2.4-3 9-3 9 3 9 3M3 6s2.4 3 9 3 9-3 9-3",
+  plane:"M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",
+  house:"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z",
+  bag:"M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0",
+  brush:"M9.06 11.9l8.07-8.06a2.85 2.85 0 014.03 4.03l-8.06 8.08L9.06 11.9zm-5 4.5l5-4.5",
+  film:"M19.82 2H4.18C2.97 2 2 2.97 2 4.18v15.64C2 21.03 2.97 22 4.18 22h15.64C21.03 22 22 21.03 22 19.82V4.18C22 2.97 21.03 2 19.82 2zM7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5",
+  car:"M5 17H3a2 2 0 01-2-2V9a2 2 0 012-2h16a2 2 0 012 2v6a2 2 0 01-2 2h-2M5 17a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4zM3 9l2-5h14l2 5",
+  food:"M3 11l19-9-9 19-2-8-8-2zM22 2L11 13",
+  wifi:"M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01",
+  health:"M22 12h-4l-3 9L9 3l-3 9H2",
+  bank:"M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3",
+  table:"M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18",
+  prod:"M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+  act:"M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z",
+  cal:"M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM16 2v2M8 2v2M3 10h18",
+  config:"M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z",
+};
+
+// ── Logo ───────────────────────────────────────────────────────────────────────
+function Logo(){
+  const rays=Array.from({length:16},(_,i)=>i*22.5);
+  return(
+    <svg width="32" height="32" viewBox="0 0 32 32">
+      <defs>
+        <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#F5B942"/>
+          <stop offset="100%" stopColor="#C98A1F"/>
+        </radialGradient>
+      </defs>
+      {rays.map((a,i)=>{
+        const rad=a*Math.PI/180;
+        const x1=16+8*Math.cos(rad), y1=16+8*Math.sin(rad);
+        const x2=16+13*Math.cos(rad), y2=16+13*Math.sin(rad);
+        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#E8A93C" strokeWidth="1.5" strokeLinecap="round"/>;
+      })}
+      <circle cx="16" cy="16" r="7" fill="url(#sunGrad)"/>
+    </svg>
+  );
+}
+
+// ── Sparkline ──────────────────────────────────────────────────────────────────
+function Sparkline({data,color,height=36}){
+  const w=200, h=height, pad=2;
+  const min=Math.min(...data), max=Math.max(...data);
+  const range=max-min||1;
+  const pts=data.map((v,i)=>{
+    const x=pad+(i/(data.length-1))*(w-pad*2);
+    const y=h-pad-(v-min)/range*(h-pad*2);
+    return `${x},${y}`;
+  });
+  const area=`M${pts[0]} L${pts.join(' L')} L${w-pad},${h} L${pad},${h} Z`;
+  const line=`M${pts.join(' L')}`;
+  return(
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{width:'100%',height:h}}>
+      <defs>
+        <linearGradient id={`sg-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#sg-${color.replace('#','')})`}/>
+      <path d={line} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+// ── Gauge ──────────────────────────────────────────────────────────────────────
+function Gauge({score}){
+  const R=80, cx=100, cy=105;
+  const startAngle=-Math.PI, endAngle=0;
+  const pct=score/100;
+  function polar(angle,r=R){
+    return{x:cx+r*Math.cos(angle),y:cy+r*Math.sin(angle)};
+  }
+  function arc(r,sA,eA){
+    const s=polar(sA,r), e=polar(eA,r);
+    const large=eA-sA>Math.PI?1:0;
+    return`M${s.x},${s.y} A${r},${r} 0 ${large} 1 ${e.x},${e.y}`;
+  }
+  const fillEnd=startAngle+pct*Math.PI;
+  const dot=polar(fillEnd);
+  return(
+    <svg viewBox="0 0 200 120" style={{width:200,height:120}}>
+      <defs>
+        <linearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#D7263D"/>
+          <stop offset="40%" stopColor="#E8A93C"/>
+          <stop offset="80%" stopColor="#1F8A5B"/>
+        </linearGradient>
+      </defs>
+      <path d={arc(R,startAngle,endAngle)} fill="none" stroke="#2A323C" strokeWidth="14" strokeLinecap="round"/>
+      {score>0&&<path d={arc(R,startAngle,fillEnd)} fill="none" stroke="url(#gaugeGrad)" strokeWidth="14" strokeLinecap="round"/>}
+      {score>0&&<circle cx={dot.x} cy={dot.y} r="7" fill="#fff" stroke="#E8A93C" strokeWidth="2.5"/>}
+    </svg>
+  );
+}
+
+// ── Patrimony Chart ────────────────────────────────────────────────────────────
+function PatrimonyChart(){
+  const hist=[16400,17100,17650,18200,18800,19100,19700,20500,20900,21385];
+  const proj=[21385,22100,22800,23600];
+  const all=[...hist,...proj.slice(1)];
+  const months=['ago','sep','oct','nov','dic','ene','feb','mar','abr','may','jun','jul','ago','dic'];
+  const vw=760,vh=230,pL=50,pR=14,pT=14,pB=30;
+  const chartW=vw-pL-pR, chartH=vh-pT-pB;
+  const min=15000, max=25000;
+  function xOf(i,total){return pL+(i/(total-1))*chartW;}
+  function yOf(v){return pT+chartH-(v-min)/(max-min)*chartH;}
+  const hPts=hist.map((v,i)=>`${xOf(i,all.length)},${yOf(v)}`);
+  const allPts=all.map((v,i)=>`${xOf(i,all.length)},${yOf(v)}`);
+  const histStart=xOf(0,all.length), histEnd=xOf(hist.length-1,all.length);
+  const projStart=xOf(hist.length-1,all.length), projEnd=xOf(all.length-1,all.length);
+  const areaPath=`M${hPts[0]} L${hPts.join(' L')} L${histEnd},${pT+chartH} L${histStart},${pT+chartH} Z`;
+  const ticks=[15000,17500,20000,22500,25000];
+  const curX=xOf(hist.length-1,all.length);
+  const curY=yOf(hist[hist.length-1]);
+  return(
+    <svg viewBox={`0 0 ${vw} ${vh}`} style={{width:'100%',height:230}}>
+      <defs>
+        <linearGradient id="histArea" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1F8A5B" stopOpacity="0.25"/>
+          <stop offset="100%" stopColor="#1F8A5B" stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      {ticks.map(t=>(
+        <g key={t}>
+          <line x1={pL} y1={yOf(t)} x2={vw-pR} y2={yOf(t)} stroke="#ECEEF2" strokeWidth="1"/>
+          <text x={pL-6} y={yOf(t)+4} textAnchor="end" fontSize="10" fill="#A8B0BB">${Math.round(t/1000)}k</text>
+        </g>
+      ))}
+      {months.slice(0,all.length).map((m,i)=>(
+        <text key={i} x={xOf(i,all.length)} y={vh-4} textAnchor="middle" fontSize="9.5" fill="#A8B0BB">{m}</text>
+      ))}
+      <path d={areaPath} fill="url(#histArea)"/>
+      <polyline points={hPts.join(' ')} fill="none" stroke="#1F8A5B" strokeWidth="2.4" strokeLinejoin="round"/>
+      <polyline points={allPts.slice(hist.length-1).join(' ')} fill="none" stroke="#1F8A5B" strokeWidth="2.2" strokeLinejoin="round" strokeDasharray="5 5" opacity="0.75"/>
+      <circle cx={curX} cy={curY} r="12" fill="#E8A93C" opacity="0.18"/>
+      <circle cx={curX} cy={curY} r="6" fill="#E8A93C" stroke="#fff" strokeWidth="2"/>
+    </svg>
+  );
+}
+
+// ── Bar Chart ──────────────────────────────────────────────────────────────────
+function BarChart(){
+  const months=['May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const ingresos=[2840000,2840000,2840000,2840000,2840000,2840000,2840000,5680000];
+  const egresos=[2208890,2100000,2050000,2180000,2200000,2250000,2100000,2300000];
+  const vw=720,vh=220;
+  const pL=50,pR=14,pT=14,pB=40;
+  const chartW=vw-pL-pR, chartH=vh-pT-pB;
+  const maxVal=Math.max(...ingresos,...egresos);
+  const barW=18, gap=3;
+  const colW=(chartW-barW*2*8-gap*8)/7;
+  const ticks=[0,1000000,2000000,3000000,4000000,5000000,6000000];
+  function xCol(i){return pL+i*(chartW/8);}
+  function barH(v){return(v/maxVal)*chartH;}
+  return(
+    <svg viewBox={`0 0 ${vw} ${vh}`} style={{width:'100%',height:220}}>
+      <defs>
+        <linearGradient id="ingGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3FB07C"/>
+          <stop offset="100%" stopColor="#1F8A5B"/>
+        </linearGradient>
+        <linearGradient id="egGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#E64C5C"/>
+          <stop offset="100%" stopColor="#D7263D"/>
+        </linearGradient>
+      </defs>
+      {[0,25,50,75,100].map(pct=>{
+        const y=pT+(1-pct/100)*chartH;
+        return <line key={pct} x1={pL} y1={y} x2={vw-pR} y2={y} stroke="#F0F1F3" strokeWidth="1"/>;
+      })}
+      {months.map((m,i)=>{
+        const cx=xCol(i)+chartW/16;
+        const hI=barH(ingresos[i]);
+        const hE=barH(egresos[i]);
+        const isNow=i===0;
+        const net=ingresos[i]-egresos[i];
+        const netStr=net>=0?`+${(net/1000).toFixed(0)}k`:`-${(Math.abs(net)/1000).toFixed(0)}k`;
+        return(
+          <g key={m}>
+            <rect x={cx-barW-gap/2} y={pT+chartH-hI} width={barW} height={hI}
+              fill="url(#ingGrad)" rx="5" ry="5"
+              stroke={isNow?'#E8A93C':'none'} strokeWidth={isNow?2:0}/>
+            <rect x={cx+gap/2} y={pT+chartH-hE} width={barW} height={hE}
+              fill="url(#egGrad)" rx="5" ry="5"
+              stroke={isNow?'#E8A93C':'none'} strokeWidth={isNow?2:0}/>
+            <text x={cx} y={vh-22} textAnchor="middle" fontSize="10" fill="#A8B0BB">{m}</text>
+            <text x={cx} y={vh-8} textAnchor="middle" fontSize="9" fill={net>=0?'#1F8A5B':'#D7263D'} fontWeight="600">{netStr}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ── Donut Chart ────────────────────────────────────────────────────────────────
+function DonutChart(){
+  const cats=[
+    {name:'Vivienda',pct:28,color:'#3D7DB3',amt:'$623.000',trend:'up'},
+    {name:'Comida',pct:19,color:'#E8A93C',amt:'$422.800',trend:'dn'},
+    {name:'Auto',pct:15,color:'#1F8A5B',amt:'$333.600',trend:'up'},
+    {name:'Servicios',pct:13,color:'#6AA3D9',amt:'$289.200',trend:'dn'},
+    {name:'Salud',pct:10,color:'#9B59B6',amt:'$222.500',trend:'flat'},
+    {name:'Ocio',pct:9,color:'#E74C3C',amt:'$200.200',trend:'up'},
+    {name:'Otro',pct:6,color:'#95A5A6',amt:'$133.400',trend:'flat'},
+  ];
+  const R=70, stroke=18, cx=80, cy=80;
+  const circ=2*Math.PI*R;
+  let offset=0;
+  return(
+    <div className="donut-grid">
+      <div style={{position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <svg viewBox="0 0 160 160" width="180" height="180">
+          <circle cx={cx} cy={cy} r={R} fill="none" stroke="#ECEEF2" strokeWidth={stroke}/>
+          {cats.map((c,i)=>{
+            const dash=c.pct/100*circ;
+            const el=(
+              <circle key={i} cx={cx} cy={cy} r={R} fill="none" stroke={c.color} strokeWidth={stroke}
+                strokeDasharray={`${dash} ${circ-dash}`}
+                strokeDashoffset={-offset} strokeLinecap="butt"
+                style={{transform:'rotate(-90deg)',transformOrigin:'80px 80px'}}/>
+            );
+            offset+=dash;
+            return el;
+          })}
+          <text x={cx} y={cy-8} textAnchor="middle" fontSize="9.5" fill="#7D8694" letterSpacing="0.08em">EGRESOS · MAY</text>
+          <text x={cx} y={cy+8} textAnchor="middle" fontSize="20" fill="#15181C" fontWeight="700" fontFamily="JetBrains Mono">$2.2M</text>
+          <text x={cx} y={cy+22} textAnchor="middle" fontSize="10" fill="#7D8694">7 categorías</text>
+        </svg>
+      </div>
+      <div className="cat-list">
+        {cats.map(c=>(
+          <div key={c.name} className="cat-row">
+            <div className="cat-swatch" style={{background:c.color}}/>
+            <div>
+              <div className="cat-name">{c.name}</div>
+              <div className="cat-trend" style={{color:c.trend==='up'?'#D7263D':c.trend==='dn'?'#1F8A5B':'#7D8694'}}>
+                {c.trend==='up'?'↑ vs mes ant':c.trend==='dn'?'↓ vs mes ant':'→ estable'}
+              </div>
+            </div>
+            <div className="cat-amount">
+              <div className="cat-amt-val">{c.amt}</div>
+              <div className="cat-pct">{c.pct}%</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────────
+function Sidebar(){
+  const groups=[
+    {label:'Principal',items:[
+      {icon:IC.dash,label:'Dashboard',active:true},
+      {icon:IC.task,label:'Tareas',badge:'1'},
+      {icon:IC.ai,label:'Asistente IA',badge:'nuevo',badgeCls:'new'},
+    ]},
+    {label:'Ingresos',items:[
+      {icon:IC.ingreso,label:'Ingresos reales'},
+      {icon:IC.ingreso,label:'Ingresos futuros'},
+    ]},
+    {label:'Egresos',items:[
+      {icon:IC.egreso,label:'Débito / Transf.'},
+      {icon:IC.card,label:'Crédito'},
+      {icon:IC.fixed,label:'Fijos'},
+    ]},
+    {label:'Compartidos',items:[
+      {icon:IC.share,label:'Gastos compartidos'},
+    ]},
+    {label:'Activos',items:[
+      {icon:IC.wallet,label:'Cartera'},
+      {icon:IC.asset,label:'Activos físicos'},
+      {icon:IC.scale,label:'¿Puedo?'},
+    ]},
+    {label:'Objetivos',items:[
+      {icon:IC.goal,label:'Objetivos'},
+    ]},
+    {label:'Análisis',items:[
+      {icon:IC.bar,label:'Por mes'},
+      {icon:IC.trend,label:'Proyección'},
+      {icon:IC.prod,label:'Optimizador'},
+    ]},
+    {label:'Economía',items:[
+      {icon:IC.usd,label:'Cotización USD'},
+      {icon:IC.inflate,label:'Inflación'},
+    ]},
+    {label:'Configuración',items:[
+      {icon:IC.prod,label:'Mis productos'},
+      {icon:IC.act,label:'Actividad'},
+      {icon:IC.bolt,label:'Mejoras'},
+      {icon:IC.table,label:'Tablas'},
+    ]},
+  ];
+  const now=new Date();
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mm=String(now.getMinutes()).padStart(2,'0');
+  return(
+    <nav className="sidebar">
+      <div className="sb-header">
+        <div className="sb-logo">
+          <Logo/>
+          <div className="sb-wordmark">
+            <span>Rinde</span><span>.</span>
+          </div>
+        </div>
+      </div>
+      <div className="sb-nav">
+        {groups.map(g=>(
+          <div key={g.label} className="sb-group">
+            <div className="sb-group-label">{g.label}</div>
+            {g.items.map(item=>(
+              <div key={item.label} className={`sb-item${item.active?' active':''}`}>
+                <Icon d={item.icon} size={15} strokeWidth={item.active?2:1.7}/>
+                {item.label}
+                {item.badge&&<span className={`sb-badge${item.badgeCls?' '+item.badgeCls:''}`}>{item.badge}</span>}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="sb-footer">
+        <div>v2.1 · Rinde</div>
+        <div className="mono" style={{marginTop:2}}>{hh}:{mm}</div>
+      </div>
+    </nav>
+  );
+}
+
+// ── KPI Card ───────────────────────────────────────────────────────────────────
+function KpiCard({name,num,currency,sub,delta,deltaDir,meta,tone,icon,spark}){
+  const tones={
+    pos:{stripe:'linear-gradient(180deg,#3FB07C,#1F8A5B)',iconBg:'#E4F4EC',iconColor:'#1F8A5B',numColor:'#15181C'},
+    neg:{stripe:'linear-gradient(180deg,#E64C5C,#D7263D)',iconBg:'#FCE9EC',iconColor:'#D7263D',numColor:'#15181C'},
+    warn:{stripe:'linear-gradient(180deg,#F5B942,#C98A1F)',iconBg:'#FDF2D8',iconColor:'#C98A1F',numColor:'#15181C'},
+    info:{stripe:'linear-gradient(180deg,#77B2DD,#3D7DB3)',iconBg:'#EEF5FB',iconColor:'#3D7DB3',numColor:'#15181C'},
+  };
+  const t=tones[tone]||tones.info;
+  const sparkColors={pos:'#1F8A5B',neg:'#D7263D',warn:'#C98A1F',info:'#3D7DB3'};
+  return(
+    <div className="kpi-card">
+      <div className="kpi-stripe" style={{background:t.stripe}}/>
+      <div className="kpi-inner">
+        <div className="kpi-header">
+          <div className="kpi-name">{name}</div>
+          <div className="kpi-icon" style={{background:t.iconBg,color:t.iconColor}}>
+            <Icon d={icon} size={16} strokeWidth={2}/>
+          </div>
+        </div>
+        <div className="kpi-amount">
+          <span className="kpi-num mono" style={{color:t.numColor}}>{num}</span>
+          {currency&&<span className="kpi-currency">{currency}</span>}
+        </div>
+        {sub&&<div className="kpi-sub mono" style={{fontSize:12}}>{sub}</div>}
+        <div className={`kpi-delta ${deltaDir}`}>{delta}</div>
+        <div className="kpi-meta">{meta}</div>
+      </div>
+      {spark&&<Sparkline data={spark} color={sparkColors[tone]} height={36}/>}
+    </div>
+  );
+}
+
+// ── Main App ───────────────────────────────────────────────────────────────────
+function App(){
+  const [activeTab,setActiveTab]=useState('mes');
+
+  return(
+    <div className="app">
+      <Sidebar/>
+      <div className="main">
+
+        {/* Topbar */}
+        <div className="topbar">
+          <div className="breadcrumb">Dashboard</div>
+          <div className="topbar-actions">
+            <div className="icon-btn"><Icon d={IC.search} size={16}/></div>
+            <div className="icon-btn">
+              <Icon d={IC.bell} size={16}/>
+              <div className="notif-dot"/>
+            </div>
+            <div className="avatar">R</div>
+          </div>
+        </div>
+
+        {/* Greeting */}
+        <div className="greeting">
+          <h1>Buenas tardes, <span className="name">Ricardo.</span></h1>
+          <div className="greeting-sub">
+            <span className="greeting-date">Martes 12 de mayo de 2026</span>
+            <span className="pill pill-green">
+              <Icon d={IC.arrUp} size={11} strokeWidth={2.5}/> USD $1.437 · +0,8%
+            </span>
+            <span className="pill pill-red">
+              <Icon d={IC.arrUp} size={11} strokeWidth={2.5}/> Inflación 3,5%/m · +0,3pp
+            </span>
+            <span className="pill pill-dark">
+              <Icon d={IC.flame} size={11} strokeWidth={2}/> 1 mes en positivo · récord 1m
+            </span>
+          </div>
+          <div className="greeting-actions">
+            <button className="btn-month">Mayo 2026 <Icon d={IC.chev} size={13} strokeWidth={2}/></button>
+            <button className="btn-cta">
+              <span className="btn-cta-sq">+</span>Registrar movimiento
+            </button>
+          </div>
+        </div>
+
+        <div className="content">
+
+          {/* Hero Health Score */}
+          <div className="hero-card" style={{marginBottom:20}}>
+            <div className="hero-glow"/>
+            <div className="hero-inner">
+              <div className="hero-gauge-wrap">
+                <div className="gauge-label">Salud financiera</div>
+                <Gauge score={82}/>
+                <div className="gauge-score">
+                  <div className="gauge-num">82</div>
+                  <div className="gauge-denom">/ 100</div>
+                  <div className="gauge-grade">Saludable</div>
+                </div>
+              </div>
+              <div className="hero-body">
+                <div className="hero-title">Tu situación financiera es sólida</div>
+                <div className="hero-desc">
+                  Liquidez de <b>4,2 meses</b>, ahorro del <b>22%</b>, deuda en <b>18%</b> del ingreso. Punto débil: diversificación mejorable.
+                </div>
+                <div className="hero-pillars">
+                  {[
+                    {name:'Liquidez',val:'4,2x meses',tag:'Sólido',tagCls:'green',pct:84,meta:'Meta: 3 meses',color:'#1F8A5B'},
+                    {name:'Ahorro',val:'22% ingreso',tag:'En meta',tagCls:'green',pct:73,meta:'Meta: 20%',color:'#1F8A5B'},
+                    {name:'Deuda / Ingreso',val:'18% · <30%',tag:'OK',tagCls:'green',pct:60,meta:'Límite: 30%',color:'#1F8A5B'},
+                    {name:'Diversificación',val:'54% USD',tag:'Mejorar',tagCls:'amber',pct:54,meta:'Meta: 60% USD',color:'#E8A93C'},
+                  ].map(p=>(
+                    <div key={p.name} className="pilar">
+                      <div className="pilar-header">
+                        <span className="pilar-name">{p.name}</span>
+                        <span className={`pilar-tag ${p.tagCls}`}>{p.tag}</span>
+                      </div>
+                      <div className="pilar-val">{p.val}</div>
+                      <div className="pilar-bar">
+                        <div className="pilar-bar-fill" style={{width:`${p.pct}%`,background:p.color}}/>
+                      </div>
+                      <div className="pilar-meta">{p.meta}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* KPI Grid */}
+          <div className="kpi-grid">
+            <KpiCard
+              name="Saldo del mes" icon={IC.ingreso} tone="pos"
+              num="+$631.110" currency="ARS"
+              sub="+$439 USD"
+              delta="↑ +$92.340 vs abr" deltaDir="pos"
+              meta="Ingresos − Egresos · Mayo"
+              spark={[320000,290000,410000,380000,450000,520000,480000,540000,600000,631110]}
+            />
+            <KpiCard
+              name="Patrimonio neto" icon={IC.wallet} tone="info"
+              num="$21.385" currency="USD"
+              sub="$30.580.421 ARS"
+              delta="↑ +2,1% vs abr" deltaDir="info"
+              meta="Activos − Pasivos totales"
+              spark={[16400,17100,17650,18200,18800,19100,19700,20500,20900,21385]}
+            />
+            <KpiCard
+              name="Proyectado dic 2026" icon={IC.trend} tone="warn"
+              num="+$22.745" currency="USD"
+              sub="+$32.564.651 ARS"
+              delta="↑ Ahorro 7 meses" deltaDir="warn"
+              meta="Neto acumulado may–dic 2026"
+              spark={[631,720,650,810,750,840,890,960]}
+            />
+            <KpiCard
+              name="Patrimonio proy. dic 26" icon={IC.goal} tone="pos"
+              num="$44.091" currency="USD"
+              sub="+$22.706 ahorro 2026"
+              delta="↑ +$22.706 desde hoy" deltaDir="pos"
+              meta="Patrimonio actual + ahorro"
+              spark={[21385,22100,22800,23600,24400,25200,26100,27000,28100,29200,30600,32100,33800,44091]}
+            />
+          </div>
+
+          {/* Patrimony + Composition */}
+          <div className="grid12" style={{marginBottom:20}}>
+            <div className="card col8">
+              <div className="panel-hd">
+                <div className="panel-hd-left">
+                  <div className="panel-title">Patrimonio neto</div>
+                  <div className="panel-sub">12 meses + proyección</div>
+                </div>
+                <div className="panel-actions">
+                  <div className="legend-row">
+                    <div className="leg-item"><div className="leg-dot" style={{background:'#1F8A5B'}}/> Histórico</div>
+                    <div className="leg-item"><div className="leg-dot dashed"/> Proyectado</div>
+                  </div>
+                </div>
+              </div>
+              <div className="card-bd" style={{paddingTop:4}}>
+                <div style={{marginBottom:10}}>
+                  <span className="mono" style={{fontSize:28,fontWeight:700,color:'#1F8A5B'}}>$21.385 USD</span>
+                  <span style={{fontSize:13,color:'#7D8694',marginLeft:12}}>↑ +5.145 USD en 12 meses · +31,7%</span>
+                </div>
+                <PatrimonyChart/>
+              </div>
+            </div>
+            <div className="card col4">
+              <div className="panel-hd">
+                <div className="panel-hd-left">
+                  <div className="panel-title">Composición patrimonial</div>
+                  <div className="panel-sub">Mayo 2026</div>
+                </div>
+              </div>
+              <div className="card-bd" style={{paddingTop:8}}>
+                <div className="stack-bar">
+                  <div className="stack-seg" style={{width:'53%',background:'linear-gradient(90deg,#3FB07C,#1F8A5B)'}}>USD 53%</div>
+                  <div className="stack-seg" style={{width:'44%',background:'linear-gradient(90deg,#77B2DD,#3D7DB3)'}}>ARS 44%</div>
+                  <div className="stack-seg" style={{width:'3%',background:'linear-gradient(90deg,#F5B942,#C98A1F)',minWidth:28,fontSize:9}}>3%</div>
+                </div>
+                <div className="legend-cards">
+                  <div className="legend-card">
+                    <div className="legend-lbl">USD</div>
+                    <div className="legend-val mono" style={{color:'#1F8A5B'}}>$11.334</div>
+                    <div className="legend-sub">53% · dólares MEP</div>
+                  </div>
+                  <div className="legend-card">
+                    <div className="legend-lbl">ARS</div>
+                    <div className="legend-val mono" style={{color:'#3D7DB3'}}>$9.410</div>
+                    <div className="legend-sub">44% · cuenta + acciones</div>
+                  </div>
+                  <div className="legend-card">
+                    <div className="legend-lbl">Físicos</div>
+                    <div className="legend-val mono" style={{color:'#C98A1F'}}>$641</div>
+                    <div className="legend-sub">3% · rodados</div>
+                  </div>
+                </div>
+              </div>
+              <div className="card-footer-dashed">
+                <Icon d={IC.scale} size={15} style={{color:'#7D8694',flexShrink:0,marginTop:1}}/>
+                Subir USD al 60% para cubrir inflación de 3,5%/mes y proteger poder adquisitivo.
+              </div>
+            </div>
+          </div>
+
+          {/* Income vs Expenses */}
+          <div className="card col12" style={{marginBottom:20}}>
+            <div className="panel-hd">
+              <div className="panel-hd-left">
+                <div className="panel-title">Ingresos vs Egresos</div>
+                <div className="panel-sub">May–Dic 2026</div>
+              </div>
+              <div className="panel-actions">
+                <div className="legend-row">
+                  <div className="leg-item"><div className="leg-dot" style={{background:'#1F8A5B'}}/> Ingresos</div>
+                  <div className="leg-item"><div className="leg-dot" style={{background:'#D7263D'}}/> Egresos</div>
+                  <div className="leg-item"><div className="leg-dot" style={{background:'#E8A93C'}}/> Mes actual</div>
+                </div>
+              </div>
+            </div>
+            <div className="card-bd" style={{paddingTop:4}}>
+              <BarChart/>
+            </div>
+          </div>
+
+          {/* Donut + Quality */}
+          <div className="grid12" style={{marginBottom:20}}>
+            <div className="card col7">
+              <div className="panel-hd">
+                <div className="panel-hd-left">
+                  <div className="panel-title">Egresos por categoría</div>
+                  <div className="panel-sub">Desglose mensual</div>
+                </div>
+                <div className="panel-actions">
+                  <div className="tab-group">
+                    {['mes','trim','año'].map(t=>(
+                      <button key={t} className={`tab-btn${activeTab===t?' active':''}`}
+                        onClick={()=>setActiveTab(t)}>
+                        {t==='mes'?'Mes':t==='trim'?'Trimestre':'Año'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="card-bd" style={{paddingTop:8}}>
+                <DonutChart/>
+              </div>
+            </div>
+            <div className="card col5">
+              <div className="panel-hd">
+                <div className="panel-hd-left">
+                  <div className="panel-title">Calidad del gasto</div>
+                  <div className="panel-sub">Mayo 2026</div>
+                </div>
+              </div>
+              <div className="card-bd" style={{paddingTop:8}}>
+                {[
+                  {name:'Fijo',val:'$1.854.230',pct:58.8,color:'#3F7CB3',meta:'Suscripciones, expensas, cuotas'},
+                  {name:'Variable',val:'$842.160',pct:26.7,color:'#E8A93C',meta:'Comida, transporte, gastos del mes'},
+                  {name:'No esencial',val:'$457.500',pct:14.5,color:'#D7263D',meta:'Salidas, suscripciones cortables'},
+                ].map(q=>(
+                  <div key={q.name} className="quality-row">
+                    <div className="quality-hd">
+                      <div style={{display:'flex',alignItems:'center'}}>
+                        <span className="quality-swatch" style={{background:q.color}}/>
+                        <span className="quality-name">{q.name}</span>
+                      </div>
+                      <span className="quality-val mono" style={{color:q.color}}>{q.val}</span>
+                    </div>
+                    <div className="quality-bar">
+                      <div className="quality-fill" style={{width:`${q.pct}%`,background:q.color}}/>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between'}}>
+                      <div className="quality-meta">{q.meta}</div>
+                      <div className="quality-meta mono" style={{fontWeight:600}}>{q.pct}%</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="card-footer-dashed">
+                <Icon d={IC.brush} size={15} style={{color:'#7D8694',flexShrink:0,marginTop:1}}/>
+                $457.500 son candidatos a recortar. Te alcanzaría para sumar +18% a tu fondo de emergencia.
+              </div>
+            </div>
+          </div>
+
+          {/* AI Insights */}
+          <div className="card" style={{marginBottom:20}}>
+            <div className="panel-hd">
+              <div className="panel-hd-left" style={{flexDirection:'row',alignItems:'center',gap:10}}>
+                <div style={{width:28,height:28,borderRadius:8,background:'#FDE8B3',display:'flex',alignItems:'center',justifyContent:'center',color:'#C98A1F'}}>
+                  <Icon d={IC.ai} size={15} strokeWidth={2}/>
+                </div>
+                <div>
+                  <div className="panel-title">Asistente IA</div>
+                  <div className="panel-sub">3 sugerencias para mayo</div>
+                </div>
+              </div>
+              <div className="panel-actions">
+                <span className="link-sm">Ver todo</span>
+              </div>
+            </div>
+            <div style={{padding:'0 20px 20px'}}>
+              <div className="insight-grid">
+                {[
+                  {
+                    tone:'opp',icon:IC.bolt,iconBg:'#E4F4EC',iconColor:'#1F8A5B',
+                    tag:'Oportunidad',title:'Suscripciones duplicadas detectadas',
+                    body:<>Spotify Familiar + Personal activos al mismo tiempo. <b>Ahorrarías $107.880/año</b> cancelando el individual.</>,
+                    p1:'Cancelar Individual',p2:'Ignorar'
+                  },
+                  {
+                    tone:'warn',icon:IC.flame,iconBg:'#FDF2D8',iconColor:'#C98A1F',
+                    tag:'Atención',title:'Ocio creció +11,7% este mes',
+                    body:<><b>$198.400</b> vs $177.620 promedio. A este ritmo, tu meta de ahorro se atrasa <b>3 semanas</b>.</>,
+                    p1:'Ver detalle',p2:'Ignorar'
+                  },
+                  {
+                    tone:'alert',icon:IC.cal,iconBg:'#FCE9EC',iconColor:'#D7263D',
+                    tag:'Vencimiento próximo',title:'VISA cierra en 3 días',
+                    body:<>Pago estimado <b>$662.758</b>. Cobertura <b>4,3x</b> en cuenta corriente. Sin riesgo de descubierto.</>,
+                    p1:'Ver resumen',p2:'Ignorar'
+                  },
+                ].map((c,i)=>(
+                  <div key={i} className="insight-card">
+                    <div className="insight-hd">
+                      <div className="insight-icon" style={{background:c.iconBg,color:c.iconColor}}>
+                        <Icon d={c.icon} size={16} strokeWidth={2}/>
+                      </div>
+                      <div>
+                        <div className={`insight-tag ${c.tone}`}>{c.tag}</div>
+                        <div className="insight-title">{c.title}</div>
+                      </div>
+                    </div>
+                    <div className="insight-body">{c.body}</div>
+                    <div className="insight-footer">
+                      <button className="btn-sm primary">{c.p1}</button>
+                      <button className="btn-sm secondary">{c.p2}</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Goals */}
+          <div className="card" style={{marginBottom:20}}>
+            <div className="panel-hd">
+              <div className="panel-hd-left">
+                <div className="panel-title">Objetivos</div>
+              </div>
+              <div className="panel-actions">
+                <span className="link-sm">Ver todos</span>
+              </div>
+            </div>
+            <div style={{padding:'0 20px 20px'}}>
+              <div className="goal-grid">
+                {[
+                  {icon:IC.shield,iconBg:'#E4F4EC',iconColor:'#1F8A5B',color:'#1F8A5B',
+                    name:'Fondo de emergencia',cur:11400,tot:18000,eta:'ago 2026',status:'En tiempo',statusCls:'ok'},
+                  {icon:IC.plane,iconBg:'#FDF2D8',iconColor:'#C98A1F',color:'#C98A1F',
+                    name:'Viaje Europa 2026',cur:3850,tot:6500,eta:'oct 2026',status:'Atrasado 2 m.',statusCls:'behind'},
+                  {icon:IC.car,iconBg:'#EEF5FB',iconColor:'#3D7DB3',color:'#3D7DB3',
+                    name:'Reemplazar auto',cur:6200,tot:25000,eta:'mar 2028',status:'En tiempo',statusCls:'ok'},
+                ].map(g=>{
+                  const pct=Math.round(g.cur/g.tot*100);
+                  return(
+                    <div key={g.name} className="goal-card">
+                      <div className="goal-hd">
+                        <div className="goal-icon" style={{background:g.iconBg,color:g.iconColor}}>
+                          <Icon d={g.icon} size={15} strokeWidth={2}/>
+                        </div>
+                        <div className="goal-name">{g.name}</div>
+                        <div className="goal-pct mono" style={{color:g.color}}>{pct}%</div>
+                      </div>
+                      <div className="goal-bar">
+                        <div className="goal-fill" style={{width:`${pct}%`,background:g.color}}/>
+                      </div>
+                      <div className="goal-vals">
+                        <span className="goal-cur mono" style={{color:g.color}}>${g.cur.toLocaleString('es-AR')}</span>
+                        <span className="goal-tot">${g.tot.toLocaleString('es-AR')} USD</span>
+                      </div>
+                      <div className="goal-footer">
+                        <span className="goal-eta">ETA {g.eta}</span>
+                        <span className={`goal-status ${g.statusCls}`}>{g.status}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Bills + Movements */}
+          <div className="grid12">
+            <div className="card col7">
+              <div className="panel-hd">
+                <div className="panel-hd-left">
+                  <div className="panel-title">Próximos vencimientos</div>
+                  <div className="panel-sub">30 días</div>
+                </div>
+                <div className="panel-actions">
+                  <span className="link-sm">Ver agenda</span>
+                </div>
+              </div>
+              <div style={{padding:'0 12px 16px'}}>
+                <div className="bills-list">
+                  {[
+                    {day:12,mon:'MAY',type:'today',name:'Expensas',cat:'Vivienda',catColor:'#3D7DB3',tag:'Hoy',days:'Hoy',amt:'-$189.500',dir:'neg'},
+                    {day:15,mon:'MAY',type:'urgent',name:'VISA · Cierre',cat:'Crédito',catColor:'#D7263D',tag:'Urgent',days:'En 3 días',amt:'-$662.758',dir:'neg'},
+                    {day:20,mon:'MAY',type:'normal',name:'Movistar',cat:'Telefonía',catColor:'#6AA3D9',tag:'',days:'En 8 días',amt:'-$24.990',dir:'neg'},
+                    {day:25,mon:'MAY',type:'normal',name:'Sueldo',cat:'Ingreso',catColor:'#1F8A5B',tag:'',days:'En 13 días',amt:'+$2.840.000',dir:'pos'},
+                    {day:28,mon:'MAY',type:'normal',name:'Swiss Medical',cat:'Salud',catColor:'#9B59B6',tag:'',days:'En 16 días',amt:'-$142.000',dir:'neg'},
+                    {day:4,mon:'JUN',type:'normal',name:'VISA · Vencimiento',cat:'Crédito',catColor:'#D7263D',tag:'',days:'En 23 días',amt:'-$662.758',dir:'neg'},
+                  ].map((b,i)=>(
+                    <div key={i} className="bill-row">
+                      <div className={`date-chip ${b.type}`}>
+                        <span className="day">{b.day}</span>
+                        <span className="mon">{b.mon}</span>
+                      </div>
+                      <div>
+                        <div className="bill-name">{b.name}</div>
+                        <div className="bill-meta">
+                          <div className="bill-dot" style={{background:b.catColor}}/>
+                          <span>{b.cat}</span>
+                          {b.tag&&<span className="bill-tag" style={{background:b.type==='today'?'#FDE8B3':b.type==='urgent'?'#FCE9EC':'#F0F1F3',color:b.type==='today'?'#8E5F12':b.type==='urgent'?'#8A1325':'#5C6370'}}>{b.tag}</span>}
+                          <span className="bill-days">· {b.days}</span>
+                        </div>
+                      </div>
+                      <div className={`bill-amount ${b.dir}`}>{b.amt}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="card col5">
+              <div className="panel-hd">
+                <div className="panel-hd-left">
+                  <div className="panel-title">Últimos movimientos</div>
+                </div>
+                <div className="panel-actions">
+                  <span className="link-sm">Ver todos</span>
+                </div>
+              </div>
+              <div style={{padding:'0 12px 16px'}}>
+                <div className="mov-list">
+                  {[
+                    {icon:IC.food,iconBg:'#FDF2D8',iconColor:'#C98A1F',name:'Pedidos Ya',meta:'Comida · Débito · hoy 13:24',amt:'-$25.669',dir:'neg'},
+                    {icon:IC.ingreso,iconBg:'#E4F4EC',iconColor:'#1F8A5B',name:'Transferencia recibida',meta:'Ingreso · CBU · hoy 10:15',amt:'+$485.000',dir:'pos'},
+                    {icon:IC.bag,iconBg:'#EEF5FB',iconColor:'#3D7DB3',name:'Carrefour',meta:'Comida · Débito · ayer',amt:'-$12.288',dir:'neg'},
+                    {icon:IC.film,iconBg:'#FCE9EC',iconColor:'#D7263D',name:'Spotify',meta:'Plataformas · Crédito · ayer',amt:'-$8.990',dir:'neg'},
+                    {icon:IC.usd,iconBg:'#FDE8B3',iconColor:'#8E5F12',name:'Compra USD MEP',meta:'Activos · Transferencia · lun',amt:'-$185.000',dir:'neg'},
+                  ].map((m,i)=>(
+                    <div key={i} className="mov-row">
+                      <div className="mov-icon" style={{background:m.iconBg,color:m.iconColor}}>
+                        <Icon d={m.icon} size={15} strokeWidth={2}/>
+                      </div>
+                      <div>
+                        <div className="mov-name">{m.name}</div>
+                        <div className="mov-meta">{m.meta}</div>
+                      </div>
+                      <div className={`mov-amount ${m.dir}`}>{m.amt}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
