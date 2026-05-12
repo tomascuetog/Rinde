@@ -625,6 +625,15 @@ body.privacy svg text{
 .dh-tab-grp{display:flex;background:var(--s2);border-radius:8px;padding:3px;gap:2px;}
 .dh-tab{padding:4px 10px;border-radius:5px;font-size:11.5px;font-weight:500;cursor:pointer;transition:all .12s;border:none;background:transparent;color:var(--muted);font-family:var(--font);}
 .dh-tab.active{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08);font-weight:600;}
+/* ---- COLLAPSIBLE NAV GROUPS ---- */
+.ns{cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-radius:5px;margin:0 6px;padding:12px 8px 3px;}
+.ns:hover{color:rgba(255,255,255,.5);}
+.ns-chev{font-size:9px;color:rgba(255,255,255,.28);transition:transform .2s;flex-shrink:0;margin-right:2px;}
+.ns.collapsed .ns-chev{transform:rotate(-90deg);}
+.nav-items{overflow:hidden;transition:max-height .22s ease,opacity .18s ease;max-height:300px;opacity:1;}
+.nav-items.collapsed{max-height:0;opacity:0;pointer-events:none;}
+.sidebar.collapsed .ns-chev{display:none;}
+.sidebar.collapsed .ns{padding:0;margin:0;height:0;overflow:hidden;}
 </style>
 </head>
 <body>
@@ -637,45 +646,64 @@ body.privacy svg text{
     <button class="sidebar-toggle" onclick="toggleSidebar()" title="Colapsar menú" id="toggle-btn">◀</button>
   </div>
 
-  <div class="ns">Principal</div>
-  <div class="ni active" onclick="nav('dashboard')" data-label="Dashboard"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/></svg></span><span class="ni-label">Dashboard</span></div>
-  <div class="ni" onclick="nav('tareas')" data-label="Tareas"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 8l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Tareas</span><span class="nbadge r" id="badge-tareas">0</span></div>
-  <div class="ni" onclick="nav('asistente')" data-label="Asistente IA" style="background:linear-gradient(135deg,rgba(54,201,198,.15),rgba(54,201,198,.05));border:1px solid rgba(54,201,198,.2);margin:3px 8px 1px;"><span class="ni-icon" style="color:var(--pos);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 6h8M4 8.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4 14l2-2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label" style="color:rgba(230,235,224,.75);">Asistente IA</span><span class="nbadge t">nuevo</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="principal">Principal <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-principal">
+    <div class="ni active" onclick="nav('dashboard')" data-label="Dashboard"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/></svg></span><span class="ni-label">Dashboard</span></div>
+    <div class="ni" onclick="nav('tareas')" data-label="Tareas"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 8l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Tareas</span><span class="nbadge r" id="badge-tareas">0</span></div>
+    <div class="ni" onclick="nav('asistente')" data-label="Asistente IA" style="background:linear-gradient(135deg,rgba(54,201,198,.15),rgba(54,201,198,.05));border:1px solid rgba(54,201,198,.2);margin:3px 8px 1px;"><span class="ni-icon" style="color:var(--pos);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 6h8M4 8.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4 14l2-2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label" style="color:rgba(230,235,224,.75);">Asistente IA</span><span class="nbadge t">nuevo</span></div>
+  </div>
 
-  <div class="ns">Ingresos</div>
-  <div class="ni" onclick="nav('ingresos')" data-label="Ingresos reales"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Ingresos reales</span></div>
-  <div class="ni" onclick="nav('ingresos-futuros')" data-label="Ingresos futuros"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 1.5"/><circle cx="12.5" cy="3.5" r="2.5" fill="var(--gold)" stroke="none"/></svg></span><span class="ni-label">Ingresos futuros</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="ingresos">Ingresos <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-ingresos">
+    <div class="ni" onclick="nav('ingresos')" data-label="Ingresos reales"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Ingresos reales</span></div>
+    <div class="ni" onclick="nav('ingresos-futuros')" data-label="Ingresos futuros"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 1.5"/><circle cx="12.5" cy="3.5" r="2.5" fill="var(--gold)" stroke="none"/></svg></span><span class="ni-label">Ingresos futuros</span></div>
+  </div>
 
-  <div class="ns">Egresos</div>
-  <div class="ni" onclick="nav('egresos-inm')" data-label="Débito/Transferencias"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3.5 8.5L8 13l4.5-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Débito/Transf.</span></div>
-  <div class="ni" onclick="nav('egresos-cuotas')" data-label="Crédito"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="10.5" cy="10" r="1" fill="currentColor"/></svg></span><span class="ni-label">Crédito</span></div>
-  <div class="ni" onclick="nav('egresos-fijos')" data-label="Fijos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5h12M2 8h8M2 11h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="ni-label">Fijos</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="egresos">Egresos <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-egresos">
+    <div class="ni" onclick="nav('egresos-inm')" data-label="Débito/Transferencias"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3.5 8.5L8 13l4.5-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Débito/Transf.</span></div>
+    <div class="ni" onclick="nav('egresos-cuotas')" data-label="Crédito"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="10.5" cy="10" r="1" fill="currentColor"/></svg></span><span class="ni-label">Crédito</span></div>
+    <div class="ni" onclick="nav('egresos-fijos')" data-label="Fijos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5h12M2 8h8M2 11h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="ni-label">Fijos</span></div>
+  </div>
 
-  <div class="ns">Compartidos</div>
-  <div class="ni" onclick="nav('split')" data-label="Gastos compartidos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.21 2.015-4 4.5-4S10 10.79 10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12.5 9.5c1.38.5 2.5 1.7 2.5 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Gastos compartidos</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="compartidos">Compartidos <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-compartidos">
+    <div class="ni" onclick="nav('split')" data-label="Gastos compartidos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.21 2.015-4 4.5-4S10 10.79 10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12.5 9.5c1.38.5 2.5 1.7 2.5 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Gastos compartidos</span></div>
+  </div>
 
-  <div class="ns">Activos</div>
-  <div class="ni" onclick="nav('cartera')" data-label="Cartera"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 12V6a1 1 0 011-1h10a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.5"/><path d="M5 5V3.5A1.5 1.5 0 016.5 2h3A1.5 1.5 0 0111 3.5V5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8.5" r="1.5" fill="currentColor"/></svg></span><span class="ni-label">Cartera</span></div>
-  <div class="ni" onclick="nav('activos')" data-label="Activos físicos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 14V7.5L8 2l6 5.5V14a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span><span class="ni-label">Activos físicos</span></div>
-  <div class="ni" onclick="nav('simulador')" data-label="¿Puedo?"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M6 6.5c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L8 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r="1" fill="currentColor"/></svg></span><span class="ni-label">¿Puedo?</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="activos">Activos <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-activos">
+    <div class="ni" onclick="nav('cartera')" data-label="Cartera"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 12V6a1 1 0 011-1h10a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.5"/><path d="M5 5V3.5A1.5 1.5 0 016.5 2h3A1.5 1.5 0 0111 3.5V5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8.5" r="1.5" fill="currentColor"/></svg></span><span class="ni-label">Cartera</span></div>
+    <div class="ni" onclick="nav('activos')" data-label="Activos físicos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 14V7.5L8 2l6 5.5V14a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span><span class="ni-label">Activos físicos</span></div>
+    <div class="ni" onclick="nav('simulador')" data-label="¿Puedo?"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M6 6.5c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L8 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r="1" fill="currentColor"/></svg></span><span class="ni-label">¿Puedo?</span></div>
+  </div>
 
-  <div class="ns">Objetivos</div>
-  <div class="ni" onclick="nav('objetivos')" data-label="Objetivos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg></span><span class="ni-label">Objetivos</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="objetivos">Objetivos <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-objetivos">
+    <div class="ni" onclick="nav('objetivos')" data-label="Objetivos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg></span><span class="ni-label">Objetivos</span></div>
+  </div>
 
-  <div class="ns">Análisis</div>
-  <div class="ni" onclick="nav('analisis')" data-label="Por mes"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 13V8h3v5H2zM6.5 13V5h3v8h-3zM11 13V2h3v11h-3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span><span class="ni-label">Por mes</span></div>
-  <div class="ni" onclick="nav('proyeccion')" data-label="Proyección"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M1.5 12.5l4-5 3 2.5 5.5-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="3" r="1.5" fill="currentColor"/></svg></span><span class="ni-label">Proyección</span></div>
-  <div class="ni" onclick="nav('optimizador')" data-label="Optimizador"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6h4.5l-3.5 2.5 1.5 5L8 11l-4 2.5 1.5-5L2 6h4.5L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></span><span class="ni-label">Optimizador</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="analisis">Análisis <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-analisis">
+    <div class="ni" onclick="nav('analisis')" data-label="Por mes"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 13V8h3v5H2zM6.5 13V5h3v8h-3zM11 13V2h3v11h-3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span><span class="ni-label">Por mes</span></div>
+    <div class="ni" onclick="nav('proyeccion')" data-label="Proyección"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M1.5 12.5l4-5 3 2.5 5.5-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="3" r="1.5" fill="currentColor"/></svg></span><span class="ni-label">Proyección</span></div>
+    <div class="ni" onclick="nav('optimizador')" data-label="Optimizador"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6h4.5l-3.5 2.5 1.5 5L8 11l-4 2.5 1.5-5L2 6h4.5L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></span><span class="ni-label">Optimizador</span></div>
+  </div>
 
-  <div class="ns">Economía</div>
-  <div class="ni" onclick="nav('cotizacion')" data-label="Cotización USD"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 3.5v9M6 5.5c0-.83.9-1.5 2-1.5s2 .67 2 1.5S9.1 7 8 7s-2 .67-2 1.5S6.9 10 8 10s2-.67 2-1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="ni-label">Cotización USD</span></div>
-  <div class="ni" onclick="nav('inflacion')" data-label="Inflación"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M1.5 12L5.5 7l3 3 5-6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11.5 3.5H14v2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Inflación</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="economia">Economía <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-economia">
+    <div class="ni" onclick="nav('cotizacion')" data-label="Cotización USD"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 3.5v9M6 5.5c0-.83.9-1.5 2-1.5s2 .67 2 1.5S9.1 7 8 7s-2 .67-2 1.5S6.9 10 8 10s2-.67 2-1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="ni-label">Cotización USD</span></div>
+    <div class="ni" onclick="nav('inflacion')" data-label="Inflación"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M1.5 12L5.5 7l3 3 5-6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11.5 3.5H14v2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Inflación</span></div>
+  </div>
 
-  <div class="ns">Configuración</div>
-  <div class="ni" onclick="nav('precios')" data-label="Mis productos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 2h2l1.5 7h5l1.5-4.5H4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="13" r="1.2" fill="currentColor"/><circle cx="11.5" cy="13" r="1.2" fill="currentColor"/></svg></span><span class="ni-label">Mis productos</span></div>
-  <div class="ni" onclick="nav('actividad')" data-label="Actividad"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="ni-label">Actividad</span></div>
-  <div class="ni" onclick="nav('mejoras')" data-label="Mejoras"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 9.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Mejoras</span><span class="nbadge r" id="mejoras-badge" style="display:none"></span></div>
-  <div class="ni" onclick="nav('tablas')" data-label="Tablas"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 5.5h13M5.5 5.5v9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Tablas</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="config">Configuración <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-config">
+    <div class="ni" onclick="nav('tarjetas')" data-label="Tarjetas"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6.5h13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5" cy="10" r="1" fill="currentColor"/><circle cx="8" cy="10" r="1" fill="currentColor"/></svg></span><span class="ni-label">Tarjetas</span></div>
+    <div class="ni" onclick="nav('precios')" data-label="Mis productos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 2h2l1.5 7h5l1.5-4.5H4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="13" r="1.2" fill="currentColor"/><circle cx="11.5" cy="13" r="1.2" fill="currentColor"/></svg></span><span class="ni-label">Mis productos</span></div>
+    <div class="ni" onclick="nav('actividad')" data-label="Actividad"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="ni-label">Actividad</span></div>
+    <div class="ni" onclick="nav('mejoras')" data-label="Mejoras"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 9.5h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Mejoras</span><span class="nbadge r" id="mejoras-badge" style="display:none"></span></div>
+    <div class="ni" onclick="nav('tablas')" data-label="Tablas"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 5.5h13M5.5 5.5v9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Tablas</span></div>
+  </div>
 
   <div class="sb">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 6px;">
@@ -712,7 +740,7 @@ body.privacy svg text{
     <button class="topbar-icon-btn" title="Notificaciones" style="width:32px;height:32px;border:none;background:transparent;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:background .12s;" onmouseenter="this.style.background='var(--s2)'" onmouseleave="this.style.background='transparent'">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
     </button>
-    <div class="topbar-avatar" id="topbar-avatar">?</div>
+    <div class="topbar-avatar" id="topbar-avatar" onclick="editPerfil()" title="Editar perfil">?</div>
   </div>
 </div>
 <!-- MAIN -->
@@ -1463,7 +1491,7 @@ function getCotizacion(mes){
 function getInflacion(mes){
   const list=dbGet('inflacion');
   const found=list.find(x=>x.mes===mes);
-  return found?found.porcentaje:3.5;
+  return found?found.porcentaje:0;
 }
 function arsToUsd(ars,mes){ return ars/getCotizacion(mes); }
 function usdToArs(usd,mes){ return usd*getCotizacion(mes); }
@@ -1624,6 +1652,24 @@ function toggleSidebar(){
   btn.title=collapsed?'Expandir menú':'Colapsar menú';
   try{ localStorage.setItem('rinde_sidebar_collapsed', collapsed?'1':'0'); }catch(e){}
 }
+function toggleNavGroup(ns){
+  const g=ns.getAttribute('data-group');
+  const items=document.getElementById('ng-'+g);
+  if(!items) return;
+  const col=items.classList.toggle('collapsed');
+  ns.classList.toggle('collapsed',col);
+  try{ localStorage.setItem('rinde_ng_'+g, col?'1':'0'); }catch(e){}
+}
+function restoreNavGroups(){
+  document.querySelectorAll('.ns[data-group]').forEach(ns=>{
+    const g=ns.getAttribute('data-group');
+    if(localStorage.getItem('rinde_ng_'+g)==='1'){
+      ns.classList.add('collapsed');
+      const items=document.getElementById('ng-'+g);
+      if(items) items.classList.add('collapsed');
+    }
+  });
+}
 
 const BC_MAP={
   'dashboard':['Dashboard'],
@@ -1698,7 +1744,7 @@ function renderDashboard(){
   const infMes=getInflacion(mes);
   const refs=getCarteraRefs();
   const usdArs=refs.USD_ARS||cotiz||1;
-  const nombre=localStorage.getItem('rinde_nombre')||'Ricardo';
+  const nombre=localStorage.getItem('rinde_nombre')||'vos';
   const saludo=getSaludo();
 
   // ── Mes actual ──
@@ -1829,7 +1875,7 @@ function renderDashboard(){
     const arcs=catEntries.slice(0,7).map(([cat,val])=>{
       const pct=val/totalCatUSD;
       const dash=pct*circ;
-      const el=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${CAT_COLORS_HEX[cat]||'#7D8694'}" stroke-width="${sw}" stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" stroke-linecap="butt" style="transform:rotate(-90deg);transform-origin:${cx}px ${cy}px;"/>`;
+      const el=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${CAT_COLORS_HEX[cat]||'#7D8694'}" stroke-width="${sw}" stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}" stroke-dashoffset="${(circ/4-off).toFixed(2)}" stroke-linecap="butt" style="transform-origin:${cx}px ${cy}px;"/>`;
       off+=dash; return el;
     }).join('');
     return`<div class="dh-donut-grid"><div style="display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 160 160" width="170" height="170"><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#ECEEF2" stroke-width="${sw}"/>${arcs}<text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="9" fill="#7D8694" letter-spacing="0.06em">EGRESOS</text><text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="18" fill="#15181C" font-weight="700" font-family="JetBrains Mono,monospace">${fmtUSD(totalCatUSD)}</text><text x="${cx}" y="${cy+20}" text-anchor="middle" font-size="9" fill="#7D8694">${catEntries.length} categorías</text></svg></div><div class="dh-cat-list">${catEntries.slice(0,7).map(([cat,val])=>`<div class="dh-cat-row"><div class="dh-cat-sw" style="background:${CAT_COLORS_HEX[cat]||'#7D8694'};"></div><div><div class="dh-cat-nm">${cat}</div></div><div><div class="dh-cat-amt">${fmtUSD(val)}</div><div class="dh-cat-pct">${Math.round(val/totalCatUSD*100)}%</div></div></div>`).join('')}</div></div>`;
@@ -1838,32 +1884,28 @@ function renderDashboard(){
   function patriChartSVG(){
     const W=680,H=130,PL=48,PR=16,PT=16,PB=28;
     const cW=W-PL-PR,cH=H-PT-PB;
-    const HIST=12,PROJ=3,N=HIST+PROJ+1;
+    const N=13; // May 2026 – May 2027
     const allM=[];
-    for(let i=-HIST;i<=PROJ;i++) allM.push(mesNext(mes,i));
-    const curIdx=HIST;
+    for(let i=0;i<N;i++) allM.push(mesNext(mes,i));
     const nets=allM.map(m=>totalIngresosUSD(m)+totalIngresosFuturosUSD(m)-totalEgresosUSD(m));
     const pLvl=new Array(N);
-    pLvl[curIdx]=patriTotal;
-    for(let i=curIdx-1;i>=0;i--) pLvl[i]=pLvl[i+1]-nets[i+1];
-    for(let i=curIdx+1;i<N;i++) pLvl[i]=pLvl[i-1]+nets[i];
+    pLvl[0]=patriTotal;
+    for(let i=1;i<N;i++) pLvl[i]=pLvl[i-1]+nets[i];
     const minV=Math.min(...pLvl)*0.97;
     const maxV=Math.max(...pLvl)*1.03;
     const rng=maxV-minV||1;
     const xOf=i=>PL+i*cW/(N-1);
     const yOf=v=>PT+cH-(v-minV)/rng*cH;
-    const hPts=pLvl.slice(0,curIdx+1).map((_,i)=>`${xOf(i).toFixed(1)},${yOf(pLvl[i]).toFixed(1)}`);
-    const histArea=`M${xOf(0).toFixed(1)},${(PT+cH).toFixed(1)} L${hPts.join(' L')} L${xOf(curIdx).toFixed(1)},${(PT+cH).toFixed(1)} Z`;
-    const pPts=pLvl.slice(curIdx).map((_,i)=>`${xOf(curIdx+i).toFixed(1)},${yOf(pLvl[curIdx+i]).toFixed(1)}`).join(' ');
+    const allPts=pLvl.map((_,i)=>`${xOf(i).toFixed(1)},${yOf(pLvl[i]).toFixed(1)}`);
+    const areaPath=`M${xOf(0).toFixed(1)},${(PT+cH).toFixed(1)} L${allPts.join(' L')} L${xOf(N-1).toFixed(1)},${(PT+cH).toFixed(1)} Z`;
     const fmtK=v=>Math.abs(v)>=1000?`${(v/1000).toFixed(Math.abs(v)>=10000?0:1)}k`:v.toFixed(0);
     const yTicks=[minV,(minV+maxV)/2,maxV];
     const yLbls=yTicks.map(v=>`<text x="${(PL-5).toFixed(1)}" y="${(yOf(v)+4).toFixed(1)}" text-anchor="end" font-size="9" fill="#7D8694" font-family="JetBrains Mono,monospace">${fmtK(v)}</text>`).join('');
     const xLbls=[];
-    for(let i=0;i<N;i+=3) xLbls.push(`<text x="${xOf(i).toFixed(1)}" y="${(H-6).toFixed(1)}" text-anchor="middle" font-size="9" fill="${i>curIdx?'#1F8A5B':'#9AA3AF'}" font-family="JetBrains Mono,monospace">${allM[i].slice(5,7)}/${allM[i].slice(2,4)}</text>`);
-    const sepX=xOf(curIdx).toFixed(1);
+    for(let i=0;i<N;i+=2) xLbls.push(`<text x="${xOf(i).toFixed(1)}" y="${(H-6).toFixed(1)}" text-anchor="middle" font-size="9" fill="#9AA3AF" font-family="JetBrains Mono,monospace">${allM[i].slice(5,7)}/${allM[i].slice(2,4)}</text>`);
     const zLine=minV<0&&maxV>0?`<line x1="${PL}" y1="${yOf(0).toFixed(1)}" x2="${(W-PR).toFixed(1)}" y2="${yOf(0).toFixed(1)}" stroke="#CBD0D8" stroke-width="0.7" stroke-dasharray="3,3"/>`:'';
-    const dotCx=xOf(curIdx).toFixed(1),dotCy=yOf(patriTotal).toFixed(1);
-    return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;"><defs><linearGradient id="pg-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1F8A5B" stop-opacity="0.28"/><stop offset="100%" stop-color="#1F8A5B" stop-opacity="0.02"/></linearGradient></defs><line x1="${PL}" y1="${PT}" x2="${PL}" y2="${(PT+cH).toFixed(1)}" stroke="#ECEEF2" stroke-width="1"/><line x1="${PL}" y1="${(PT+cH).toFixed(1)}" x2="${(W-PR).toFixed(1)}" y2="${(PT+cH).toFixed(1)}" stroke="#ECEEF2" stroke-width="1"/><line x1="${sepX}" y1="${PT}" x2="${sepX}" y2="${(PT+cH).toFixed(1)}" stroke="#CBD0D8" stroke-width="0.8" stroke-dasharray="2,3"/>${zLine}<path d="${histArea}" fill="url(#pg-grad)"/><polyline points="${hPts.join(' ')}" fill="none" stroke="#1F8A5B" stroke-width="2" stroke-linejoin="round"/><polyline points="${pPts}" fill="none" stroke="#1F8A5B" stroke-width="2" stroke-dasharray="6,4" stroke-linejoin="round"/>${yLbls}${xLbls.join('')}<circle cx="${dotCx}" cy="${dotCy}" r="5" fill="#C9A227" stroke="#fff" stroke-width="2"/><text x="${dotCx}" y="${(parseFloat(dotCy)-9).toFixed(1)}" text-anchor="middle" font-size="9" fill="#C9A227" font-weight="700" font-family="JetBrains Mono,monospace">${fmtK(patriTotal)}</text></svg>`;
+    const dotCx=xOf(0).toFixed(1),dotCy=yOf(patriTotal).toFixed(1);
+    return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;"><defs><linearGradient id="pg-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1F8A5B" stop-opacity="0.28"/><stop offset="100%" stop-color="#1F8A5B" stop-opacity="0.02"/></linearGradient></defs><line x1="${PL}" y1="${PT}" x2="${PL}" y2="${(PT+cH).toFixed(1)}" stroke="#ECEEF2" stroke-width="1"/><line x1="${PL}" y1="${(PT+cH).toFixed(1)}" x2="${(W-PR).toFixed(1)}" y2="${(PT+cH).toFixed(1)}" stroke="#ECEEF2" stroke-width="1"/>${zLine}<path d="${areaPath}" fill="url(#pg-grad)"/><polyline points="${allPts.join(' ')}" fill="none" stroke="#1F8A5B" stroke-width="2" stroke-dasharray="6,4" stroke-linejoin="round"/>${yLbls}${xLbls.join('')}<circle cx="${dotCx}" cy="${dotCy}" r="5" fill="#C9A227" stroke="#fff" stroke-width="2"/><text x="${dotCx}" y="${(parseFloat(dotCy)-9).toFixed(1)}" text-anchor="middle" font-size="9" fill="#C9A227" font-weight="700" font-family="JetBrains Mono,monospace">${fmtK(patriTotal)}</text></svg>`;
   }
 
   // ── BUILD HTML ──
@@ -1975,10 +2017,9 @@ function renderDashboard(){
   <!-- PATRIMONIO NETO (historical + projected) -->
   <div class="dh-panel" style="margin-bottom:18px;">
     <div class="dh-panel-hd">
-      <div class="dh-panel-hd-l"><div class="dh-panel-title">Patrimonio neto</div><div class="dh-panel-sub">12 meses histórico + proyección</div></div>
+      <div class="dh-panel-hd-l"><div class="dh-panel-title">Patrimonio neto proyectado</div><div class="dh-panel-sub">Mayo 2026 – Mayo 2027</div></div>
       <div style="display:flex;align-items:center;gap:12px;">
         <div class="dh-leg-row">
-          <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#1F8A5B;"></div> Histórico</div>
           <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#1F8A5B;opacity:0.5;border:1px dashed #1F8A5B;"></div> Proyectado</div>
           <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#C9A227;"></div> Hoy</div>
         </div>
@@ -2019,7 +2060,6 @@ function renderDashboard(){
       <div class="dh-panel-bd">
         ${[
           {nm:'Fijo',val:fijo,pct:Math.round(fijo/totalQual*100),color:'#3F7CB3',meta:'Suscripciones, cuotas, expensas'},
-          {nm:'Variable',val:variable,pct:Math.round(variable/totalQual*100),color:'#E8A93C',meta:'Comida, transporte, gastos del mes'},
           {nm:'No esencial',val:noEsencial,pct:totalQual>0?Math.round(noEsencial/totalQual*100):0,color:'#D7263D',meta:'Candidatos a recortar'},
         ].map(q=>`<div class="dh-qual-row">
           <div class="dh-qual-hd">
@@ -2882,6 +2922,8 @@ function renderEgresosInm(){
 
   const noEsItems=curItems.filter(e=>!e.esencial);
   const noEsARS=sumARS(noEsItems), noEsUSD=sumUSD(noEsItems);
+  const esItems=curItems.filter(e=>e.esencial);
+  const esARS=sumARS(esItems), esUSD=sumUSD(esItems);
 
   function egresoRow(e){
     const montoAmt=e.moneda==='ARS'?'-'+fmtARS(e.monto):'-'+fmtUSD(e.monto)+' USD';
@@ -2959,7 +3001,7 @@ function renderEgresosInm(){
       </button>
     </div>
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);">
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
     <div class="kpi-card kc-red">
       <div class="kpi-ico" style="background:var(--neg-bg);color:var(--neg);font-weight:700;">$</div>
       <div style="flex:1;">
@@ -2983,6 +3025,14 @@ function renderEgresosInm(){
         <div class="kpi-lbl">Acumulado ${y}</div>
         <div class="kpi-val">${ytdARS?'-'+fmtARS(ytdARS):(ytdUSD?'-'+fmtUSD(ytdUSD)+' USD':'$0')}</div>
         ${ytdARS&&ytdUSD?`<div class="kpi-meta">-${fmtUSD(ytdUSD)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-blue">
+      <div class="kpi-ico" style="background:var(--opal-bg);color:var(--opal-dk);font-weight:700;">✓</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Esencial</div>
+        <div class="kpi-val">${esARS?'-'+fmtARS(esARS):(esUSD?'-'+fmtUSD(esUSD)+' USD':'$0')}</div>
+        ${esARS&&esUSD?`<div class="kpi-meta">-${fmtUSD(esUSD)} USD</div>`:''}
       </div>
     </div>
     <div class="kpi-card kc-green">
@@ -6269,6 +6319,18 @@ function closeWelcome(){
   logActividad('login','rinde','Rinde abierto');
   setTimeout(()=>overlay.classList.add('hidden'),420);
 }
+function editPerfil(){
+  const current=localStorage.getItem('rinde_nombre')||'';
+  openModal('Editar perfil',[
+    {key:'nombre',label:'Tu nombre',type:'text',value:current,required:true,hint:'Así te saluda el dashboard'},
+  ],(data)=>{
+    const val=data.nombre.trim();
+    if(!val) return;
+    localStorage.setItem('rinde_nombre',val);
+    updateTopbar(document.querySelector('.ni.active')?.getAttribute('onclick')?.match(/'([^']+)'/)?.[1]||'dashboard');
+    if(document.getElementById('dash-content')?.innerHTML) renderDashboard();
+  });
+}
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!document.getElementById('welcome-overlay').classList.contains('hidden')){
     const nombre=localStorage.getItem('rinde_nombre');
@@ -6289,7 +6351,7 @@ async function init(){
     renderDashboard();
     updateTopbar('dashboard');
     updateBadges();
-    try{ if(localStorage.getItem('rinde_sidebar_collapsed')==='1'){ document.getElementById('sidebar').classList.add('collapsed'); document.getElementById('toggle-btn').textContent='▶'; } }catch(e){}
+    try{ if(localStorage.getItem('rinde_sidebar_collapsed')==='1'){ document.getElementById('sidebar').classList.add('collapsed'); document.getElementById('toggle-btn').textContent='▶'; } }catch(e){} restoreNavGroups();
     tickClock(); setInterval(tickClock,10000);
     applyPrivacy(); showWelcome();
     return;
