@@ -2022,6 +2022,7 @@ function renderIngresos(){
 
   const freqLabel={mensual:'Mensual',unico:'Único',semestral:'Semestral'};
   const MLAB=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const FREQ_STYLE={mensual:{bg:'#E6F4EE',color:'#155F3E',ltr:'M'},semestral:{bg:'#EAF2FB',color:'#2A6FA8',ltr:'S'},unico:{bg:'#FEF6E4',color:'#B87D1A',ltr:'1'}};
 
   function row(i){
     const entryMes=i.frecuencia==='semestral'&&i.mesIngreso?i.mesIngreso.slice(0,7):(i.desde||mes).slice(0,7);
@@ -2033,38 +2034,85 @@ function renderIngresos(){
     const periodo=i.frecuencia==='mensual'?(i.desde+(i.hasta?' → '+i.hasta:' → ∞')):
                   i.frecuencia==='semestral'&&mm?(MLAB[mm-1]+' y '+MLAB[mm2-1]):
                   i.frecuencia==='unico'?(i.desde||'-'):'-';
-    const ajInf=i.frecuencia==='mensual'?(i.ajustaInflacion?'Sí':'No'):'-';
-    return `<tr>
-      <td><strong>${i.descripcion}</strong></td>
-      <td><span class="pill ${i.moneda==='ARS'?'opal':'pos'}">${i.moneda}</span></td>
-      <td class="pos-text">${fmtARS(entryARS)}</td>
-      <td class="pos-text mono">${fmtUSD(entryUSD)} USD</td>
-      <td class="mono" style="color:var(--muted);font-size:11px;">${fmtARS(entryCotiz)}</td>
-      <td><span class="pill gr">${freqLabel[i.frecuencia]||i.frecuencia}</span></td>
-      <td style="color:var(--muted);font-size:11px;">${ajInf}</td>
-      <td>${periodo}</td>
-      <td class="actions">
-        <button class="btn sm ghost" onclick="editIngreso('${i.id}')">✏</button>
-        <button class="btn sm danger" onclick="deleteIngreso('${i.id}')">✕</button>
-      </td>
-    </tr>`;
+    const montoAmt=i.moneda==='ARS'?'+'+fmtARS(entryARS):'+'+fmtUSD(entryUSD)+' USD';
+    return `<div class="irow">
+      <div class="irow-info">
+        <div class="irow-nm">${i.descripcion}</div>
+        <div class="irow-tags">
+          <span class="itag ${i.moneda==='ARS'?'ars':'usd'}">${i.moneda}</span>
+          <span class="itag cuota">${freqLabel[i.frecuencia]||i.frecuencia}</span>
+          <span class="itag dt">${periodo}</span>
+          ${i.ajustaInflacion?'<span class="itag dt">Aj. inf.</span>':''}
+        </div>
+      </div>
+      <div class="irow-right">
+        <span class="irow-amt" style="color:var(--pos-dk);">${montoAmt}</span>
+        <div class="irow-acts">
+          <button class="btn sm ghost" onclick="editIngreso('${i.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteIngreso('${i.id}')">✕</button>
+        </div>
+      </div>
+    </div>`;
   }
 
+  const freqs=[...new Set(list.map(i=>i.frecuencia))].sort();
+  const groups=freqs.map(freq=>{
+    const fi=list.filter(i=>i.frecuencia===freq);
+    const totA=fi.reduce((s,i)=>{const v=ingresoEnMes(i,mes);return s+(v?(i.moneda==='ARS'?v:v*cotiz):0);},0);
+    const totU=fi.reduce((s,i)=>{const v=ingresoEnMes(i,mes);return s+(v?(i.moneda==='USD'?v:arsToUsd(v,mes)):0);},0);
+    const fTot=[totA?'+'+fmtARS(totA):'',totU?'+'+fmtUSD(totU)+' USD':''].filter(Boolean).join(' · ')||'$0';
+    const cs=FREQ_STYLE[freq]||{bg:'#F3F4F6',color:'#374151',ltr:(freq||'?')[0].toUpperCase()};
+    return `<div class="cat-hdr">
+      <div class="cat-ico" style="background:${cs.bg};color:${cs.color};">${cs.ltr}</div>
+      <span class="cat-nm">${freqLabel[freq]||freq}</span>
+      <span class="cat-pct">${fi.length} ingreso${fi.length!==1?'s':''}</span>
+      <span class="cat-ttl" style="color:var(--pos-dk);">${fTot}</span>
+    </div>${fi.map(row).join('')}`;
+  }).join('');
+
   document.getElementById('ingresos-content').innerHTML=`
-  <div class="g3">
-    <div class="card pos"><div class="cl">Este mes</div><div class="cv">${fmtARS(totARS)}</div><div class="cs">${fmtUSD(totUSD)} USD</div></div>
-    <div class="card pos-s"><div class="cl">Próximo mes est.</div><div class="cv">${fmtARS(proxARS)}</div><div class="cs">${fmtUSD(proxUSD)} USD</div></div>
-    <div class="card pos-s"><div class="cl">Acumulado ${y}</div><div class="cv">${fmtARS(ytdARS)}</div><div class="cs">${fmtUSD(ytdUSD)} USD</div></div>
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title">Ingresos</div>
+      <div class="page-hdr-sub">Ingresos regulares · ${mesLabel(mes)}</div>
+    </div>
+    <div class="page-hdr-actions">
+      <button class="btn-cta-dark" onclick="addIngreso()">
+        <span class="btn-cta-sq">+</span>Agregar
+      </button>
+    </div>
   </div>
-  <div class="sh">Todos los ingresos · editables</div>
-  <div class="table-wrap">
-  <table class="tbl">
-    <tr><th>Descripción</th><th>Moneda</th><th>ARS</th><th>USD</th><th>Cotiz. USD</th><th>Frecuencia</th><th>Aj. Inflación</th><th>Período</th><th></th></tr>
-    ${list.map(row).join('')}
-  </table>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="kpi-card kc-green">
+      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">$</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Este mes</div>
+        <div class="kpi-val">${totARS?fmtARS(totARS):(totUSD?'+'+fmtUSD(totUSD)+' USD':'$0')}</div>
+        ${totARS&&totUSD?`<div class="kpi-meta">+${fmtUSD(totUSD)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-blue">
+      <div class="kpi-ico" style="background:var(--opal-bg);color:var(--opal);font-size:16px;">→</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Próximo mes</div>
+        <div class="kpi-val">${proxARS?fmtARS(proxARS):(proxUSD?'+'+fmtUSD(proxUSD)+' USD':'$0')}</div>
+        ${proxARS&&proxUSD?`<div class="kpi-meta">+${fmtUSD(proxUSD)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-gold">
+      <div class="kpi-ico" style="background:var(--warn-bg);color:var(--gold-dk);font-weight:700;">∑</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Acumulado ${y}</div>
+        <div class="kpi-val">${ytdARS?fmtARS(ytdARS):(ytdUSD?'+'+fmtUSD(ytdUSD)+' USD':'$0')}</div>
+        ${ytdARS&&ytdUSD?`<div class="kpi-meta">+${fmtUSD(ytdUSD)} USD</div>`:''}
+      </div>
+    </div>
   </div>
-  <div class="sh">+ Agregar ingreso</div>
-  <button class="btn pos" onclick="addIngreso()">+ Agregar ingreso</button>`;
+  <div class="month-card">
+    <div class="mc-body" style="display:block;">
+      ${list.length?groups:'<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">Sin ingresos cargados.</div>'}
+    </div>
+  </div>`;
 }
 function _setupIngresoModal(){
   const sel=document.getElementById('mf-frecuencia');
@@ -2219,26 +2267,133 @@ function renderIngresosFuturos(){
     </tr>`;
   }
 
-  function renderEntry(i){ return i.frecuencia==='mensual'?rowMensual(i):rowSimple(i); }
+  function rowSimpleNew(i){
+    const done=i.confirmado;
+    const entryMes=i.frecuencia==='semestral'&&i.mesIngreso?i.mesIngreso.slice(0,7):(i.desde||mes).slice(0,7);
+    const entryCotiz=getCotizacion(entryMes);
+    const entryARS=i.moneda==='ARS'?i.monto:i.monto*entryCotiz;
+    const entryUSD=i.moneda==='USD'?i.monto:arsToUsd(i.monto,entryMes);
+    const mm=i.mesIngreso?(+i.mesIngreso.split('-')[1]):null;
+    const mm2=mm?(mm<=6?mm+6:mm-6):null;
+    const periodo=i.frecuencia==='semestral'&&mm?(MLAB[mm-1]+' y '+MLAB[mm2-1]):(i.desde||'-');
+    const montoAmt=i.moneda==='ARS'?'+'+fmtARS(entryARS):'+'+fmtUSD(entryUSD)+' USD';
+    return `<div class="irow" id="ifut-row-${i.id}" style="${done?'opacity:.45;':''}">
+      <input class="irow-cb" type="checkbox" ${done?'checked disabled':''} title="Confirmar ingreso"
+        onchange="confirmarIngresoFuturo('${i.id}',this.checked)">
+      <div class="irow-info">
+        <div class="irow-nm">${i.descripcion}${done?' <span class="itag es" style="font-size:9px;">✓ Confirmado</span>':''}</div>
+        <div class="irow-tags">
+          <span class="itag ${i.moneda==='ARS'?'ars':'usd'}">${i.moneda}</span>
+          <span class="itag cuota">${freqLabel[i.frecuencia]||i.frecuencia}</span>
+          <span class="itag dt">${periodo}</span>
+        </div>
+      </div>
+      <div class="irow-right">
+        <span class="irow-amt" style="color:var(--pos-dk);">${montoAmt}</span>
+        <div class="irow-acts">
+          <button class="btn sm ghost" onclick="editIngresoFuturo('${i.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteIngresoFuturo('${i.id}')">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function rowMensualNew(i){
+    const confirmed=i.confirmedMonths||[];
+    const desde=i.desde||mes;
+    const hasta=i.hasta||HORIZON;
+    const meses2=[];
+    let m=desde>mes?desde:mes;
+    while(m<=hasta&&m<=HORIZON){ meses2.push(m); m=mesNext(m); }
+    const pendingMeses=meses2.filter(m=>!confirmed.includes(m)).length;
+    const mId=`ifut-${i.id}`;
+    const subRows=meses2.map(m=>{
+      const v=ingresoEnMes(i,m);
+      if(v===0) return '';
+      const c=getCotizacion(m);
+      const ars=i.moneda==='ARS'?v:v*c;
+      const usd=i.moneda==='USD'?v:arsToUsd(v,m);
+      const isConf=confirmed.includes(m);
+      const montoSub=i.moneda==='ARS'?'+'+fmtARS(ars):'+'+fmtUSD(usd)+' USD';
+      return `<div class="irow" id="ifut-mes-${i.id}-${m}" style="${isConf?'opacity:.4;':''}">
+        <input class="irow-cb" type="checkbox" ${isConf?'checked disabled':''} style="cursor:pointer;"
+          onchange="confirmarMesIngresoFuturo('${i.id}','${m}')">
+        <div class="irow-info">
+          <div class="irow-nm" style="font-size:12px;">${mesLabel(m)}${isConf?' <span class="itag es" style="font-size:9px;">✓</span>':''}</div>
+        </div>
+        <div class="irow-right">
+          <span class="irow-amt" style="font-size:12px;color:var(--pos-dk);">${montoSub}</span>
+        </div>
+      </div>`;
+    }).filter(Boolean).join('');
+    return `<div class="month-card" style="margin-bottom:6px;">
+      <div class="mc-hdr" onclick="toggleMonth('${mId}')">
+        <svg id="mc-chev-${mId}" class="mc-chev closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="mc-title">${i.descripcion}</div>
+        <span class="mc-sub">${mesLabel(desde)} → ${mesLabel(hasta)}</span>
+        <span class="mc-pill">${pendingMeses} pend.</span>
+        <div class="mc-total" style="color:var(--pos-dk);">+${fmtARS(i.monto)}/mes</div>
+        <div class="irow-acts" style="opacity:1;margin-left:4px;">
+          <button class="btn sm ghost" onclick="event.stopPropagation();editIngresoFuturo('${i.id}')">✏</button>
+          <button class="btn sm danger" onclick="event.stopPropagation();deleteIngresoFuturo('${i.id}')">✕</button>
+        </div>
+      </div>
+      <div class="mc-body" id="mc-body-${mId}" style="display:none;">
+        ${subRows||'<div style="padding:8px 4px;color:var(--muted);font-size:12px;">Sin meses activos.</div>'}
+      </div>
+    </div>`;
+  }
+
+  function renderEntryNew(i){ return i.frecuencia==='mensual'?rowMensualNew(i):rowSimpleNew(i); }
+
+  const nonMensual=list.filter(i=>i.frecuencia!=='mensual');
+  const mensual=list.filter(i=>i.frecuencia==='mensual');
 
   document.getElementById('ingresos-futuros-content').innerHTML=`
-  <div style="background:var(--warn-bg);border:1px solid var(--warn-b);border-radius:9px;padding:11px 14px;margin-bottom:16px;font-size:12px;color:var(--warn);">
-    <strong>Ingresos futuros</strong> — Proyecciones. No impactan en reportes actuales, sí en <strong>Proyección</strong>. Al hacer ✓ el ingreso pasa a <strong>Ingresos reales</strong>. Los mensuales se pueden confirmar mes a mes.
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title">Ing. Futuros</div>
+      <div class="page-hdr-sub">Proyecciones · no impactan en reportes actuales</div>
+    </div>
+    <div class="page-hdr-actions">
+      <button class="btn-cta-dark" onclick="addIngresoFuturo()">
+        <span class="btn-cta-sq">+</span>Agregar
+      </button>
+    </div>
   </div>
-  <div class="g3">
-    <div class="card pos-s"><div class="cl">Proyectado este mes</div><div class="cv">${fmtARS(futARS)}</div><div class="cs">${fmtUSD(futUSD)} USD</div></div>
-    <div class="card pos-s"><div class="cl">Proyectado próx. mes</div><div class="cv">${fmtARS(proxARS)}</div><div class="cs">${fmtUSD(proxUSD)} USD</div></div>
-    <div class="card warn"><div class="cl">Estado</div><div class="cv">${pendingCount}</div><div class="cs">${pendingCount} pendientes · ${confirmedCount} confirmados</div></div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="kpi-card kc-gold">
+      <div class="kpi-ico" style="background:var(--warn-bg);color:var(--gold-dk);font-size:16px;">→</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Proyectado este mes</div>
+        <div class="kpi-val">${futARS?fmtARS(futARS):(futUSD?'+'+fmtUSD(futUSD)+' USD':'$0')}</div>
+        ${futARS&&futUSD?`<div class="kpi-meta">+${fmtUSD(futUSD)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-blue">
+      <div class="kpi-ico" style="background:var(--opal-bg);color:var(--opal);font-size:16px;">→</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Proyectado próx. mes</div>
+        <div class="kpi-val">${proxARS?fmtARS(proxARS):(proxUSD?'+'+fmtUSD(proxUSD)+' USD':'$0')}</div>
+        ${proxARS&&proxUSD?`<div class="kpi-meta">+${fmtUSD(proxUSD)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-green">
+      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">✓</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Estado</div>
+        <div class="kpi-val">${pendingCount}</div>
+        <div class="kpi-meta">${pendingCount} pend. · ${confirmedCount} confirm.</div>
+      </div>
+    </div>
   </div>
-  <div class="sh">Ingresos futuros · editables</div>
-  <div class="table-wrap">
-  <table class="tbl">
-    <tr><th>✓</th><th>Descripción</th><th>Moneda</th><th>ARS</th><th>USD</th><th>Frecuencia</th><th>Período</th><th></th></tr>
-    ${list.length?list.map(renderEntry).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">Sin ingresos futuros cargados.</td></tr>'}
-  </table>
-  </div>
-  <div class="sh">+ Agregar ingreso futuro</div>
-  <button class="btn pos" onclick="addIngresoFuturo()">+ Agregar ingreso futuro</button>`;
+  ${nonMensual.length?`<div class="month-card" style="margin-bottom:10px;">
+    <div class="mc-body" style="display:block;">
+      ${nonMensual.map(renderEntryNew).join('')}
+    </div>
+  </div>`:''}
+  ${mensual.map(renderEntryNew).join('')}
+  ${!list.length?'<div style="padding:32px 0;text-align:center;color:var(--muted);font-size:13px;">Sin ingresos futuros cargados.</div>':''}`;
 }
 function confirmarIngresoFuturo(id, checked){
   if(!checked) return;
@@ -2346,65 +2501,119 @@ function renderEgresosInm(){
   const noEsItems=curItems.filter(e=>!e.esencial);
   const noEsARS=sumARS(noEsItems), noEsUSD=sumUSD(noEsItems);
 
-  function kpi(cls,label,ars,usd,sub){
-    const hasA=ars>0,hasU=usd>0;
-    return `<div class="card ${cls}">
-      <div class="cl">${label}</div>
-      ${hasA?`<div class="cv">-${fmtARS(ars)}</div>`:''}
-      ${hasU?`<div class="${hasA?'cs':'cv'}">-${fmtUSD(usd)} USD</div>`:''}
-      ${!hasA&&!hasU?`<div class="cv">$0</div>`:''}
-      ${sub?`<div class="cs" style="font-size:10px;margin-top:2px;">${sub}</div>`:''}
+  function egresoRow(e){
+    const montoAmt=e.moneda==='ARS'?'-'+fmtARS(e.monto):'-'+fmtUSD(e.monto)+' USD';
+    return `<div class="irow">
+      <div class="irow-info">
+        <div class="irow-nm">${e.descripcion}${e.notas?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px;">${e.notas}</span>`:''}</div>
+        <div class="irow-tags">
+          <span class="itag ${e.moneda==='ARS'?'ars':'usd'}">${e.moneda}</span>
+          ${e.categoria?`<span class="itag cuota">${e.categoria}</span>`:''}
+          <span class="itag ${e.esencial?'es':'op'}">${e.esencial?'Esencial':'Opcional'}</span>
+          ${e.fecha?`<span class="itag dt">${fmtFecha(e.fecha)}</span>`:''}
+        </div>
+      </div>
+      <div class="irow-right">
+        <span class="irow-amt">${montoAmt}</span>
+        <div class="irow-acts">
+          <button class="btn sm ghost" onclick="editEgresoInm('${e.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteEgresoInm('${e.id}')">✕</button>
+        </div>
+      </div>
     </div>`;
   }
 
-  function tableRow(e){
-    return `<tr>
-      <td style="white-space:nowrap;font-size:12px;">${fmtFecha(e.fecha)}</td>
-      <td><strong>${e.descripcion}</strong>${e.notas?`<br><span style="font-size:10px;color:var(--muted);">${e.notas}</span>`:''}</td>
-      <td><span class="pill ${e.moneda==='ARS'?'opal':'pos'}">${e.moneda}</span></td>
-      <td class="neg-text">${e.moneda==='ARS'?fmtARS(e.monto):fmtUSD(e.monto)+' USD'}</td>
-      <td><span class="pill opal">${e.categoria||'–'}</span></td>
-      <td><span class="pill ${e.esencial?'pos':'neg'}">${e.esencial?'Sí':'No'}</span></td>
-      <td class="actions">
-        <button class="btn sm ghost" onclick="editEgresoInm('${e.id}')">✏</button>
-        <button class="btn sm danger" onclick="deleteEgresoInm('${e.id}')">✕</button>
-      </td>
-    </tr>`;
-  }
-
-  function monthSection(label,m,items){
+  function monthCardInm(m,items){
+    const isOpen=m===mes;
     const a=sumARS(items),u=sumUSD(items);
-    const tot=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
+    const cotM=getCotizacion(m)||1;
+    const noEsItems=items.filter(e=>!e.esencial);
+    const noEsN=noEsItems.reduce((s,e)=>s+(e.moneda==='USD'?e.monto:e.monto/cotM),0);
+    const totalN=items.reduce((s,e)=>s+(e.moneda==='USD'?e.monto:e.monto/cotM),0)||1;
+    const noEsPct=Math.round(noEsN/totalN*100);
+    const totLabel=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join(' · ')||'$0';
     const sorted=[...items].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-    return `<details ${m===mes?'open':''} style="margin-bottom:6px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;">
-      <summary style="cursor:pointer;padding:10px 14px;background:var(--surface);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;user-select:none;">
-        <span>${label}</span>
-        <span style="color:var(--neg-dk);font-size:12px;">${tot}</span>
-      </summary>
-      <div style="overflow-x:auto;">
-        <table class="tbl" style="margin:0;">
-          <tr><th>Fecha</th><th>Descripción</th><th>Moneda</th><th>Monto</th><th>Categoría</th><th>Esencial</th><th></th></tr>
-          ${sorted.map(tableRow).join('')}
-        </table>
+    const cats=[...new Set(sorted.map(e=>e.categoria||'Sin categoría'))].sort();
+    const catGroups=cats.map(cat=>{
+      const ci=sorted.filter(e=>(e.categoria||'Sin categoría')===cat);
+      const cA=sumARS(ci),cU=sumUSD(ci);
+      const cTot=[cA?`-${fmtARS(cA)}`:'',cU?`-${fmtUSD(cU)} USD`:''].filter(Boolean).join(' ');
+      const cs=catStyle(cat);
+      return `<div class="cat-hdr">
+        <div class="cat-ico" style="background:${cs.bg};color:${cs.color};">${cs.ltr}</div>
+        <span class="cat-nm">${cat}</span>
+        <span class="cat-ttl">${cTot}</span>
+      </div>${ci.map(egresoRow).join('')}`;
+    }).join('');
+    return `<div class="month-card">
+      <div class="mc-hdr" onclick="toggleMonth('inm-${m}')">
+        <svg id="mc-chev-inm-${m}" class="mc-chev${isOpen?'':' closed'}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="mc-title">${mesLabel(m)}</div>
+        <span class="mc-sub">${items.length} gasto${items.length!==1?'s':''}</span>
+        <div class="mc-prog" title="Opcional ${noEsPct}%" style="flex:1;max-width:90px;height:4px;border-radius:2px;background:var(--border2);overflow:hidden;margin:0 8px;">
+          <div style="height:100%;width:${noEsPct}%;background:var(--neg);border-radius:2px;"></div>
+        </div>
+        <div class="mc-total">${totLabel}</div>
       </div>
-    </details>`;
+      <div class="mc-body" id="mc-body-inm-${m}" style="display:${isOpen?'block':'none'};">
+        ${catGroups||'<div style="padding:12px 4px;color:var(--muted);font-size:12px;">Sin items.</div>'}
+      </div>
+    </div>`;
   }
 
   const months=[...new Set(list.filter(e=>e.fecha).map(e=>e.fecha.slice(0,7)))].sort().reverse();
-  const sinFecha=list.filter(e=>!e.fecha);
-  const sections=months.map(m=>monthSection(mesLabel(m),m,forMes(m))).join('')
-    +(sinFecha.length?monthSection('Sin fecha','',sinFecha):'');
+  const sections=months.map(m=>monthCardInm(m,forMes(m))).join('');
 
   document.getElementById('egresos-inm-content').innerHTML=`
-  <button class="btn neg" style="margin-bottom:16px;" onclick="addEgresoInm()">+ Agregar egreso</button>
-  <div class="g4">
-    ${kpi('neg-s',mesLabel(mesPrev),prevARS,prevUSD,'')}
-    ${kpi('neg',mesLabel(mes),curARS,curUSD,diffLine)}
-    ${kpi('neg-s','Acumulado '+y,ytdARS,ytdUSD,'')}
-    ${kpi('warn','No esenciales',noEsARS,noEsUSD,'candidatos a eliminar')}
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title">Débito / Transf.</div>
+      <div class="page-hdr-sub">Gastos inmediatos · ${mesLabel(mes)}</div>
+    </div>
+    <div class="page-hdr-actions">
+      <button class="btn-cta-dark" onclick="addEgresoInm()">
+        <span class="btn-cta-sq">+</span>Agregar
+      </button>
+    </div>
   </div>
-  <div class="sh">Por mes</div>
-  ${sections||`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin egresos cargados.</div>`}`;
+  <div class="kpi-grid">
+    <div class="kpi-card kc-red">
+      <div class="kpi-ico" style="background:var(--neg-bg);color:var(--neg);font-weight:700;">$</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">${mesLabel(mesPrev)}</div>
+        <div class="kpi-val">${prevARS?'-'+fmtARS(prevARS):(prevUSD?'-'+fmtUSD(prevUSD)+' USD':'$0')}</div>
+        ${prevARS&&prevUSD?`<div class="kpi-meta">-${fmtUSD(prevUSD)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-red">
+      <div class="kpi-ico" style="background:var(--neg-bg);color:var(--neg);font-weight:700;">$</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">${mesLabel(mes)}</div>
+        <div class="kpi-val">${curARS?'-'+fmtARS(curARS):(curUSD?'-'+fmtUSD(curUSD)+' USD':'$0')}</div>
+        ${curARS&&curUSD?`<div class="kpi-meta">-${fmtUSD(curUSD)} USD</div>`:''}
+      </div>
+      ${diffPct!==null?`<span class="kpi-chip ${diffPct>0?'up':'dn'}">${diffPct>0?'▲':'▼'}${Math.abs(diffPct).toFixed(0)}%</span>`:''}
+    </div>
+    <div class="kpi-card kc-gold">
+      <div class="kpi-ico" style="background:var(--warn-bg);color:var(--gold-dk);font-weight:700;">∑</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Acumulado ${y}</div>
+        <div class="kpi-val">${ytdARS?'-'+fmtARS(ytdARS):(ytdUSD?'-'+fmtUSD(ytdUSD)+' USD':'$0')}</div>
+        ${ytdARS&&ytdUSD?`<div class="kpi-meta">-${fmtUSD(ytdUSD)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-green">
+      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">!</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">No esencial</div>
+        <div class="kpi-val">${noEsARS?'-'+fmtARS(noEsARS):(noEsUSD?'-'+fmtUSD(noEsUSD)+' USD':'$0')}</div>
+        ${noEsARS&&noEsUSD?`<div class="kpi-meta">-${fmtUSD(noEsUSD)} USD</div>`:''}
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    ${sections||'<div style="color:var(--muted);font-size:13px;padding:32px 0;text-align:center;">Sin egresos cargados.</div>'}
+  </div>`;
 }
 function addEgresoInm(){
   openModal('Nuevo egreso inmediato',filterModalCampos('Egresos',[
@@ -3056,104 +3265,116 @@ function renderEgresosFijos(){
   const activeMonths=[];
   for(let i=-3;i<=24;i++){ const m=mesNext(mes,i); if(list.some(ec=>cuotaMontoEnMes(ec,m)>0)) activeMonths.push(m); }
 
-  function itemRow(ec,m){
+  function fijoRow(ec,m){
     const v=cuotaMontoEnMes(ec,m);
     const inicio=ec.desde?ec.desde.slice(0,7):'';
     const fin=ec.hasta?ec.hasta.slice(0,7):'indefinido';
     const monto=ec.moneda==='ARS'?`-${fmtARS(v)}`:`-${fmtUSD(v)} USD`;
-    const medioPago=ec.tarjeta==='Transferencia'&&ec.transferenciaNombre
-      ?`Transf. a ${ec.transferenciaNombre}${ec.transferenciaAlias?' ('+ec.transferenciaAlias+')':''}`
-      :ec.tarjeta||'–';
-    return `<div class="erow">
-      <div class="erow-info">
-        <div class="erow-name">${ec.descripcion}${ec.fecha?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px;">${fmtFecha(ec.fecha)}</span>`:''}</div>
-        <div class="erow-meta" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;">
-          <span class="pill ${ec.moneda==='ARS'?'opal':'pos'}">${ec.moneda}</span>
-          <span class="pill gr">${PERIOD_LABELS[ec.periodicidad]||ec.periodicidad}</span>
-          <span class="pill ${esEs(ec)?'pos':'neg'}">${esEs(ec)?'Esencial':'Opcional'}</span>
-          <span style="font-size:10px;color:var(--muted);">${medioPago} · ${inicio} → ${fin}</span>
+    return `<div class="irow">
+      <div class="irow-info">
+        <div class="irow-nm">${ec.descripcion}</div>
+        <div class="irow-tags">
+          <span class="itag ${ec.moneda==='ARS'?'ars':'usd'}">${ec.moneda}</span>
+          <span class="itag cuota">${PERIOD_LABELS[ec.periodicidad]||ec.periodicidad}</span>
+          <span class="itag ${esEs(ec)?'es':'op'}">${esEs(ec)?'Esencial':'Opcional'}</span>
+          <span class="itag dt">${inicio} → ${fin}</span>
         </div>
       </div>
-      <span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:var(--neg-dk);margin:0 8px;white-space:nowrap;">${monto}</span>
-      <button class="btn sm ghost" onclick="editEgresoCuota('${ec.id}')">✏</button>
-      <button class="btn sm danger" onclick="deleteEgresoCuota('${ec.id}')">✕</button>
+      <div class="irow-right">
+        <span class="irow-amt">${monto}</span>
+        <div class="irow-acts">
+          <button class="btn sm ghost" onclick="editEgresoCuota('${ec.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteEgresoCuota('${ec.id}')">✕</button>
+        </div>
+      </div>
     </div>`;
   }
 
-  function byCat(items,m){
+  function fijoByCat(items,m){
     if(!items.length) return '';
     const cats=[...new Set(items.map(ec=>ec.categoria||'Sin categoría'))].sort();
     return cats.map(cat=>{
       const ci=items.filter(ec=>(ec.categoria||'Sin categoría')===cat);
       const a=ci.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
       const u=ci.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
-      const sub=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
-      return `<div style="margin:6px 0 2px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;background:var(--sidebar);border-radius:6px;margin-bottom:4px;">
-          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">${cat}</span>
-          <span style="font-size:11px;font-weight:700;color:var(--neg-dk);">${sub}</span>
-        </div>
-        ${ci.map(ec=>itemRow(ec,m)).join('')}
-      </div>`;
+      const cTot=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join(' ');
+      const cs=catStyle(cat);
+      return `<div class="cat-hdr">
+        <div class="cat-ico" style="background:${cs.bg};color:${cs.color};">${cs.ltr}</div>
+        <span class="cat-nm">${cat}</span>
+        <span class="cat-ttl">${cTot}</span>
+      </div>${ci.map(ec=>fijoRow(ec,m)).join('')}`;
     }).join('');
   }
 
-  const monthSections=activeMonths.map(m=>{
+  const fijoMonthCards=activeMonths.map(m=>{
     const items=list.filter(ec=>cuotaMontoEnMes(ec,m)>0).sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''));
+    const isOpen=m===mes;
     const a=items.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
     const u=items.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
-    const totLabel=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join('  ');
-    return `<details ${m===mes?'open':''} style="margin-bottom:6px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;">
-      <summary style="cursor:pointer;padding:10px 14px;background:var(--surface);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;user-select:none;">
-        <span>${mesLabel(m)}</span><span style="color:var(--neg-dk);font-size:12px;">${totLabel}</span>
-      </summary>
-      <div style="padding:6px 8px;">${byCat(items,m)}</div>
-    </details>`;
+    const totLabel=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join(' · ')||'$0';
+    return `<div class="month-card">
+      <div class="mc-hdr" onclick="toggleMonth('fijo-${m}')">
+        <svg id="mc-chev-fijo-${m}" class="mc-chev${isOpen?'':' closed'}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="mc-title">${mesLabel(m)}</div>
+        <span class="mc-sub">${items.length} gasto${items.length!==1?'s':''}</span>
+        <div class="mc-total">${totLabel}</div>
+      </div>
+      <div class="mc-body" id="mc-body-fijo-${m}" style="display:${isOpen?'block':'none'};">
+        ${fijoByCat(items,m)||'<div style="padding:12px 4px;color:var(--muted);font-size:12px;">Sin items.</div>'}
+      </div>
+    </div>`;
   }).join('');
 
   document.getElementById('egresos-fijos-content').innerHTML=`
-
-  <div style="display:flex;gap:8px;margin-bottom:20px;">
-    <button class="btn neg" onclick="addEgresoCuota('periodico')">+ Nuevo fijo / periódico</button>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1.35fr 1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
-    <div style="background:var(--surface);border:1px solid var(--border2);border-left:3px solid var(--neg-dk);border-radius:8px;padding:14px 16px;">
-      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">Este mes</div>
-      ${arsHoy?`<div style="font-size:26px;font-weight:800;font-family:var(--font-display);color:var(--neg-dk);letter-spacing:-.02em;line-height:1.1;">-${fmtARS(arsHoy)}</div>`:''}
-      ${usdHoy?`<div style="font-size:${arsHoy?12:24}px;font-weight:${arsHoy?500:800};color:${arsHoy?'var(--muted)':'var(--neg-dk)'};font-family:var(--font-display);margin-top:${arsHoy?4:0}px;">-${fmtUSD(usdHoy)} USD</div>`:''}
-      ${!arsHoy&&!usdHoy?`<div style="font-size:24px;font-weight:800;font-family:var(--font-display);color:var(--muted);">$0</div>`:''}
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title">Fijos</div>
+      <div class="page-hdr-sub">Gastos periódicos · ${mesLabel(mes)}</div>
     </div>
-    ${kpiCard('neg-s','Próximo mes',arsProx,usdProx)}
-    ${kpiCard('warn','Hasta dic \'26',hastaFinARS,hastaFinUSD)}
-    ${kpiCard('neg-s','No esencial',noEsARS,noEsUSD)}
-  </div>
-
-  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:16px 18px 12px;margin-bottom:16px;">
-    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px;">Proyección de compromisos · próximos 8 meses</div>
-    <div style="display:flex;align-items:flex-end;gap:5px;height:54px;">${trajBars}</div>
-  </div>
-
-  ${todayItems.length?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;">
-      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px;">Composición del mes</div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:5px;"><span>Esencial</span><span style="color:var(--pos-dk);">${esencialPct}%</span></div>
-      <div class="bb" style="margin-bottom:10px;height:5px;border-radius:3px;"><div class="bf" style="width:${esencialPct}%;background:var(--pos);height:5px;border-radius:3px;"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:5px;"><span>Opcional</span><span style="color:var(--neg-dk);">${opcionalPct}%</span></div>
-      <div class="bb" style="height:5px;border-radius:3px;"><div class="bf" style="width:${opcionalPct}%;background:var(--neg);height:5px;border-radius:3px;"></div></div>
+    <div class="page-hdr-actions">
+      <button class="btn-cta-dark" onclick="addEgresoCuota('periodico')">
+        <span class="btn-cta-sq">+</span>Nuevo fijo
+      </button>
     </div>
-    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;justify-content:center;">
-      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px;">Resumen anual</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">Comprometido hasta dic '26</div>
-      ${hastaFinARS?`<div style="font-size:16px;font-weight:700;color:var(--neg-dk);">-${fmtARS(hastaFinARS)}</div>`:''}
-      ${hastaFinUSD?`<div style="font-size:${hastaFinARS?12:16}px;font-weight:700;color:var(--neg-dk);">-${fmtUSD(hastaFinUSD)} USD</div>`:''}
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card kc-red">
+      <div class="kpi-ico" style="background:var(--neg-bg);color:var(--neg);font-weight:700;">$</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Este mes</div>
+        <div class="kpi-val">${arsHoy?'-'+fmtARS(arsHoy):(usdHoy?'-'+fmtUSD(usdHoy)+' USD':'$0')}</div>
+        ${arsHoy&&usdHoy?`<div class="kpi-meta">-${fmtUSD(usdHoy)} USD</div>`:''}
+      </div>
     </div>
-  </div>`:''}
-
-  ${insightHtml}
-
-  <div class="sh">Por mes</div>
-  ${monthSections||`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin gastos fijos cargados.</div>`}`;
+    <div class="kpi-card kc-blue">
+      <div class="kpi-ico" style="background:var(--opal-bg);color:var(--opal);font-size:16px;">→</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Próximo mes</div>
+        <div class="kpi-val">${arsProx?'-'+fmtARS(arsProx):(usdProx?'-'+fmtUSD(usdProx)+' USD':'$0')}</div>
+        ${arsProx&&usdProx?`<div class="kpi-meta">-${fmtUSD(usdProx)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-gold">
+      <div class="kpi-ico" style="background:var(--warn-bg);color:var(--gold-dk);font-weight:700;">∑</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Hasta dic '26</div>
+        <div class="kpi-val">${hastaFinARS?'-'+fmtARS(hastaFinARS):(hastaFinUSD?'-'+fmtUSD(hastaFinUSD)+' USD':'$0')}</div>
+        ${hastaFinARS&&hastaFinUSD?`<div class="kpi-meta">-${fmtUSD(hastaFinUSD)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-green">
+      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">!</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">No esencial</div>
+        <div class="kpi-val">${noEsARS?'-'+fmtARS(noEsARS):(noEsUSD?'-'+fmtUSD(noEsUSD)+' USD':'$0')}</div>
+        ${noEsARS&&noEsUSD?`<div class="kpi-meta">-${fmtUSD(noEsUSD)} USD</div>`:''}
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    ${fijoMonthCards||'<div style="color:var(--muted);font-size:13px;padding:32px 0;text-align:center;">Sin gastos fijos cargados.</div>'}
+  </div>`;
 }
 
 // =============================================
@@ -3229,31 +3450,34 @@ function renderSplit(){
 
   function instRow({sp,inst}){
     const isDebo=sp.direccion==='Yo debo';
-    const dirClass=isDebo?'neg':'pos';
     const montoLabel=sp.moneda==='ARS'?fmtARS(inst.monto):`${fmtUSD(inst.monto)} USD`;
     const sign=isDebo?'-':'+';
     const typeLabel=sp.tipo==='cuotas'&&inst.idx!=null?`Cuota ${inst.idx+1}/${sp.nCuotas||1}`:
                     sp.tipo==='mensual'?'Mensual':'Único';
-    return `<div class="erow">
-      <div class="erow-info">
-        <div class="erow-name">${sp.descripcion}${sp.contraparte?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px;">${isDebo?'→ ':'← '}${sp.contraparte}</span>`:''}
-        </div>
-        <div class="erow-meta" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;">
-          <span class="pill ${isDebo?'neg':'pos'}">${sp.direccion}</span>
-          <span class="pill gr">${typeLabel}</span>
-          <span class="pill ${sp.moneda==='ARS'?'opal':'pos'}">${sp.moneda}</span>
-          ${inst.pagado?`<span class="pill pos">Saldado</span>`:`<span class="pill warn">Pendiente</span>`}
+    return `<div class="irow">
+      <div class="irow-info">
+        <div class="irow-nm">${sp.descripcion}${sp.contraparte?`<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px;">${isDebo?'→ ':'← '}${sp.contraparte}</span>`:''}</div>
+        <div class="irow-tags">
+          <span class="itag ${isDebo?'op':'es'}">${sp.direccion}</span>
+          <span class="itag cuota">${typeLabel}</span>
+          <span class="itag ${sp.moneda==='ARS'?'ars':'usd'}">${sp.moneda}</span>
+          ${inst.pagado?'<span class="itag es">Saldado</span>':'<span class="itag op">Pendiente</span>'}
         </div>
       </div>
-      <span style="font-size:14px;font-weight:700;font-family:var(--font-display);color:var(--${dirClass}-dk);margin:0 8px;white-space:nowrap;">${sign}${montoLabel}</span>
-      <div class="chk ${inst.pagado?'done':''}" onclick="checkSplitEntry('${sp.id}','${inst.mes}')" style="cursor:pointer;">${inst.pagado?'✓':''}</div>
-      <button class="btn sm ghost" style="margin-left:4px;" onclick="editSplit('${sp.id}')">✏</button>
-      <button class="btn sm danger" style="margin-left:4px;" onclick="deleteSplit('${sp.id}')">✕</button>
+      <div class="irow-right">
+        <span class="irow-amt" style="color:${isDebo?'var(--neg-dk)':'var(--pos-dk)'};">${sign}${montoLabel}</span>
+        <div class="irow-acts">
+          <div class="chk ${inst.pagado?'done':''}" onclick="checkSplitEntry('${sp.id}','${inst.mes}')" style="cursor:pointer;width:20px;height:20px;border:1.5px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;${inst.pagado?'background:var(--pos);border-color:var(--pos);color:#fff;':''}">${inst.pagado?'✓':''}</div>
+          <button class="btn sm ghost" onclick="editSplit('${sp.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteSplit('${sp.id}')">✕</button>
+        </div>
+      </div>
     </div>`;
   }
 
-  const monthSections=months.map(m=>{
+  const splitMonthCards=months.map(m=>{
     const items=allInst.filter(x=>x.inst.mes===m);
+    const isOpen=m===mes;
     const arsPos=items.filter(x=>x.sp.direccion==='Me deben'&&x.sp.moneda==='ARS').reduce((s,x)=>s+x.inst.monto,0);
     const usdPos=items.filter(x=>x.sp.direccion==='Me deben'&&x.sp.moneda==='USD').reduce((s,x)=>s+x.inst.monto,0);
     const arsNeg=items.filter(x=>x.sp.direccion==='Yo debo'&&x.sp.moneda==='ARS').reduce((s,x)=>s+x.inst.monto,0);
@@ -3263,16 +3487,18 @@ function renderSplit(){
     if(usdPos) parts.push(`+${fmtUSD(usdPos)} USD`);
     if(arsNeg) parts.push(`-${fmtARS(arsNeg)}`);
     if(usdNeg) parts.push(`-${fmtUSD(usdNeg)} USD`);
-    const totLabel=parts.join('  ');
-    return `<details ${m===mes?'open':''} style="margin-bottom:6px;border:1px solid var(--border2);border-radius:8px;overflow:hidden;">
-      <summary style="cursor:pointer;padding:10px 14px;background:var(--surface);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;user-select:none;">
-        <span>${mesLabel(m)}</span>
-        <span style="font-size:12px;color:var(--muted);">${totLabel}</span>
-      </summary>
-      <div style="padding:6px 8px;">
+    const totLabel=parts.join(' · ')||'$0';
+    return `<div class="month-card">
+      <div class="mc-hdr" onclick="toggleMonth('split-${m}')">
+        <svg id="mc-chev-split-${m}" class="mc-chev${isOpen?'':' closed'}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="mc-title">${mesLabel(m)}</div>
+        <span class="mc-sub">${items.length} registro${items.length!==1?'s':''}</span>
+        <div class="mc-total" style="color:var(--muted);font-size:12px;">${totLabel}</div>
+      </div>
+      <div class="mc-body" id="mc-body-split-${m}" style="display:${isOpen?'block':'none'};">
         ${items.map(x=>instRow(x)).join('')}
       </div>
-    </details>`;
+    </div>`;
   }).join('');
 
   const personBalance={};
@@ -3287,29 +3513,57 @@ function renderSplit(){
     });
   });
   const personas=Object.keys(personBalance);
-  const personTable=personas.length?`
-    <div class="sh">Saldo por persona</div>
-    <div style="margin-bottom:12px;">
-    ${personas.map(cp=>{
-      const pb=personBalance[cp];
-      const lines=[];
-      if(pb.deboARS||pb.deboUSD){ const p2=[pb.deboARS?fmtARS(pb.deboARS):'',pb.deboUSD?fmtUSD(pb.deboUSD)+' USD':''].filter(Boolean).join(' + '); lines.push(`<span class="pill neg">Debo ${p2}</span>`); }
-      if(pb.meDebenARS||pb.meDebenUSD){ const p2=[pb.meDebenARS?fmtARS(pb.meDebenARS):'',pb.meDebenUSD?fmtUSD(pb.meDebenUSD)+' USD':''].filter(Boolean).join(' + '); lines.push(`<span class="pill pos">Me debe ${p2}</span>`); }
-      return `<div class="erow" style="padding:8px 12px;"><div class="erow-name" style="font-weight:600;">${cp}</div><div style="display:flex;flex-wrap:wrap;gap:5px;">${lines.join('')||'<span class="pill gr">Saldado</span>'}</div></div>`;
-    }).join('')}
-    </div>`:'' ;
+  const personCards=personas.length?`<div class="month-card" style="margin-bottom:16px;">
+    <div class="mc-hdr" onclick="toggleMonth('split-personas')" style="cursor:pointer;">
+      <svg id="mc-chev-split-personas" class="mc-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      <div class="mc-title">Saldo por persona</div>
+      <span class="mc-sub">${personas.length} persona${personas.length!==1?'s':''}</span>
+    </div>
+    <div class="mc-body" id="mc-body-split-personas" style="display:block;">
+      ${personas.map(cp=>{
+        const pb=personBalance[cp];
+        const lines=[];
+        if(pb.deboARS||pb.deboUSD){ const p2=[pb.deboARS?fmtARS(pb.deboARS):'',pb.deboUSD?fmtUSD(pb.deboUSD)+' USD':''].filter(Boolean).join(' + '); lines.push(`<span class="itag op">Debo ${p2}</span>`); }
+        if(pb.meDebenARS||pb.meDebenUSD){ const p2=[pb.meDebenARS?fmtARS(pb.meDebenARS):'',pb.meDebenUSD?fmtUSD(pb.meDebenUSD)+' USD':''].filter(Boolean).join(' + '); lines.push(`<span class="itag es">Me debe ${p2}</span>`); }
+        return `<div class="irow"><div class="irow-info"><div class="irow-nm">${cp}</div><div class="irow-tags">${lines.join('')||'<span class="itag cuota">Saldado</span>'}</div></div></div>`;
+      }).join('')}
+    </div>
+  </div>`:'';
 
   document.getElementById('split-content').innerHTML=`
-  <div style="display:flex;gap:8px;margin-bottom:16px;">
-    <button class="btn pos" onclick="addSplit()">+ Nuevo registro</button>
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title">Compartidos</div>
+      <div class="page-hdr-sub">Gastos compartidos · ${mesLabel(mes)}</div>
+    </div>
+    <div class="page-hdr-actions">
+      <button class="btn-cta-dark" onclick="addSplit()">
+        <span class="btn-cta-sq">+</span>Nuevo registro
+      </button>
+    </div>
   </div>
-  <div class="g2">
-    ${kpiSplit('pos-s','Me deben',meDebenARS,meDebenUSD)}
-    ${kpiSplit('neg','Debo yo',deboARS,deboUSD)}
+  <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
+    <div class="kpi-card kc-green">
+      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">+</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Me deben</div>
+        <div class="kpi-val">${meDebenARS?fmtARS(meDebenARS):(meDebenUSD?fmtUSD(meDebenUSD)+' USD':'$0')}</div>
+        ${meDebenARS&&meDebenUSD?`<div class="kpi-meta">${fmtUSD(meDebenUSD)} USD</div>`:''}
+      </div>
+    </div>
+    <div class="kpi-card kc-red">
+      <div class="kpi-ico" style="background:var(--neg-bg);color:var(--neg);font-weight:700;">-</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Debo yo</div>
+        <div class="kpi-val">${deboARS?'-'+fmtARS(deboARS):(deboUSD?'-'+fmtUSD(deboUSD)+' USD':'$0')}</div>
+        ${deboARS&&deboUSD?`<div class="kpi-meta">-${fmtUSD(deboUSD)} USD</div>`:''}
+      </div>
+    </div>
   </div>
-  ${personTable}
-  <div class="sh">Por mes</div>
-  ${months.length?monthSections:`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin gastos compartidos registrados.</div>`}`;
+  ${personCards}
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    ${months.length?splitMonthCards:'<div style="color:var(--muted);font-size:13px;padding:32px 0;text-align:center;">Sin gastos compartidos registrados.</div>'}
+  </div>`;
 }
 
 function checkSplitEntry(spId, instMes){
@@ -3482,69 +3736,104 @@ function renderCartera(){
   const tieneValorEditable=c=>c.tipo==='Criptomoneda'||c.tipo==='Bono/Acción Negociable';
   const tipoColors={'Moneda extranjera':'opal','Criptomoneda':'pos','Bono/Acción Negociable':'warn'};
 
+  function carteraRow(c){
+    const priceCell=tieneValorEditable(c)
+      ?`<input type="number" value="${c.precioActual||''}" style="width:90px;font-family:var(--font-mono);font-size:12px;font-weight:700;background:var(--sidebar);border:1px solid var(--border2);border-radius:6px;padding:3px 7px;color:inherit;text-align:right;" onchange="updateCarteraPrecioActual('${c.id}',this.value)" placeholder="0">`
+      :`<span style="font-size:12px;color:var(--muted);">${fmtARS(usdArs)}</span>`;
+    const valueStr=c.tipo==='Moneda extranjera'?`${fmtUSD(c.cantidad)} USD · ${fmtARS(c.vARS)}`
+      :c.moneda==='ARS'?fmtARS(c.vARS):`${fmtUSD(c.vUSD)} USD`;
+    const rendStr=(c.rUSD>=0?'+':'')+fmtUSD(c.rUSD)+' USD';
+    const priceLabel=c.tipo==='Moneda extranjera'?`Ref: ${fmtARS(usdArs)}`:`Compra: ${fmtARS(c.precioCompra||0)}`;
+    return `<div class="irow">
+      <div class="irow-info">
+        <div class="irow-nm">${c.activo} <span style="font-size:11px;color:var(--muted);font-weight:400;">×${c.cantidad}</span></div>
+        <div class="irow-tags">
+          <span class="itag dt">${priceLabel}</span>
+          <span class="itag dt">= ${valueStr}</span>
+        </div>
+      </div>
+      <div class="irow-right">
+        ${priceCell}
+        <span class="irow-amt" style="color:${c.rUSD>=0?'var(--pos-dk)':'var(--neg-dk)'};">${rendStr}</span>
+        <div class="irow-acts">
+          <button class="btn sm ghost" onclick="editCartera('${c.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteCartera('${c.id}')">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   function grupoSection(tipo){
     const items=computed.filter(c=>c.tipo===tipo);
     if(!items.length) return '';
-    const priceHeader=tipo==='Moneda extranjera'?'Ref. USD/ARS':tipo==='Criptomoneda'?'Precio actual (USD)':'Precio actual';
-    const rows=items.map(c=>{
-      const priceCell=tieneValorEditable(c)
-        ?`<input type="number" value="${c.precioActual||''}" style="width:90px;font-family:var(--font-display);font-size:12px;background:var(--sidebar);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;color:inherit;" onchange="updateCarteraPrecioActual('${c.id}',this.value)" placeholder="0">`
-        :`<span style="font-size:12px;color:var(--muted);">${fmtARS(usdArs)}</span>`;
-      const valueStr=c.tipo==='Moneda extranjera'?`${fmtUSD(c.cantidad)} · ${fmtARS(c.vARS)}`
-        :c.moneda==='ARS'?fmtARS(c.vARS):`${fmtUSD(c.vUSD)} USD`;
-      const rendStr=(c.rUSD>=0?'+':'')+fmtUSD(c.rUSD)+' USD';
-      return `<tr>
-        <td><strong>${c.activo}</strong></td>
-        <td>${c.cantidad}</td>
-        <td style="font-size:11px;color:var(--muted);">${fmtARS(c.precioCompra||0)}</td>
-        <td>${priceCell}</td>
-        <td class="mono">${valueStr}</td>
-        <td class="${c.rUSD>=0?'pos-text':'neg-text'} mono">${rendStr}</td>
-        <td class="actions">
-          <button class="btn sm ghost" onclick="editCartera('${c.id}')">✏</button>
-          <button class="btn sm danger" onclick="deleteCartera('${c.id}')">✕</button>
-        </td>
-      </tr>`;
-    }).join('');
-    return `<div class="sh" style="margin-top:10px;display:flex;align-items:center;gap:8px;"><span class="pill ${tipoColors[tipo]||'gr'}">${tipo}</span></div>
-    <div class="table-wrap"><table class="tbl">
-      <tr><th>Activo</th><th>Cantidad</th><th>Compra</th><th>${priceHeader}</th><th>Valor</th><th>Rend.</th><th></th></tr>
-      ${rows}
-    </table></div>`;
+    const totU=items.reduce((s,c)=>s+(c.tipo==='Moneda extranjera'?c.cantidad:c.vUSD),0);
+    const rendU=items.reduce((s,c)=>s+c.rUSD,0);
+    const cs=catStyle(tipo);
+    return `<div class="cat-hdr">
+      <div class="cat-ico" style="background:${cs.bg};color:${cs.color};">${cs.ltr}</div>
+      <span class="cat-nm">${tipo}</span>
+      <span class="cat-pct">${items.length} posición${items.length!==1?'es':''}</span>
+      <span class="cat-ttl" style="color:var(--pos-dk);">${fmtUSD(totU)} USD</span>
+    </div>${items.map(carteraRow).join('')}`;
   }
+
+  const TIPOS_CARTERA=['Moneda extranjera','Criptomoneda','Bono/Acción Negociable'];
+  const legacy=computed.filter(c=>!TIPOS_CARTERA.includes(c.tipo));
+  const legacySection=legacy.length?`<div class="cat-hdr">
+    <div class="cat-ico" style="background:#F3F4F6;color:#374151;">?</div>
+    <span class="cat-nm">Otros</span>
+  </div>${legacy.map(carteraRow).join('')}`:'';
 
   const hasARS=totalARS>0;
   document.getElementById('cartera-content').innerHTML=`
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-    <button class="btn pos" onclick="addCartera()">+ Agregar activo</button>
-    <div style="display:flex;align-items:center;gap:8px;font-size:13px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;">
-      <span style="color:var(--muted);font-weight:600;">1 USD =</span>
-      <input type="number" value="${refs.USD_ARS||''}" style="width:100px;font-family:var(--font-display);font-size:14px;font-weight:700;background:transparent;border:none;border-bottom:2px solid var(--pos);padding:2px 4px;color:inherit;" oninput="setCarteraRef('USD_ARS',this.value)" placeholder="cotización">
-      <span style="color:var(--muted);font-weight:600;">ARS</span>
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title">Cartera</div>
+      <div class="page-hdr-sub">Inversiones y moneda · valor actual</div>
+    </div>
+    <div class="page-hdr-actions">
+      <div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;font-size:12px;">
+        <span style="color:var(--muted);font-weight:600;">1 USD =</span>
+        <input type="number" value="${refs.USD_ARS||''}" style="width:80px;font-family:var(--font-mono);font-size:13px;font-weight:700;background:transparent;border:none;border-bottom:2px solid var(--pos);padding:1px 3px;color:inherit;" oninput="setCarteraRef('USD_ARS',this.value)" placeholder="cotiz.">
+        <span style="color:var(--muted);font-weight:600;">ARS</span>
+      </div>
+      <button class="btn-cta-dark" onclick="addCartera()">
+        <span class="btn-cta-sq">+</span>Agregar
+      </button>
     </div>
   </div>
-  <div class="g3">
-    <div class="card pos">
-      <div class="cl">Lo que tengo</div>
-      <div class="cv">${fmtUSD(totalUSD)} USD</div>
-      ${hasARS?`<div class="cs">${fmtARS(totalARS)} ARS</div>`:''}
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="kpi-card kc-green">
+      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">$</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Total USD</div>
+        <div class="kpi-val">${fmtUSD(totalUSD)} USD</div>
+        ${hasARS?`<div class="kpi-meta">+ ${fmtARS(totalARS)} ARS</div>`:''}
+      </div>
     </div>
-    <div class="card pos-s">
-      <div class="cl">Conversor</div>
-      <div class="cv"><span style="font-size:10px;font-weight:700;background:var(--opal-bg);color:var(--opal-dk);border-radius:4px;padding:1px 5px;margin-right:4px;font-family:var(--font);">USD</span>${fmtUSD(totalUSD)} = <span style="font-size:10px;font-weight:700;background:var(--warn-bg);color:var(--warn);border-radius:4px;padding:1px 5px;margin-right:4px;font-family:var(--font);">ARS</span>${fmtARS(totalUSD*usdArs)}</div>
-      ${hasARS?`<div class="cs"><span style="font-size:10px;font-weight:700;background:var(--warn-bg);color:var(--warn);border-radius:4px;padding:1px 5px;margin-right:4px;font-family:var(--font);">ARS</span>${fmtARS(totalARS)} = <span style="font-size:10px;font-weight:700;background:var(--opal-bg);color:var(--opal-dk);border-radius:4px;padding:1px 5px;margin-right:4px;font-family:var(--font);">USD</span>${fmtUSD(totalARS/(usdArs||1))}</div>`:''}
+    <div class="kpi-card kc-blue">
+      <div class="kpi-ico" style="background:var(--opal-bg);color:var(--opal);font-weight:700;">⇄</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">En ARS</div>
+        <div class="kpi-val">${fmtARS(totalUSD*usdArs)}</div>
+        ${hasARS?`<div class="kpi-meta">+ ${fmtARS(totalARS)} propio</div>`:''}
+      </div>
     </div>
-    <div class="card ${rendUSD>=0?'pos-s':'neg'}">
-      <div class="cl">Rendimiento total</div>
-      <div class="cv">${rendUSD>=0?'+':''}${fmtUSD(Math.abs(rendUSD))} USD</div>
-      <div class="cs">${rendUSD>=0?'+':''}${fmtARS(Math.abs(rendUSD*usdArs))}</div>
+    <div class="kpi-card ${rendUSD>=0?'kc-green':'kc-red'}">
+      <div class="kpi-ico" style="background:${rendUSD>=0?'var(--pos-bg)':'var(--neg-bg)'};color:${rendUSD>=0?'var(--pos)':'var(--neg)'};font-weight:700;">${rendUSD>=0?'▲':'▼'}</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Rendimiento</div>
+        <div class="kpi-val">${rendUSD>=0?'+':''}${fmtUSD(Math.abs(rendUSD))} USD</div>
+        <div class="kpi-meta">${rendUSD>=0?'+':''}${fmtARS(Math.abs(rendUSD*usdArs))}</div>
+      </div>
     </div>
   </div>
-  ${grupoSection('Moneda extranjera')}
-  ${grupoSection('Criptomoneda')}
-  ${grupoSection('Bono/Acción Negociable')}
-  ${(()=>{const NUEVOS=['Moneda extranjera','Criptomoneda','Bono/Acción Negociable'];const legacy=computed.filter(c=>!NUEVOS.includes(c.tipo));if(!legacy.length)return'';const rows=legacy.map(c=>{const priceCell=`<input type="number" value="${c.precioActual||''}" style="width:90px;font-family:var(--font-display);font-size:12px;background:var(--sidebar);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;color:inherit;" onchange="updateCarteraPrecioActual('${c.id}',this.value)" placeholder="0">`;const valueStr=`${fmtUSD(c.vUSD)} USD`;const rendStr=(c.rUSD>=0?'+':'')+fmtUSD(c.rUSD)+' USD';return`<tr><td><strong>${c.activo}</strong></td><td>${c.cantidad}</td><td style="font-size:11px;color:var(--muted);">${fmtARS(c.precioCompra||0)}</td><td>${priceCell}</td><td class="mono">${valueStr}</td><td class="${c.rUSD>=0?'pos-text':'neg-text'} mono">${rendStr}</td><td class="actions"><button class="btn sm ghost" onclick="editCartera('${c.id}')">✏</button><button class="btn sm danger" onclick="deleteCartera('${c.id}')">✕</button></td></tr>`;}).join('');return`<div class="sh" style="margin-top:10px;display:flex;align-items:center;gap:8px;"><span class="pill gr">Otros (legado)</span></div><div class="table-wrap"><table class="tbl"><tr><th>Activo</th><th>Cantidad</th><th>Compra</th><th>Precio actual (USD)</th><th>Valor</th><th>Rend.</th><th></th></tr>${rows}</table></div>`;})()}
-  ${!list.length?`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin activos registrados.</div>`:''}`;
+  <div class="month-card">
+    <div class="mc-body" style="display:block;">
+      ${list.length?(grupoSection('Moneda extranjera')+grupoSection('Criptomoneda')+grupoSection('Bono/Acción Negociable')+legacySection)
+        :'<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">Sin activos registrados.</div>'}
+    </div>
+  </div>`;
 }
 function _setupCarteraModal(){
   const tipoSel=document.getElementById('mf-tipo');
@@ -3612,46 +3901,81 @@ function renderActivos(){
 
   const tipoColors={Inmueble:'pos',Vehículo:'warn',Electrónica:'opal','Mueble/Decoración':'gr',Otro:'gr'};
 
-  function row(a){
+  function activoRow(a){
     const compraStr=a.moneda==='ARS'?fmtARS(a.precioCompra||0):`${fmtUSD(a.precioCompra||0)} USD`;
-    const actualCell=`<input type="number" value="${a.va||''}" style="width:110px;font-family:var(--font-display);font-size:12px;background:var(--sidebar);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;color:inherit;" onchange="updateActivoValor('${a.id}',this.value)" placeholder="0">`;
     const rendStr=(a.rUSD>=0?'+':'')+fmtUSD(a.rUSD)+' USD';
-    return `<tr>
-      <td><strong>${a.nombre}</strong></td>
-      <td><span class="pill ${tipoColors[a.tipo]||'gr'}">${a.tipo||'Otro'}</span></td>
-      <td style="font-size:11px;color:var(--muted);">${a.fechaCompra||'-'}</td>
-      <td class="mono">${compraStr}</td>
-      <td>${actualCell} <span style="font-size:10px;color:var(--muted);">${a.moneda||'USD'}</span></td>
-      <td class="${a.rUSD>=0?'pos-text':'neg-text'} mono">${rendStr}</td>
-      <td class="actions">
-        <button class="btn sm ghost" onclick="editActivo('${a.id}')">✏</button>
-        <button class="btn sm danger" onclick="deleteActivo('${a.id}')">✕</button>
-      </td>
-    </tr>`;
+    return `<div class="irow">
+      <div class="irow-info">
+        <div class="irow-nm">${a.nombre}</div>
+        <div class="irow-tags">
+          <span class="itag ${a.moneda==='ARS'?'ars':'usd'}">${a.moneda||'USD'}</span>
+          ${a.fechaCompra?`<span class="itag dt">${a.fechaCompra}</span>`:''}
+          <span class="itag dt">Compra: ${compraStr}</span>
+        </div>
+      </div>
+      <div class="irow-right">
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" value="${a.va||''}" style="width:100px;font-family:var(--font-mono);font-size:12px;font-weight:700;background:var(--sidebar);border:1px solid var(--border2);border-radius:6px;padding:3px 8px;color:inherit;text-align:right;" onchange="updateActivoValor('${a.id}',this.value)" placeholder="0">
+          <span style="font-size:10px;color:var(--muted);">${a.moneda||'USD'}</span>
+        </div>
+        <span class="irow-amt" style="color:${a.rUSD>=0?'var(--pos-dk)':'var(--neg-dk)'};">${rendStr}</span>
+        <div class="irow-acts">
+          <button class="btn sm ghost" onclick="editActivo('${a.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteActivo('${a.id}')">✕</button>
+        </div>
+      </div>
+    </div>`;
   }
 
+  const tiposPresentes=[...new Set(computed.map(a=>a.tipo||'Otro'))].sort();
+  const activoGroups=tiposPresentes.map(tipo=>{
+    const ti=computed.filter(a=>(a.tipo||'Otro')===tipo);
+    const totU=ti.reduce((s,a)=>s+a.vaUSD,0);
+    const rendU=ti.reduce((s,a)=>s+a.rUSD,0);
+    const cs=catStyle(tipo);
+    return `<div class="cat-hdr">
+      <div class="cat-ico" style="background:${cs.bg};color:${cs.color};">${cs.ltr}</div>
+      <span class="cat-nm">${tipo}</span>
+      <span class="cat-pct">${ti.length} activo${ti.length!==1?'s':''}</span>
+      <span class="cat-ttl" style="color:var(--pos-dk);">${fmtUSD(totU)} USD</span>
+    </div>${ti.map(activoRow).join('')}`;
+  }).join('');
+
   document.getElementById('activos-content').innerHTML=`
-  <div style="display:flex;gap:8px;margin-bottom:14px;">
-    <button class="btn pos" onclick="addActivo()">+ Agregar activo</button>
-  </div>
-  <div class="g2">
-    <div class="card pos">
-      <div class="cl">Valor actual total</div>
-      <div class="cv">${fmtUSD(totalUSD)} USD</div>
-      <div class="cs">${fmtARS(totalUSD*usdArs)}</div>
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title">Activos Físicos</div>
+      <div class="page-hdr-sub">Bienes reales · valor estimado actual</div>
     </div>
-    <div class="card ${rendUSD>=0?'pos-s':'neg'}">
-      <div class="cl">Rendimiento total</div>
-      <div class="cv">${rendUSD>=0?'+':''}${fmtUSD(Math.abs(rendUSD))} USD</div>
-      <div class="cs">${rendUSD>=0?'+':''}${fmtARS(Math.abs(rendUSD*usdArs))}</div>
+    <div class="page-hdr-actions">
+      <button class="btn-cta-dark" onclick="addActivo()">
+        <span class="btn-cta-sq">+</span>Agregar
+      </button>
     </div>
   </div>
-  ${list.length?`
-  <div class="sh">Mis activos</div>
-  <div class="table-wrap"><table class="tbl">
-    <tr><th>Nombre</th><th>Tipo</th><th>Compra</th><th>Precio compra</th><th>Valor actual (est.)</th><th>Rend.</th><th></th></tr>
-    ${computed.map(row).join('')}
-  </table></div>`:`<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin activos registrados. Agregá tu auto, casa o cualquier bien que pueda revenderse.</div>`}`;
+  <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">
+    <div class="kpi-card kc-green">
+      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">$</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Valor actual total</div>
+        <div class="kpi-val">${fmtUSD(totalUSD)} USD</div>
+        <div class="kpi-meta">${fmtARS(totalUSD*usdArs)}</div>
+      </div>
+    </div>
+    <div class="kpi-card ${rendUSD>=0?'kc-green':'kc-red'}">
+      <div class="kpi-ico" style="background:${rendUSD>=0?'var(--pos-bg)':'var(--neg-bg)'};color:${rendUSD>=0?'var(--pos)':'var(--neg)'};font-weight:700;">${rendUSD>=0?'▲':'▼'}</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Rendimiento total</div>
+        <div class="kpi-val">${rendUSD>=0?'+':''}${fmtUSD(Math.abs(rendUSD))} USD</div>
+        <div class="kpi-meta">${rendUSD>=0?'+':''}${fmtARS(Math.abs(rendUSD*usdArs))}</div>
+      </div>
+    </div>
+  </div>
+  <div class="month-card">
+    <div class="mc-body" style="display:block;">
+      ${list.length?activoGroups:'<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">Sin activos registrados. Agregá tu auto, casa o cualquier bien que pueda revenderse.</div>'}
+    </div>
+  </div>`;
 }
 function updateActivoValor(id,val){ dbUpdate('activos',id,{valorActual:+val||0}); renderActivos(); }
 function addActivo(){
@@ -3696,36 +4020,50 @@ function renderTarjetas(){
   const mes=MES_ACTUAL;
   const [,mm]=mes.split('-'); const d=new Date(2026,+mm-1,1);
 
-  function row(t){
+  function tarjetaRow(t){
     const tarjetaCuotas=cuotas.filter(ec=>ec.tarjeta===t.nombre&&egresoCuotaEnMes(ec,mes)>0);
     const totalCuotas=tarjetaCuotas.reduce((s,ec)=>{ const v=egresoCuotaEnMes(ec,mes); return s+(ec.moneda==='USD'?v:arsToUsd(v,mes)); },0);
     const vence=new Date(2026,+mm-1+1,t.vencimiento);
     const daysLeft=Math.ceil((vence-new Date())/(1000*60*60*24));
     const urgent=daysLeft<=5&&daysLeft>=0;
-    return `<tr>
-      <td><strong>${t.nombre}</strong></td>
-      <td>${t.cierre} de cada mes</td>
-      <td>${t.vencimiento} del mes sig.</td>
-      <td class="neg-text mono">${fmtUSD(totalCuotas)} USD</td>
-      <td>${tarjetaCuotas.length} activas: ${tarjetaCuotas.map(ec=>ec.descripcion).join(', ')||'-'}</td>
-      <td><span class="pill ${urgent?'neg':'warn'}">${urgent?'¡Urgente!':'Próximo'}</span></td>
-      <td class="actions">
-        <button class="btn sm ghost" onclick="editTarjeta('${t.id}')">✏</button>
-        <button class="btn sm danger" onclick="deleteTarjeta('${t.id}')">✕</button>
-      </td>
-    </tr>`;
+    const pill=cardPill(t.nombre);
+    return `<div class="irow">
+      <div class="irow-info">
+        <div class="irow-nm">${t.nombre}${pill?`<span class="cpill ${pill.cls}" style="margin-left:6px;">${pill.lbl}</span>`:''}</div>
+        <div class="irow-tags">
+          <span class="itag dt">Cierre: día ${t.cierre}</span>
+          <span class="itag dt">Vence: día ${t.vencimiento}</span>
+          <span class="itag ${urgent?'op':'cuota'}">${urgent?'¡Urgente!':'Próximo'}</span>
+          ${tarjetaCuotas.length?`<span class="itag dt">${tarjetaCuotas.length} cuota${tarjetaCuotas.length!==1?'s':''} activa${tarjetaCuotas.length!==1?'s':''}</span>`:''}
+        </div>
+      </div>
+      <div class="irow-right">
+        <span class="irow-amt">${totalCuotas>0?'-'+fmtUSD(totalCuotas)+' USD':'–'}</span>
+        <div class="irow-acts">
+          <button class="btn sm ghost" onclick="editTarjeta('${t.id}')">✏</button>
+          <button class="btn sm danger" onclick="deleteTarjeta('${t.id}')">✕</button>
+        </div>
+      </div>
+    </div>`;
   }
 
   document.getElementById('tarjetas-content').innerHTML=`
-  <div class="sh">Tarjetas configuradas</div>
-  <div class="table-wrap">
-  <table class="tbl">
-    <tr><th>Tarjeta</th><th>Cierre</th><th>Vencimiento</th><th>Cuotas activas USD</th><th>Cuotas</th><th>Estado</th><th></th></tr>
-    ${list.map(row).join('')}
-  </table>
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title">Tarjetas</div>
+      <div class="page-hdr-sub">Fechas de cierre y vencimiento · ${mesLabel(mes)}</div>
+    </div>
+    <div class="page-hdr-actions">
+      <button class="btn-cta-dark" onclick="addTarjeta()">
+        <span class="btn-cta-sq">+</span>Agregar tarjeta
+      </button>
+    </div>
   </div>
-  <div class="sh">+ Agregar tarjeta</div>
-  <button class="btn pos" onclick="addTarjeta()">+ Agregar tarjeta</button>`;
+  <div class="month-card">
+    <div class="mc-body" style="display:block;">
+      ${list.length?list.map(tarjetaRow).join(''):'<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">Sin tarjetas configuradas.</div>'}
+    </div>
+  </div>`;
 }
 function addTarjeta(){
   openModal('Nueva tarjeta',[
