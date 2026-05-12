@@ -141,9 +141,10 @@ html,body{height:100%;font-family:var(--font);font-size:14px;background:var(--bg
 .sidebar.collapsed .logo-text{opacity:0;width:0;overflow:hidden;}
 .sidebar-toggle{background:none;border:none;cursor:pointer;padding:4px;border-radius:5px;color:rgba(255,255,255,.28);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;transition:color .15s,background .15s;}
 .sidebar-toggle:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);}
-.ns{padding:12px 14px 3px;font-size:9px;color:rgba(255,255,255,.28);text-transform:uppercase;letter-spacing:.1em;font-weight:600;overflow:hidden;white-space:nowrap;transition:opacity .15s,height .15s,padding .15s;}
-.sidebar.collapsed .ns{opacity:0;height:0;padding:0;pointer-events:none;}
-.ni{display:flex;align-items:center;gap:8px;padding:7px 12px;margin:1px 8px;border-radius:7px;cursor:pointer;color:rgba(255,255,255,.38);font-size:12px;font-weight:500;user-select:none;transition:background .12s,color .12s,padding .2s,margin .2s;white-space:nowrap;overflow:hidden;box-shadow:inset 0 0 0 transparent;}
+.ns{padding:10px 14px 4px;font-size:13px;color:rgba(255,255,255,.82);font-weight:700;letter-spacing:-.01em;font-family:var(--font-display);overflow:hidden;white-space:nowrap;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-radius:6px;margin:6px 6px 0;user-select:none;transition:color .12s;}
+.ns:hover{color:#fff;}
+.sidebar.collapsed .ns{opacity:0;height:0;padding:0;margin:0;pointer-events:none;overflow:hidden;}
+.ni{display:flex;align-items:center;gap:8px;padding:6px 12px;margin:1px 8px;border-radius:7px;cursor:pointer;color:rgba(255,255,255,.42);font-size:11.5px;font-weight:500;user-select:none;transition:background .12s,color .12s,padding .2s,margin .2s;white-space:nowrap;overflow:hidden;box-shadow:inset 0 0 0 transparent;}
 .ni:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.78);}
 .ni.active{background:rgba(232,169,60,.13);color:#E8A93C;box-shadow:inset 2.5px 0 0 #E8A93C;font-weight:600;}
 .ni-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center;}
@@ -626,14 +627,11 @@ body.privacy svg text{
 .dh-tab{padding:4px 10px;border-radius:5px;font-size:11.5px;font-weight:500;cursor:pointer;transition:all .12s;border:none;background:transparent;color:var(--muted);font-family:var(--font);}
 .dh-tab.active{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08);font-weight:600;}
 /* ---- COLLAPSIBLE NAV GROUPS ---- */
-.ns{cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-radius:5px;margin:0 6px;padding:12px 8px 3px;}
-.ns:hover{color:rgba(255,255,255,.5);}
-.ns-chev{font-size:9px;color:rgba(255,255,255,.28);transition:transform .2s;flex-shrink:0;margin-right:2px;}
+.ns-chev{font-size:11px;color:rgba(255,255,255,.35);transition:transform .2s;flex-shrink:0;}
 .ns.collapsed .ns-chev{transform:rotate(-90deg);}
-.nav-items{overflow:hidden;transition:max-height .22s ease,opacity .18s ease;max-height:300px;opacity:1;}
+.nav-items{overflow:hidden;transition:max-height .25s ease,opacity .18s ease;max-height:500px;opacity:1;}
 .nav-items.collapsed{max-height:0;opacity:0;pointer-events:none;}
 .sidebar.collapsed .ns-chev{display:none;}
-.sidebar.collapsed .ns{padding:0;margin:0;height:0;overflow:hidden;}
 </style>
 </head>
 <body>
@@ -722,9 +720,9 @@ body.privacy svg text{
         </button>
       </div>
     </div>
-    <button onclick="pushAllToCloud()" title="Forzar sincronización ahora"
+    <button onclick="syncBothWays()" title="Sincronizar con la nube"
       style="width:100%;background:rgba(155,193,188,.07);border:1px solid rgba(155,193,188,.12);border-radius:7px;padding:5px;font-size:10px;font-weight:600;color:rgba(155,193,188,.4);cursor:pointer;font-family:var(--font);text-align:center;margin-top:2px;">
-      ↑ Sincronizar ahora
+      ⇅ Sincronizar
     </button>
   </div>
 </div>
@@ -1075,12 +1073,12 @@ function scheduleSyncKey(key){
 }
 
 async function loadFromCloud(){
-  if(!_sb||!_sbUser) return;
+  if(!_sb||!_sbUser) return false;
   const {data,error}=await _sb.from('rinde_data')
     .select('key,data')
     .eq('user_id',_sbUser.id);
   if(error) throw error;
-  if(!data||data.length===0) return; // first time — keep defaults
+  if(!data||data.length===0) return false; // first time — cloud empty
   data.forEach(row=>{
     if(row.key==='_misc'){
       const m=row.data;
@@ -1092,8 +1090,21 @@ async function loadFromCloud(){
       if(lsKey) localStorage.setItem(lsKey,JSON.stringify(row.data));
     }
   });
+  return true;
 }
 
+async function syncBothWays(){
+  if(!_sb||!_sbUser){ showSync('err','Iniciá sesión para sincronizar'); return; }
+  showSync('syncing','Sincronizando...');
+  try{
+    await loadFromCloud();
+    await pushAllToCloud();
+    // Re-render current panel
+    const activeNi=document.querySelector('.ni.active');
+    if(activeNi){ const m=activeNi.getAttribute('onclick')?.match(/'([^']+)'/)?.[1]; if(m) nav(m); }
+    showSync('ok','Sincronizado ✓');
+  }catch(e){ showSync('err','Error al sincronizar'); }
+}
 async function pushAllToCloud(){
   if(!_sb||!_sbUser) return;
   showSync('syncing','Sincronizando...');
@@ -1203,14 +1214,27 @@ async function submitAuth(){
 
 async function onAuthSuccess(){
   showAuthStep('loading');
-  document.getElementById('auth-loading-msg').textContent='Descargando tus datos...';
+  const msg=document.getElementById('auth-loading-msg');
+  msg.textContent='Descargando tus datos...';
+  let cloudHasData=false;
   try{
-    await loadFromCloud();
-    document.getElementById('auth-loading-msg').textContent='¡Listo!';
-    await new Promise(r=>setTimeout(r,600));
+    cloudHasData=await loadFromCloud();
+    msg.textContent='¡Listo!';
+    await new Promise(r=>setTimeout(r,500));
   }catch(e){
-    document.getElementById('auth-loading-msg').textContent='Arrancando sin datos de la nube...';
-    await new Promise(r=>setTimeout(r,800));
+    msg.textContent='Sin conexión — usando datos locales.';
+    await new Promise(r=>setTimeout(r,700));
+  }
+  // First login: cloud is empty but local data exists → push it up
+  if(!cloudHasData){
+    const hasLocal=Object.keys(KEYS).filter(k=>k!=='actividad').some(k=>{
+      try{ return JSON.parse(localStorage.getItem(KEYS[k])||'[]').length>0; }catch(e){ return false; }
+    });
+    if(hasLocal){
+      msg.textContent='Guardando datos en la nube por primera vez...';
+      await pushAllToCloud().catch(()=>{});
+      await new Promise(r=>setTimeout(r,400));
+    }
   }
   hideAuthOverlay();
   initDefaultData();
@@ -1224,6 +1248,7 @@ async function onAuthSuccess(){
       document.getElementById('toggle-btn').textContent='▶';
     }
   }catch(e){}
+  restoreNavGroups();
   tickClock();
   setInterval(tickClock,10000);
   applyPrivacy();
