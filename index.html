@@ -469,6 +469,162 @@ body.privacy svg text{
 /* Nivel badge */
 .nivel-badge{display:inline-flex;align-items:center;gap:6px;background:#0F1418;color:#F0EDE8;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}
 .nivel-badge em{color:#E8A93C;font-style:normal;}
+/* ── DASHBOARD v2 ──────────────────────────────────────────── */
+.dh-greeting{margin-bottom:18px;}
+.dh-greeting h1{font-size:24px;font-weight:800;letter-spacing:-.03em;margin-bottom:8px;line-height:1.2;}
+.dh-greeting h1 .dh-name{background:linear-gradient(90deg,#E8A93C,#B87D1A);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.dh-gdate{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.dh-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:500;}
+.dh-pill-g{background:var(--pos-bg);color:var(--pos-dk);}
+.dh-pill-r{background:var(--neg-bg);color:var(--neg-dk);}
+.dh-pill-d{background:#0F1418;color:#C8CDD5;}
+.dh-actions{display:flex;gap:10px;align-items:center;}
+.dh-hero{background:linear-gradient(135deg,#0F1418,#1A2129);border-radius:16px;box-shadow:0 24px 48px -20px rgba(20,24,30,.25);overflow:hidden;position:relative;margin-bottom:20px;}
+.dh-hero-glow{position:absolute;top:-60px;right:-40px;width:260px;height:260px;background:radial-gradient(circle,rgba(232,169,60,.15) 0%,transparent 70%);pointer-events:none;}
+.dh-hero-inner{display:grid;grid-template-columns:230px 1fr;padding:22px 26px;gap:0;}
+.dh-gauge-side{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.dh-gauge-lbl{font-size:10px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#7D8694;margin-bottom:2px;}
+.dh-gauge-score{text-align:center;margin-top:-18px;}
+.dh-gauge-num{font-size:40px;font-weight:800;color:#fff;font-family:var(--font-mono);line-height:1;}
+.dh-gauge-sub{font-size:11.5px;color:#7D8694;margin-top:2px;}
+.dh-gauge-grade{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#E8A93C;margin-top:3px;}
+.dh-hero-body{padding-left:26px;border-left:1px solid rgba(255,255,255,.07);}
+.dh-hero-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:4px;}
+.dh-hero-desc{font-size:12px;color:#7D8694;line-height:1.6;margin-bottom:14px;}
+.dh-hero-desc b{color:#E4F4EC;}
+.dh-pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;}
+.dh-pilar{background:rgba(255,255,255,.04);border-radius:8px;padding:10px;}
+.dh-pilar-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+.dh-pilar-nm{font-size:9.5px;color:#7D8694;font-weight:500;}
+.dh-pilar-tag{font-size:9px;font-weight:700;padding:1.5px 6px;border-radius:8px;}
+.dh-pilar-tag.g{background:rgba(31,138,91,.25);color:#6EEAB4;}
+.dh-pilar-tag.a{background:rgba(201,138,31,.25);color:#F5C25A;}
+.dh-pilar-val{font-size:12.5px;font-weight:700;color:#fff;font-family:var(--font-mono);margin-bottom:5px;}
+.dh-pilar-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:3px;}
+.dh-pilar-fill{height:100%;border-radius:3px;}
+.dh-pilar-meta{font-size:9.5px;color:#5C6370;}
+.dh-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.dh-kpi{background:#fff;border:1px solid var(--border2);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden;transition:transform .15s,box-shadow .15s;position:relative;}
+.dh-kpi:hover{transform:translateY(-2px);box-shadow:0 6px 18px -8px rgba(20,24,30,.18),0 2px 6px rgba(20,24,30,.05);}
+.dh-kpi-stripe{position:absolute;left:0;top:0;bottom:0;width:4px;}
+.dh-kpi-inner{padding:15px 15px 11px 18px;}
+.dh-kpi-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
+.dh-kpi-nm{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.dh-kpi-ico{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.dh-kpi-amount{display:flex;align-items:baseline;gap:5px;margin-bottom:2px;}
+.dh-kpi-num{font-size:22px;font-weight:700;font-family:var(--font-mono);line-height:1;color:var(--text);}
+.dh-kpi-cur{font-size:9.5px;font-weight:600;color:var(--muted);background:var(--s2);padding:1px 5px;border-radius:4px;align-self:center;}
+.dh-kpi-ssub{font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-bottom:5px;}
+.dh-kpi-delta{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:10px;margin-bottom:6px;}
+.dh-kpi-delta.p{background:var(--pos-bg);color:var(--pos-dk);}
+.dh-kpi-delta.n{background:var(--neg-bg);color:var(--neg-dk);}
+.dh-kpi-delta.w{background:var(--warn-bg);color:var(--warn);}
+.dh-kpi-delta.i{background:var(--opal-bg);color:var(--opal-dk);}
+.dh-kpi-meta{font-size:10.5px;color:var(--muted);}
+.dh-panel{background:#fff;border:1px solid var(--border2);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden;}
+.dh-panel-hd{display:flex;align-items:center;justify-content:space-between;padding:13px 18px 11px;}
+.dh-panel-hd-l{display:flex;flex-direction:column;gap:1px;}
+.dh-panel-title{font-size:13px;font-weight:700;color:var(--text);}
+.dh-panel-sub{font-size:11px;color:var(--muted);}
+.dh-panel-bd{padding:4px 18px 18px;}
+.dh-link{font-size:11.5px;font-weight:500;color:var(--opal-dk);cursor:pointer;background:none;border:none;font-family:var(--font);}
+.dh-link:hover{text-decoration:underline;}
+.dh-grid-8-4{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:18px;}
+.dh-grid-7-5{display:grid;grid-template-columns:7fr 5fr;gap:16px;margin-bottom:18px;}
+.dh-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.dh-leg-row{display:flex;align-items:center;gap:12px;}
+.dh-leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+.dh-leg-dot{width:9px;height:9px;border-radius:50%;}
+.dh-stack{height:30px;border-radius:8px;overflow:hidden;display:flex;margin-bottom:12px;}
+.dh-seg{display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;color:#fff;overflow:hidden;white-space:nowrap;}
+.dh-legend-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.dh-lc{background:var(--s2);border-radius:8px;padding:8px 10px;}
+.dh-lc-lbl{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
+.dh-lc-val{font-size:14px;font-weight:700;font-family:var(--font-mono);}
+.dh-lc-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.dh-footer-hint{border-top:1px dashed var(--border2);padding:10px 18px;display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--muted);line-height:1.5;}
+.dh-donut-grid{display:grid;grid-template-columns:180px 1fr;gap:14px;align-items:start;}
+.dh-cat-list{display:flex;flex-direction:column;gap:1px;}
+.dh-cat-row{display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:8px;padding:6px 5px;border-radius:7px;transition:background .12s;}
+.dh-cat-row:hover{background:var(--s2);}
+.dh-cat-sw{width:13px;height:13px;border-radius:3px;}
+.dh-cat-nm{font-size:12px;font-weight:500;color:var(--text);}
+.dh-cat-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+.dh-cat-amt{font-size:12px;font-weight:600;font-family:var(--font-mono);text-align:right;}
+.dh-cat-pct{font-size:10px;color:var(--muted);text-align:right;}
+.dh-qual-row{margin-bottom:12px;}
+.dh-qual-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.dh-qual-left{display:flex;align-items:center;gap:7px;}
+.dh-qual-sw{width:10px;height:10px;border-radius:2px;}
+.dh-qual-nm{font-size:12px;font-weight:600;color:var(--text);}
+.dh-qual-val{font-size:12.5px;font-weight:700;font-family:var(--font-mono);}
+.dh-qual-bar{height:8px;border-radius:4px;background:var(--s2);overflow:hidden;margin-bottom:4px;}
+.dh-qual-fill{height:100%;border-radius:4px;}
+.dh-qual-meta{font-size:10.5px;color:var(--muted);}
+.dh-insight-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.dh-ic{background:#fff;border:1px solid var(--border2);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden;transition:transform .15s,box-shadow .15s;}
+.dh-ic:hover{transform:translateY(-2px);box-shadow:0 6px 18px -8px rgba(20,24,30,.18);}
+.dh-ic-hd{padding:13px 15px 9px;display:flex;align-items:flex-start;gap:10px;}
+.dh-ic-ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+.dh-ic-tag{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:1.5px 6px;border-radius:7px;display:inline-block;margin-bottom:3px;}
+.dh-ic-tag.o{background:var(--pos-bg);color:var(--pos-dk);}
+.dh-ic-tag.w{background:var(--warn-bg);color:var(--warn);}
+.dh-ic-tag.a{background:var(--neg-bg);color:var(--neg-dk);}
+.dh-ic-title{font-size:13.5px;font-weight:700;color:var(--text);line-height:1.3;}
+.dh-ic-body{padding:0 15px 12px;font-size:12px;color:var(--muted);line-height:1.6;}
+.dh-ic-body b{color:var(--text);}
+.dh-ic-ftr{padding:9px 15px;border-top:1px solid var(--s2);display:flex;gap:6px;}
+.dh-btn{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:7px;cursor:pointer;transition:opacity .15s;border:none;font-family:var(--font);}
+.dh-btn.p{background:var(--text);color:#fff;}
+.dh-btn.s{background:var(--s2);color:var(--muted);border:1px solid var(--border2);}
+.dh-btn:hover{opacity:.85;}
+.dh-goal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.dh-gc{background:linear-gradient(180deg,#FBFAF5,#fff);border:1px solid var(--border2);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:transform .15s,box-shadow .15s;}
+.dh-gc:hover{transform:translateY(-2px);box-shadow:0 6px 18px -8px rgba(20,24,30,.18);}
+.dh-gc-hd{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.dh-gc-ico{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.dh-gc-nm{font-size:12.5px;font-weight:700;color:var(--text);flex:1;}
+.dh-gc-pct{font-size:13px;font-weight:700;font-family:var(--font-mono);}
+.dh-gc-bar{height:6px;border-radius:3px;background:var(--s2);overflow:hidden;margin-bottom:7px;}
+.dh-gc-fill{height:100%;border-radius:3px;}
+.dh-gc-vals{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;}
+.dh-gc-cur{font-family:var(--font-mono);font-weight:600;}
+.dh-gc-tot{color:var(--muted);font-family:var(--font-mono);}
+.dh-gc-ftr{display:flex;align-items:center;justify-content:space-between;}
+.dh-gc-eta{font-size:10.5px;color:var(--muted);}
+.dh-gc-status{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:7px;}
+.dh-gc-status.ok{background:var(--pos-bg);color:var(--pos-dk);}
+.dh-gc-status.behind{background:var(--warn-bg);color:var(--warn);}
+.dh-bills{display:flex;flex-direction:column;gap:1px;}
+.dh-bill{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:9px;padding:7px 5px;border-radius:8px;transition:background .12s;}
+.dh-bill:hover{background:var(--s2);}
+.dh-dchip{width:42px;height:42px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;}
+.dh-dchip.n{background:var(--s2);border:1px solid var(--border2);}
+.dh-dchip.today{background:#E8A93C;}
+.dh-dchip.urg{background:var(--neg-bg);border:1px solid #F0B0B8;}
+.dh-dchip-day{font-size:15px;font-weight:800;font-family:var(--font-mono);line-height:1;}
+.dh-dchip.n .dh-dchip-day,.dh-dchip.n .dh-dchip-mon{color:var(--text);}
+.dh-dchip.today .dh-dchip-day,.dh-dchip.today .dh-dchip-mon{color:#3D2600;}
+.dh-dchip.urg .dh-dchip-day,.dh-dchip.urg .dh-dchip-mon{color:var(--neg-dk);}
+.dh-dchip-mon{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.dh-bill-nm{font-size:12.5px;font-weight:600;color:var(--text);}
+.dh-bill-meta{display:flex;align-items:center;gap:5px;margin-top:2px;font-size:10.5px;color:var(--muted);}
+.dh-bill-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.dh-bill-amt{font-size:13px;font-weight:700;font-family:var(--font-mono);text-align:right;white-space:nowrap;}
+.dh-bill-amt.neg{color:var(--neg-dk);}
+.dh-bill-amt.pos{color:var(--pos-dk);}
+.dh-movs{display:flex;flex-direction:column;gap:1px;}
+.dh-mov{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:9px;padding:7px 5px;border-radius:8px;transition:background .12s;}
+.dh-mov:hover{background:var(--s2);}
+.dh-mov-ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.dh-mov-nm{font-size:12.5px;font-weight:600;color:var(--text);}
+.dh-mov-meta{font-size:10.5px;color:var(--muted);margin-top:1px;}
+.dh-mov-amt{font-size:12.5px;font-weight:700;font-family:var(--font-mono);text-align:right;white-space:nowrap;}
+.dh-mov-amt.neg{color:var(--neg-dk);}
+.dh-mov-amt.pos{color:var(--pos-dk);}
+.dh-tab-grp{display:flex;background:var(--s2);border-radius:8px;padding:3px;gap:2px;}
+.dh-tab{padding:4px 10px;border-radius:5px;font-size:11.5px;font-weight:500;cursor:pointer;transition:all .12s;border:none;background:transparent;color:var(--muted);font-family:var(--font);}
+.dh-tab.active{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08);font-weight:600;}
 </style>
 </head>
 <body>
@@ -564,8 +720,6 @@ body.privacy svg text{
 
 <!-- DASHBOARD -->
 <div class="panel active" id="panel-dashboard">
-  <div class="ptitle">Dashboard</div>
-  <div class="psub" id="dash-sub">Cargando datos...</div>
   <div id="dash-content"></div>
 </div>
 
@@ -1543,22 +1697,14 @@ function renderDashboard(){
   const infMes=getInflacion(mes);
   const refs=getCarteraRefs();
   const usdArs=refs.USD_ARS||cotiz||1;
-
-  const nombre=localStorage.getItem('rinde_nombre')||'';
+  const nombre=localStorage.getItem('rinde_nombre')||'Ricardo';
   const saludo=getSaludo();
-  const ptitleEl=document.querySelector('#panel-dashboard .ptitle');
-  if(ptitleEl){
-    ptitleEl.innerHTML=`${saludo}${nombre?', <em style="font-style:italic;color:var(--pos);">'+nombre+'</em>':''}! <span id="dash-clock" style="font-size:16px;font-weight:500;color:var(--muted);margin-left:6px;vertical-align:middle;font-family:var(--font);"></span>`;
-    tickClock();
-  }
-  const dateEl=document.querySelector('#panel-dashboard .psub');
-  if(dateEl) dateEl.innerHTML=`${fmtFecha()} &nbsp;·&nbsp; ${mesLabel(mes)} · cotización $${fmtARS(cotiz)} · inflación ${fmtPct(infMes)}/mes`;
 
   // ── Mes actual ──
   const ing=totalIngresosUSD(mes);
   const eg=totalEgresosUSD(mes);
   const neto=ing-eg;
-  // ── YTD ──
+  // ── YTD (mayo en adelante) ──
   const [curY]=mes.split('-');
   let ytdIng=0,ytdEg=0;
   for(let m=5;m<=+mes.split('-')[1];m++){
@@ -1566,14 +1712,13 @@ function renderDashboard(){
     ytdIng+=totalIngresosUSD(mm); ytdEg+=totalEgresosUSD(mm);
   }
   const ytdNeto=ytdIng-ytdEg;
-  const ytdMesLabel=mesLabel(mes).slice(0,3).toLowerCase();
 
   // ── Patrimonio ──
   const patriCart=patrimonioDolarizado();
   const patriAct=patrimonioActivosFisicos();
   const patriTotal=patriCart+patriAct;
 
-  // ── Proyección a Dic 2026 ──
+  // ── Proyección ──
   const {saldoDic,mesRows}=calcSaldoProyectado();
   const ahorroFuturoRows=mesRows.filter(r=>r.mes>=mes);
   const ahorroProyTotal=ahorroFuturoRows.reduce((s,r)=>s+r.neto,0);
@@ -1581,159 +1726,358 @@ function renderDashboard(){
   // ── Racha ──
   const rachaData=calcRacha();
 
-  // ── Category breakdown ──
+  // ── Categorías ──
+  const CAT_COLORS_HEX={Vivienda:'#3D7DB3',Auto:'#D7263D',Telefonía:'#9B59B6',Conectividad:'#6AA3D9',River:'#C4BA30',Plataformas:'#1F8A5B',Gatos:'#E8895A',Comida:'#E8A93C',Salud:'#48C9B0',Ocio:'#E74C3C','A eliminar':'#95A5A6',Otro:'#7D8694'};
   const cats={};
-  dbGet('egresos_inm').forEach(eg=>{ const v=egresoInmEnMes(eg,mes); if(v===0)return; cats[eg.categoria]=(cats[eg.categoria]||0)+(eg.moneda==='USD'?v:arsToUsd(v,mes)); });
-  dbGet('egresos_cuotas').forEach(ec=>{ const v=egresoCuotaEnMes(ec,mes); if(v===0)return; cats[ec.categoria]=(cats[ec.categoria]||0)+(ec.moneda==='USD'?v:arsToUsd(v,mes)); });
-  const catColors={Vivienda:'var(--opal)',Auto:'var(--neg)',River:'#c4ba30',Plataformas:'var(--pos)',Telefonía:'#a078cf',Conectividad:'#78a0cf',Gatos:'#cf9878','A eliminar':'var(--neg-bg)'};
-  const totalCat=Object.values(cats).reduce((a,b)=>a+b,0)||1;
+  dbGet('egresos_inm').forEach(e=>{ const v=egresoInmEnMes(e,mes); if(!v)return; cats[e.categoria]=(cats[e.categoria]||0)+(e.moneda==='USD'?v:arsToUsd(v,mes)); });
+  dbGet('egresos_cuotas').forEach(e=>{ const v=egresoCuotaEnMes(e,mes); if(!v)return; cats[e.categoria]=(cats[e.categoria]||0)+(e.moneda==='USD'?v:arsToUsd(v,mes)); });
+  const totalCatUSD=Object.values(cats).reduce((a,b)=>a+b,0)||1;
+  const catEntries=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
 
-  // ── Fijo vs variable ──
+  // ── Fijo / variable / no esencial ──
   let fijo=0,variable=0,noEsencial=0;
-  dbGet('egresos_inm').forEach(eg=>{ const v=egresoInmEnMes(eg,mes); if(v===0)return; const usd=eg.moneda==='USD'?v:arsToUsd(v,mes); if(eg.tipo==='fijo')fijo+=usd; else variable+=usd; if(!eg.esencial)noEsencial+=usd; });
+  dbGet('egresos_inm').forEach(e=>{ const v=egresoInmEnMes(e,mes); if(!v)return; const u=e.moneda==='USD'?v:arsToUsd(v,mes); if(e.tipo==='fijo')fijo+=u; else variable+=u; if(!e.esencial)noEsencial+=u; });
+  dbGet('egresos_cuotas').forEach(e=>{ const v=egresoCuotaEnMes(e,mes); if(!v)return; const u=e.moneda==='USD'?v:arsToUsd(v,mes); fijo+=u; });
+  const totalQual=fijo+variable||1;
 
-  // ── Bar chart (May–Dec, doble barra: ingresos + egresos) ──
-  const months=[];
-  for(let i=5;i<=12;i++) months.push(`${curY}-${String(i).padStart(2,'0')}`);
-  const maxBar=Math.max(...months.flatMap(m=>[totalIngresosUSD(m)+totalIngresosFuturosUSD(m),totalEgresosUSD(m)]),1);
-  const barIngHeights=months.map(m=>Math.round((totalIngresosUSD(m)+totalIngresosFuturosUSD(m))/maxBar*100));
-  const barEgHeights=months.map(m=>Math.round(totalEgresosUSD(m)/maxBar*100));
-  const mesLabels=['may','jun','jul','ago','sep','oct','nov','dic'];
+  // ── Bar chart (May–Dic) ──
+  const months8=[];
+  for(let i=5;i<=12;i++) months8.push(`${curY}-${String(i).padStart(2,'0')}`);
+  const ings8=months8.map(m=>totalIngresosUSD(m)+totalIngresosFuturosUSD(m));
+  const egs8=months8.map(m=>totalEgresosUSD(m));
+  const maxBar=Math.max(...ings8,...egs8,1);
 
-  const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,val])=>`
-    <div style="margin-bottom:6px;">
-      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:3px;">
-        <span>${cat}</span><span class="neg-text">${Math.round(val/totalCat*100)}% · ${fmtUSD(val)}</span>
-      </div>
-      <div class="bb"><div class="bf" style="width:${Math.round(val/totalCat*100)}%;background:${catColors[cat]||'var(--opal)'};"></div></div>
-    </div>`).join('');
+  // ── Patrimony sparkline (cumulative from patriTotal) ──
+  let cum=patriTotal;
+  const patriSpark=[patriTotal,...ahorroFuturoRows.slice(0,7).map(r=>{ cum+=r.neto; return cum; })];
+
+  // ── Health score ──
+  const egM=totalCatUSD||1;
+  const liquidez=Math.min(1,(ing>0?ing/(egM||1):0));
+  const ahorroPct=Math.max(0,neto/(ing||1));
+  const deudaRatio=Math.min(1,(fijo/(ing||1)));
+  const diversif=Math.min(1,patriCart/(patriTotal||1));
+  const score=Math.round((Math.min(liquidez,1)*.25 + Math.min(ahorroPct/.3,1)*.25 + Math.max(0,1-deudaRatio/.5)*.25 + diversif*.25)*100);
+  const scoreGrade=score>=80?'Excelente':score>=65?'Saludable':score>=50?'Regular':'Mejorar';
+
+  // ── Objetivos ──
+  const objetivos=(dbGet('objetivos')||[]).filter(o=>!o.completado&&o.meta>0).slice(0,3);
+
+  // ── Tarjetas / vencimientos ──
+  const tarjetas=dbGet('tarjetas')||[];
+  const hoy=new Date(); const hoyD=hoy.getDate();
+  function billsFromTarjetas(){
+    const rows=[];
+    tarjetas.forEach(t=>{
+      const cierre=+t.cierre||0, venc=+t.vencimiento||0;
+      const montoEst=egresoCuotaEnMes?dbGet('egresos_cuotas').filter(c=>c.tarjeta===t.nombre||c.tarjeta===t.id).reduce((s,c)=>{ const v=egresoCuotaEnMes(c,mes); return s+(c.moneda==='USD'?v*cotiz:v); },0):0;
+      if(cierre) rows.push({day:cierre,mon:'MAY',type:cierre===hoyD?'today':cierre-hoyD<=3&&cierre>=hoyD?'urg':'n',name:`${t.nombre} · Cierre`,cat:'Crédito',catColor:'#D7263D',days:cierre===hoyD?'Hoy':`En ${cierre-hoyD} días`,amt:montoEst>0?`-${fmtARS(montoEst)}`:'—',dir:'neg'});
+      if(venc) rows.push({day:venc,mon:'JUN',type:'n',name:`${t.nombre} · Vencimiento`,cat:'Crédito',catColor:'#D7263D',days:`En ${venc+(30-hoyD)} días`,amt:'—',dir:'neg'});
+    });
+    // fixed expenses
+    dbGet('egresos_fijos')||[]; // existence check
+    return rows.sort((a,b)=>a.day-b.day).slice(0,6);
+  }
+  const bills=billsFromTarjetas();
+
+  // ── Recent movements ──
+  const movRaw=(dbGet('egresos_inm')||[]).filter(e=>e.fecha).sort((a,b)=>b.fecha.localeCompare(a.fecha)).slice(0,5);
+  const CAT_EMO={Vivienda:'🏠',Auto:'🚗',Comida:'🛒',Telefonía:'📱',Conectividad:'📡',Plataformas:'📺',Gatos:'🐱',Salud:'💊',Ocio:'🎭',River:'⚽','A eliminar':'🗑',Otro:'💸'};
+  const CAT_BG={Vivienda:'#EEF5FB',Auto:'#FCE9EC',Comida:'#FDF2D8',Telefonía:'#F3EBF9',Conectividad:'#EEF5FB',Plataformas:'#E4F4EC',Gatos:'#FDF0E8',Salud:'#E4F7F5',Ocio:'#FCE9EC',River:'#FEFCE4','A eliminar':'#F5F6F9',Otro:'#F5F6F9'};
+
+  // ── SVG helpers ──
+  function gaugeSVG(sc){
+    const R=80,cx=100,cy=105,pct=Math.max(0,Math.min(1,sc/100));
+    const sA=-Math.PI,fA=sA+pct*Math.PI;
+    function pt(a,r=R){return[cx+r*Math.cos(a),cy+r*Math.sin(a)];}
+    function arc(r,a1,a2){const[sx,sy]=pt(a1,r);const[ex,ey]=pt(a2,r);const lg=a2-a1>Math.PI?1:0;return`M${sx.toFixed(1)},${sy.toFixed(1)} A${r},${r} 0 ${lg} 1 ${ex.toFixed(1)},${ey.toFixed(1)}`;}
+    const[dx,dy]=pt(fA);
+    return`<svg viewBox="0 0 200 120" width="190" height="114"><defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#D7263D"/><stop offset="40%" stop-color="#E8A93C"/><stop offset="80%" stop-color="#1F8A5B"/></linearGradient></defs><path d="${arc(R,sA,0)}" fill="none" stroke="#2A323C" stroke-width="14" stroke-linecap="round"/>${sc>0?`<path d="${arc(R,sA,fA)}" fill="none" stroke="url(#gg)" stroke-width="14" stroke-linecap="round"/><circle cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="6" fill="#fff" stroke="#E8A93C" stroke-width="2.5"/>`:''}`;
+  }
+
+  function sparkSVG(data,color,h=34){
+    if(!data||data.length<2) return '';
+    const w=200,pad=2,mn=Math.min(...data),mx=Math.max(...data),rng=mx-mn||1;
+    const pts=data.map((v,i)=>`${(pad+(i/(data.length-1))*(w-pad*2)).toFixed(1)},${(h-pad-(v-mn)/rng*(h-pad*2)).toFixed(1)}`);
+    const gid=`sg${Math.random().toString(36).slice(2,6)}`;
+    return`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h}px;display:block;"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.18"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="M${pts[0]} L${pts.join(' L')} L${w-pad},${h} L${pad},${h} Z" fill="url(#${gid})"/><polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+  }
+
+  function barChartSVG(){
+    const vw=720,vh=200,pL=44,pR=10,pT=12,pB=36;
+    const cW=vw-pL-pR,cH=vh-pT-pB;
+    const colW=cW/8,bw=14,gap=3;
+    const grid=[25,50,75].map(p=>`<line x1="${pL}" y1="${(pT+(1-p/100)*cH).toFixed(1)}" x2="${vw-pR}" y2="${(pT+(1-p/100)*cH).toFixed(1)}" stroke="#F0F1F3" stroke-width="1"/>`).join('');
+    const bars=months8.map((m,i)=>{
+      const cx=pL+(i+0.5)*colW;
+      const hI=Math.max(2,(ings8[i]/maxBar)*cH);
+      const hE=Math.max(2,(egs8[i]/maxBar)*cH);
+      const now=m===mes;
+      const net=ings8[i]-egs8[i];
+      const nStr=(net>=0?'+':'')+Math.round(Math.abs(net)/1000)+'k';
+      const nCol=net>=0?'#1F8A5B':'#D7263D';
+      return`<rect x="${(cx-bw-gap/2).toFixed(1)}" y="${(pT+cH-hI).toFixed(1)}" width="${bw}" height="${hI.toFixed(1)}" fill="${now?'#1F8A5B':'rgba(31,138,91,.4)'}" rx="4" stroke="${now?'#E8A93C':'none'}" stroke-width="${now?2:0}"/><rect x="${(cx+gap/2).toFixed(1)}" y="${(pT+cH-hE).toFixed(1)}" width="${bw}" height="${hE.toFixed(1)}" fill="${now?'#D7263D':'rgba(215,38,61,.35)'}" rx="4" stroke="${now?'#E8A93C':'none'}" stroke-width="${now?2:0}"/><text x="${cx.toFixed(1)}" y="${(vh-20).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="#A8B0BB" font-family="JetBrains Mono,monospace">${mesLabel(m).slice(0,3)}</text><text x="${cx.toFixed(1)}" y="${(vh-5).toFixed(1)}" text-anchor="middle" font-size="9" fill="${nCol}" font-weight="600" font-family="JetBrains Mono,monospace">${nStr}</text>`;
+    }).join('');
+    return`<svg viewBox="0 0 ${vw} ${vh}" style="width:100%;height:${vh}px;">${grid}${bars}</svg>`;
+  }
+
+  function donutSVG(){
+    if(!catEntries.length) return '<div style="color:var(--muted);font-size:12px;padding:20px 0;">Sin egresos este mes.</div>';
+    const R=65,sw=16,cx=80,cy=80,circ=2*Math.PI*R;
+    let off=0;
+    const arcs=catEntries.slice(0,7).map(([cat,val])=>{
+      const pct=val/totalCatUSD;
+      const dash=pct*circ;
+      const el=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${CAT_COLORS_HEX[cat]||'#7D8694'}" stroke-width="${sw}" stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" stroke-linecap="butt" style="transform:rotate(-90deg);transform-origin:${cx}px ${cy}px;"/>`;
+      off+=dash; return el;
+    }).join('');
+    return`<div class="dh-donut-grid"><div style="display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 160 160" width="170" height="170"><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#ECEEF2" stroke-width="${sw}"/>${arcs}<text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="9" fill="#7D8694" letter-spacing="0.06em">EGRESOS</text><text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="18" fill="#15181C" font-weight="700" font-family="JetBrains Mono,monospace">${fmtUSD(totalCatUSD)}</text><text x="${cx}" y="${cy+20}" text-anchor="middle" font-size="9" fill="#7D8694">${catEntries.length} categorías</text></svg></div><div class="dh-cat-list">${catEntries.slice(0,7).map(([cat,val])=>`<div class="dh-cat-row"><div class="dh-cat-sw" style="background:${CAT_COLORS_HEX[cat]||'#7D8694'};"></div><div><div class="dh-cat-nm">${cat}</div></div><div><div class="dh-cat-amt">${fmtUSD(val)}</div><div class="dh-cat-pct">${Math.round(val/totalCatUSD*100)}%</div></div></div>`).join('')}</div></div>`;
+  }
+
+  // ── BUILD HTML ──
+  const netoSign=neto>=0?'+':'';
+  const saldoColor=neto>=0?'#1F8A5B':'#D7263D';
+  const saldoDeltaCls=neto>=0?'p':'n';
+  const ytdSign=ytdNeto>=0?'+':'';
 
   document.getElementById('dash-content').innerHTML=`
 
-  <!-- RACHA -->
-  <div style="display:flex;align-items:center;gap:16px;background:var(--sidebar);border-radius:var(--radius);padding:13px 20px;margin-bottom:16px;">
-    <div style="font-size:30px;line-height:1;filter:${rachaData.racha>0?'none':'grayscale(1) opacity(.35)'};">🔥</div>
-    <div>
-      <div style="font-size:9px;font-weight:700;color:rgba(155,193,188,.45);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1px;">Racha</div>
-      <div style="font-size:22px;font-weight:800;font-family:var(--font-display);color:${rachaColor(rachaData.racha)};letter-spacing:-.03em;line-height:1;">${rachaData.racha} <span style="font-size:13px;font-weight:600;color:rgba(155,193,188,.5);">mes${rachaData.racha!==1?'es':''} consecutivos en positivo</span></div>
+  <!-- GREETING -->
+  <div class="dh-greeting">
+    <h1>${saludo}, <span class="dh-name">${nombre}</span>.&nbsp;<span id="dash-clock" style="font-size:16px;font-weight:500;color:var(--muted);vertical-align:middle;font-family:var(--font-mono);"></span></h1>
+    <div class="dh-gdate">
+      <span>${fmtFecha()}</span>
+      <span class="dh-pill dh-pill-g">↑ USD $${fmtARS(cotiz)} · ${fmtPct(infMes)}/mes</span>
+      <span class="dh-pill dh-pill-r">Inflación ${fmtPct(infMes)}/mes</span>
+      <span class="dh-pill dh-pill-d">🔥 ${rachaData.racha} mes${rachaData.racha!==1?'es':''} en positivo · récord ${rachaData.record}m</span>
     </div>
-    <div style="margin-left:auto;text-align:right;">
-      <div style="font-size:10px;color:rgba(155,193,188,.4);margin-bottom:2px;">Récord: <strong style="color:rgba(155,193,188,.7);">${rachaData.record} meses</strong></div>
-      ${rachaData.riesgo?`<div style="font-size:11px;color:var(--neg);font-weight:600;">⚠ En riesgo este mes</div>`:`<div style="font-size:11px;color:rgba(155,193,188,.5);">${rachaData.mesPositivo?'✓ En positivo este mes':'–'}</div>`}
+    <div class="dh-actions">
+      <button class="btn-month-sel" onclick="nav('analisis')">↗ Análisis</button>
+      <button class="btn-cta-dark" onclick="nav('egresos-inm')"><span class="btn-cta-sq">+</span>Registrar egreso</button>
     </div>
   </div>
 
-  <!-- 4 KPI CARDS -->
-  <div class="g4">
-
-    <!-- KPI 1: Saldo actual -->
-    <div class="card ${neto>=0?'pos':'neg'}">
-      <div class="cl">Saldo actual · ${mesLabel(mes)}</div>
-      <div class="cv">${neto>=0?'+':''}${fmtARS(neto*cotiz)}</div>
-      <div class="cs">${neto>=0?'+':''}${fmtUSD(neto)} USD</div>
-      <div class="cs" style="margin-top:5px;font-size:10px;">Acum. may–${ytdMesLabel}: ${ytdNeto>=0?'+':''}${fmtARS(ytdNeto*usdArs)}</div>
-    </div>
-
-    <!-- KPI 2: Patrimonio -->
-    <div class="card pos">
-      <div class="cl">Patrimonio</div>
-      <div class="cv">${fmtUSD(patriTotal)} USD</div>
-      <div class="cs">${fmtARS(patriTotal*usdArs)}</div>
-      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-        <span style="font-size:10px;background:var(--pos-bg);color:var(--pos-dk);padding:1px 7px;border-radius:20px;font-weight:600;">Cartera ${fmtUSD(patriCart)}</span>
-        <span style="font-size:10px;background:var(--opal-bg);color:var(--opal-dk);padding:1px 7px;border-radius:20px;font-weight:600;">Físicos ${fmtUSD(patriAct)}</span>
+  <!-- HERO HEALTH SCORE -->
+  <div class="dh-hero">
+    <div class="dh-hero-glow"></div>
+    <div class="dh-hero-inner">
+      <div class="dh-gauge-side">
+        <div class="dh-gauge-lbl">Salud financiera</div>
+        ${gaugeSVG(score)}</svg>
+        <div class="dh-gauge-score">
+          <div class="dh-gauge-num">${score}</div>
+          <div class="dh-gauge-sub">/ 100</div>
+          <div class="dh-gauge-grade">${scoreGrade}</div>
+        </div>
+      </div>
+      <div class="dh-hero-body">
+        <div class="dh-hero-title">Tu situación financiera ${score>=65?'es sólida':'requiere atención'}</div>
+        <div class="dh-hero-desc">
+          Saldo del mes <b>${netoSign}${fmtUSD(neto)} USD</b> · Patrimonio <b>${fmtUSD(patriTotal)} USD</b> · Proyección dic <b>${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)} USD</b>
+        </div>
+        <div class="dh-pillars">
+          ${[
+            {nm:'Saldo mes',val:`${netoSign}${fmtUSD(neto)}`,tag:neto>=0?'Positivo':'Negativo',cls:neto>=0?'g':'a',pct:Math.min(100,Math.abs(neto)/(ing||1)*200),color:neto>=0?'#1F8A5B':'#E8A93C',meta:`Ing: ${fmtUSD(ing)}`},
+            {nm:'Ahorro rate',val:`${Math.round(ahorroPct*100)}%`,tag:ahorroPct>=.2?'En meta':'Mejorar',cls:ahorroPct>=.2?'g':'a',pct:Math.min(100,ahorroPct/.3*100),color:'#1F8A5B',meta:'Meta: 20% ingreso'},
+            {nm:'Carga fija',val:`${Math.round(fijo/(ing||1)*100)}%`,tag:fijo/(ing||1)<.5?'OK':'Alto',cls:fijo/(ing||1)<.5?'g':'a',pct:Math.min(100,fijo/(ing||1)/.7*100),color:'#E8A93C',meta:'Límite: 50% ingreso'},
+            {nm:'Diversif.',val:`${Math.round(patriCart/(patriTotal||1)*100)}%`,tag:patriCart/(patriTotal||1)>=.5?'Sólido':'Mejorar',cls:patriCart/(patriTotal||1)>=.5?'g':'a',pct:Math.min(100,patriCart/(patriTotal||1)/.6*100),color:'#6AA3D9',meta:'Meta: 60% USD'},
+          ].map(p=>`<div class="dh-pilar"><div class="dh-pilar-hd"><span class="dh-pilar-nm">${p.nm}</span><span class="dh-pilar-tag ${p.cls}">${p.tag}</span></div><div class="dh-pilar-val">${p.val}</div><div class="dh-pilar-bar"><div class="dh-pilar-fill" style="width:${p.pct}%;background:${p.color};"></div></div><div class="dh-pilar-meta">${p.meta}</div></div>`).join('')}
+        </div>
       </div>
     </div>
+  </div>
 
-    <!-- KPI 3: Proyectado Dic 2026 -->
-    <div class="card ${saldoDic>=0?'pos-s':'neg'}">
-      <div class="cl">Proyectado Dic 2026</div>
-      <div class="cv" style="color:${saldoDic>=0?'var(--pos-dk)':'var(--neg-dk)'};">${saldoDic>=0?'+':''}${fmtUSD(saldoDic)} USD</div>
-      <div class="cs">${saldoDic>=0?'+':''}${fmtARS(saldoDic*usdArs)}</div>
-      <div class="cs" style="margin-top:3px;font-size:10px;color:var(--muted);">Saldo acum. + proy. ingresos/egresos/split</div>
+  <!-- KPI GRID -->
+  <div class="dh-kpi-grid">
+
+    <div class="dh-kpi">
+      <div class="dh-kpi-stripe" style="background:linear-gradient(180deg,#3FB07C,#1F8A5B);"></div>
+      <div class="dh-kpi-inner">
+        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Saldo del mes</div><div class="dh-kpi-ico" style="background:#E6F4EE;color:#155F3E;">↕</div></div>
+        <div class="dh-kpi-amount"><span class="dh-kpi-num" style="color:${saldoColor};">${netoSign}${fmtARS(neto*cotiz)}</span><span class="dh-kpi-cur">ARS</span></div>
+        <div class="dh-kpi-ssub">${netoSign}${fmtUSD(neto)} USD</div>
+        <div class="dh-kpi-delta ${saldoDeltaCls}">${neto>=0?'↑':'↓'} YTD ${ytdSign}${fmtUSD(ytdNeto)}</div>
+        <div class="dh-kpi-meta">Ingresos − Egresos · ${mesLabel(mes)}</div>
+      </div>
+      ${sparkSVG(months8.map((_,i)=>{ let s=0; for(let j=0;j<=i;j++)s+=ings8[j]-egs8[j]; return s; }), neto>=0?'#1F8A5B':'#D7263D')}
     </div>
 
-    <!-- KPI 4: Patrimonio proyectado 2026 -->
-    <div class="card pos">
-      <div class="cl">Patrimonio proy. 2026</div>
-      <div class="cv">${fmtUSD(patriTotal+ahorroProyTotal)} USD</div>
-      <div class="cs">${fmtARS((patriTotal+ahorroProyTotal)*usdArs)}</div>
-      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-        <span style="font-size:10px;background:rgba(255,255,255,.18);color:rgba(255,255,255,.9);padding:1px 7px;border-radius:20px;font-weight:600;">Actual ${fmtUSD(patriTotal)}</span>
-        <span style="font-size:10px;background:rgba(255,255,255,.18);color:rgba(255,255,255,.9);padding:1px 7px;border-radius:20px;font-weight:600;">+ Ahorro ${fmtUSD(ahorroProyTotal)}</span>
+    <div class="dh-kpi">
+      <div class="dh-kpi-stripe" style="background:linear-gradient(180deg,#77B2DD,#3D7DB3);"></div>
+      <div class="dh-kpi-inner">
+        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Patrimonio neto</div><div class="dh-kpi-ico" style="background:#EAF2FB;color:#2A6FA8;">◈</div></div>
+        <div class="dh-kpi-amount"><span class="dh-kpi-num">${fmtUSD(patriTotal)}</span><span class="dh-kpi-cur">USD</span></div>
+        <div class="dh-kpi-ssub">${fmtARS(patriTotal*usdArs)}</div>
+        <div class="dh-kpi-delta i">Cartera ${fmtUSD(patriCart)} · Físicos ${fmtUSD(patriAct)}</div>
+        <div class="dh-kpi-meta">Activos totales valorizados en USD</div>
       </div>
+      ${sparkSVG(patriSpark,'#3D7DB3')}
+    </div>
+
+    <div class="dh-kpi">
+      <div class="dh-kpi-stripe" style="background:linear-gradient(180deg,#F5B942,#C98A1F);"></div>
+      <div class="dh-kpi-inner">
+        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Proyectado dic 2026</div><div class="dh-kpi-ico" style="background:#FEF6E4;color:#B87D1A;">↗</div></div>
+        <div class="dh-kpi-amount"><span class="dh-kpi-num" style="color:${ahorroProyTotal>=0?'#B87D1A':'var(--neg-dk)'};">${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)}</span><span class="dh-kpi-cur">USD</span></div>
+        <div class="dh-kpi-ssub">${ahorroProyTotal>=0?'+':''}${fmtARS(ahorroProyTotal*usdArs)}</div>
+        <div class="dh-kpi-delta w">Ahorro ${months8.filter(m=>m>=mes).length} meses restantes</div>
+        <div class="dh-kpi-meta">Neto acumulado ${mesLabel(mes)} → Dic ${curY}</div>
+      </div>
+      ${sparkSVG(ahorroFuturoRows.map(r=>r.neto),'#C98A1F')}
+    </div>
+
+    <div class="dh-kpi">
+      <div class="dh-kpi-stripe" style="background:linear-gradient(180deg,#3FB07C,#1F8A5B);"></div>
+      <div class="dh-kpi-inner">
+        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Patrimonio proy. dic 26</div><div class="dh-kpi-ico" style="background:#E6F4EE;color:#155F3E;">⊕</div></div>
+        <div class="dh-kpi-amount"><span class="dh-kpi-num">${fmtUSD(patriTotal+ahorroProyTotal)}</span><span class="dh-kpi-cur">USD</span></div>
+        <div class="dh-kpi-ssub">${fmtARS((patriTotal+ahorroProyTotal)*usdArs)}</div>
+        <div class="dh-kpi-delta p">↑ +${fmtUSD(ahorroProyTotal)} ahorro 2026</div>
+        <div class="dh-kpi-meta">Patrimonio actual + ahorro proyectado</div>
+      </div>
+      ${sparkSVG([patriTotal,...patriSpark.slice(1)],'#1F8A5B')}
     </div>
 
   </div>
 
-  <!-- AHORRO POR MES (collapsible) -->
-  <details style="margin-bottom:14px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;">
-    <summary style="cursor:pointer;padding:10px 14px;font-size:12px;font-weight:700;color:var(--muted);user-select:none;list-style:none;display:flex;align-items:center;gap:8px;">
-      <span>▶</span> Ahorro proyectado por mes · ${mesLabel(mes)} → Dic ${curY}
-      <span style="margin-left:auto;font-family:var(--font-mono);font-size:12px;font-weight:700;color:${ahorroProyTotal>=0?'var(--pos-dk)':'var(--neg-dk)'};">${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)} USD</span>
-    </summary>
-    <div class="table-wrap" style="margin:0;border-top:1px solid var(--border2);">
-      <table class="tbl">
-        <tr><th>Mes</th><th>Ingresos</th><th>Egresos</th><th>Neto USD</th><th>Neto ARS</th></tr>
-        ${ahorroFuturoRows.map(r=>`<tr style="${r.neto<0?'background:rgba(215,38,61,.04)':''}">
-          <td style="font-weight:600;">${mesLabel(r.mes)}${r.mes===mes?'<span class="pill opal" style="font-size:9px;margin-left:6px;">actual</span>':r.mes<mes?'<span class="pill gr" style="font-size:9px;margin-left:6px;">real</span>':''}</td>
-          <td class="pos-text">${fmtUSD(r.ing)}</td>
-          <td class="neg-text">-${fmtUSD(r.eg)}</td>
-          <td class="${r.neto>=0?'pos-text':'neg-text'} mono">${r.neto>=0?'+':''}${fmtUSD(r.neto)}</td>
-          <td class="${r.neto>=0?'pos-text':'neg-text'} mono">${r.neto>=0?'+':''}${fmtARS(r.neto*r.cotiz)}</td>
-        </tr>`).join('')}
-        <tr style="font-weight:700;border-top:2px solid var(--border2);">
-          <td>Total</td><td></td><td></td>
-          <td class="${ahorroProyTotal>=0?'pos-text':'neg-text'} mono">${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)}</td>
-          <td class="${ahorroProyTotal>=0?'pos-text':'neg-text'} mono">${ahorroProyTotal>=0?'+':''}${fmtARS(ahorroProyTotal*usdArs)}</td>
-        </tr>
-      </table>
+  <!-- INGRESOS VS EGRESOS (full width) -->
+  <div class="dh-panel" style="margin-bottom:18px;">
+    <div class="dh-panel-hd">
+      <div class="dh-panel-hd-l"><div class="dh-panel-title">Ingresos vs Egresos</div><div class="dh-panel-sub">May–Dic ${curY}</div></div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="dh-leg-row">
+          <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#1F8A5B;"></div> Ingresos</div>
+          <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#D7263D;"></div> Egresos</div>
+          <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#E8A93C;"></div> Mes actual</div>
+        </div>
+      </div>
     </div>
-  </details>
+    <div class="dh-panel-bd">${barChartSVG()}</div>
+  </div>
 
-  <!-- 2 COLUMN: categories + chart -->
-  <div class="g2">
-    <div>
-      <div class="sh">Egresos por categoría · ${mesLabel(mes)}</div>
-      ${catRows||'<div style="color:var(--muted);font-size:12px;">Sin egresos este mes.</div>'}
-      <div style="display:flex;gap:8px;margin-top:12px;">
-        <div class="card" style="flex:1;text-align:center;padding:10px;">
-          <div class="cl">Fijo</div><div class="cv" style="color:var(--opal);font-size:16px;">${fmtUSD(fijo)}</div>
-          <div class="cs">${totalCat>0?fmtPct(fijo/totalCat*100):'-'}</div>
-        </div>
-        <div class="card" style="flex:1;text-align:center;padding:10px;">
-          <div class="cl">Variable</div><div class="cv" style="color:var(--warn);font-size:16px;">${fmtUSD(variable)}</div>
-          <div class="cs">${totalCat>0?fmtPct(variable/totalCat*100):'-'}</div>
-        </div>
-        <div class="card" style="flex:1;text-align:center;padding:10px;">
-          <div class="cl">No esencial</div><div class="cv" style="color:var(--neg);font-size:16px;">${fmtUSD(noEsencial)}</div>
-          <div class="cs">candidatos a cortar</div>
-        </div>
+  <!-- DONUT + CALIDAD -->
+  <div class="dh-grid-7-5">
+
+    <div class="dh-panel">
+      <div class="dh-panel-hd">
+        <div class="dh-panel-hd-l"><div class="dh-panel-title">Egresos por categoría</div><div class="dh-panel-sub">${mesLabel(mes)}</div></div>
       </div>
-      <div class="g2" style="margin-top:10px;margin-bottom:0;">
-        <div class="card pos-s"><div class="cl">Ingresado may–${ytdMesLabel}</div><div class="cv">${fmtUSD(ytdIng)}</div><div class="cs">USD may–${ytdMesLabel}</div></div>
-        <div class="card neg-s"><div class="cl">Gastado may–${ytdMesLabel}</div><div class="cv">${fmtUSD(ytdEg)}</div><div class="cs">USD may–${ytdMesLabel}</div></div>
-      </div>
+      <div class="dh-panel-bd">${donutSVG()}</div>
     </div>
-    <div>
-      <div class="sh" style="display:flex;align-items:center;gap:8px;">
-        Ingresos y Egresos may–dic ${curY}
-        <span style="font-size:9px;color:var(--muted);display:flex;gap:6px;align-items:center;font-weight:500;">
-          <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--pos);vertical-align:middle;"></span>Ing
-          <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--neg);vertical-align:middle;"></span>Eg
-        </span>
+
+    <div class="dh-panel">
+      <div class="dh-panel-hd">
+        <div class="dh-panel-hd-l"><div class="dh-panel-title">Calidad del gasto</div><div class="dh-panel-sub">${mesLabel(mes)}</div></div>
       </div>
-      <div class="mbar" style="margin-bottom:4px;gap:4px;">
-        ${months.map((m,i)=>`<div style="display:flex;align-items:flex-end;gap:1px;flex:1;" title="${mesLabel(m)} · Ing: ${fmtUSD(totalIngresosUSD(m)+totalIngresosFuturosUSD(m))} · Eg: ${fmtUSD(totalEgresosUSD(m))}">
-          <div class="mb" style="height:${barIngHeights[i]||2}%;background:${m<=mes?'var(--pos)':'rgba(31,138,91,.35)'};flex:1;"></div>
-          <div class="mb" style="height:${barEgHeights[i]||2}%;background:${m<=mes?'var(--neg)':'rgba(215,38,61,.35)'};flex:1;"></div>
+      <div class="dh-panel-bd">
+        ${[
+          {nm:'Fijo',val:fijo,pct:Math.round(fijo/totalQual*100),color:'#3F7CB3',meta:'Suscripciones, cuotas, expensas'},
+          {nm:'Variable',val:variable,pct:Math.round(variable/totalQual*100),color:'#E8A93C',meta:'Comida, transporte, gastos del mes'},
+          {nm:'No esencial',val:noEsencial,pct:totalQual>0?Math.round(noEsencial/totalQual*100):0,color:'#D7263D',meta:'Candidatos a recortar'},
+        ].map(q=>`<div class="dh-qual-row">
+          <div class="dh-qual-hd">
+            <div class="dh-qual-left"><div class="dh-qual-sw" style="background:${q.color};"></div><span class="dh-qual-nm">${q.nm}</span></div>
+            <span class="dh-qual-val" style="color:${q.color};">${fmtUSD(q.val)}</span>
+          </div>
+          <div class="dh-qual-bar"><div class="dh-qual-fill" style="width:${q.pct}%;background:${q.color};"></div></div>
+          <div style="display:flex;justify-content:space-between;">
+            <div class="dh-qual-meta">${q.meta}</div>
+            <div class="dh-qual-meta" style="font-weight:600;">${q.pct}%</div>
+          </div>
         </div>`).join('')}
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);font-weight:600;margin-bottom:14px;">
-        ${mesLabels.map((l,i)=>`<span style="color:${months[i]===mes?'var(--text)':'var(--muted)'}">${l}</span>`).join('')}
+      ${noEsencial>0?`<div class="dh-footer-hint">✂ ${fmtARS(noEsencial*usdArs)} candidatos a recortar en ${mesLabel(mes)}.</div>`:''}
+    </div>
+
+  </div>
+
+  <!-- COMPOSICIÓN PATRIMONIAL -->
+  <div class="dh-panel" style="margin-bottom:18px;">
+    <div class="dh-panel-hd">
+      <div class="dh-panel-hd-l"><div class="dh-panel-title">Composición patrimonial</div><div class="dh-panel-sub">${mesLabel(mes)}</div></div>
+    </div>
+    <div class="dh-panel-bd">
+      ${patriTotal>0?`
+      <div class="dh-stack">
+        <div class="dh-seg" style="width:${Math.round(patriCart/patriTotal*100)}%;background:linear-gradient(90deg,#3FB07C,#1F8A5B);">USD ${Math.round(patriCart/patriTotal*100)}%</div>
+        <div class="dh-seg" style="width:${Math.round(patriAct/patriTotal*100)}%;background:linear-gradient(90deg,#F5B942,#C98A1F);min-width:${patriAct>0?'36':'0'}px;">Fís. ${Math.round(patriAct/patriTotal*100)}%</div>
+      </div>
+      <div class="dh-legend-cards">
+        <div class="dh-lc"><div class="dh-lc-lbl">Cartera USD</div><div class="dh-lc-val" style="color:#1F8A5B;">${fmtUSD(patriCart)}</div><div class="dh-lc-sub">${Math.round(patriCart/patriTotal*100)}% del patrimonio</div></div>
+        <div class="dh-lc"><div class="dh-lc-lbl">Activos Físicos</div><div class="dh-lc-val" style="color:#C98A1F;">${fmtUSD(patriAct)}</div><div class="dh-lc-sub">${Math.round(patriAct/patriTotal*100)}% del patrimonio</div></div>
+        <div class="dh-lc"><div class="dh-lc-lbl">Total</div><div class="dh-lc-val">${fmtUSD(patriTotal)}</div><div class="dh-lc-sub">${fmtARS(patriTotal*usdArs)}</div></div>
+      </div>`:'<div style="color:var(--muted);font-size:12px;">Cargá activos en Cartera y Activos Físicos.</div>'}
+    </div>
+  </div>
+
+  <!-- OBJETIVOS -->
+  ${objetivos.length?`
+  <div class="dh-panel" style="margin-bottom:18px;">
+    <div class="dh-panel-hd">
+      <div class="dh-panel-hd-l"><div class="dh-panel-title">Objetivos</div></div>
+      <button class="dh-link" onclick="nav('objetivos')">Ver todos →</button>
+    </div>
+    <div class="dh-panel-bd">
+      <div class="dh-goal-grid">
+        ${objetivos.map(ob=>{
+          const pct=ob.meta>0?Math.min(100,Math.round(ob.actual/ob.meta*100)):0;
+          const colors=['#1F8A5B','#C98A1F','#3D7DB3'];
+          const color=colors[objetivos.indexOf(ob)%3];
+          const emo=['🎯','✈','🏠','🚗','💰','📚'][objetivos.indexOf(ob)%6];
+          return`<div class="dh-gc">
+            <div class="dh-gc-hd"><div class="dh-gc-ico" style="background:${color}22;">${emo}</div><div class="dh-gc-nm">${ob.descripcion}</div><div class="dh-gc-pct" style="color:${color};">${pct}%</div></div>
+            <div class="dh-gc-bar"><div class="dh-gc-fill" style="width:${pct}%;background:${color};"></div></div>
+            <div class="dh-gc-vals">
+              <span class="dh-gc-cur" style="color:${color};">${ob.moneda?fmtUSD(ob.actual)+' '+ob.moneda:ob.actual}</span>
+              <span class="dh-gc-tot">${ob.moneda?fmtUSD(ob.meta)+' '+ob.moneda:ob.meta}</span>
+            </div>
+            <div class="dh-gc-ftr">
+              <span class="dh-gc-eta">${ob.periodo==='mensual'?'Este mes':ob.periodo==='anual'?'Este año':'Evento'}</span>
+              <span class="dh-gc-status ${pct>=80?'ok':'behind'}">${pct>=80?'En meta':'En progreso'}</span>
+            </div>
+          </div>`;
+        }).join('')}
       </div>
     </div>
+  </div>`:''}
+
+  <!-- VENCIMIENTOS + MOVIMIENTOS -->
+  <div class="dh-grid-7-5">
+
+    <div class="dh-panel">
+      <div class="dh-panel-hd">
+        <div class="dh-panel-hd-l"><div class="dh-panel-title">Próximos vencimientos</div><div class="dh-panel-sub">30 días</div></div>
+        <button class="dh-link" onclick="nav('tarjetas')">Ver tarjetas →</button>
+      </div>
+      <div style="padding:0 12px 14px;">
+        ${bills.length?`<div class="dh-bills">${bills.map(b=>`<div class="dh-bill">
+          <div class="dh-dchip ${b.type}"><div class="dh-dchip-day">${b.day}</div><div class="dh-dchip-mon">${b.mon}</div></div>
+          <div><div class="dh-bill-nm">${b.name}</div><div class="dh-bill-meta"><div class="dh-bill-dot" style="background:${b.catColor};"></div><span>${b.cat}</span><span>· ${b.days}</span></div></div>
+          <div class="dh-bill-amt ${b.dir}">${b.amt}</div>
+        </div>`).join('')}</div>`:`<div style="color:var(--muted);font-size:12px;padding:12px 0;">Sin tarjetas configuradas. <button class="dh-link" onclick="nav('tarjetas')">Agregar →</button></div>`}
+      </div>
+    </div>
+
+    <div class="dh-panel">
+      <div class="dh-panel-hd">
+        <div class="dh-panel-hd-l"><div class="dh-panel-title">Últimos movimientos</div></div>
+        <button class="dh-link" onclick="nav('egresos-inm')">Ver todos →</button>
+      </div>
+      <div style="padding:0 12px 14px;">
+        ${movRaw.length?`<div class="dh-movs">${movRaw.map(e=>{
+          const v=e.moneda==='USD'?e.monto*cotiz:e.monto;
+          return`<div class="dh-mov">
+            <div class="dh-mov-ico" style="background:${CAT_BG[e.categoria]||'#F5F6F9'};">${CAT_EMO[e.categoria]||'💸'}</div>
+            <div><div class="dh-mov-nm">${e.descripcion||e.categoria}</div><div class="dh-mov-meta">${e.categoria} · ${e.moneda} · ${e.fecha?fmtFecha(e.fecha):'–'}</div></div>
+            <div class="dh-mov-amt neg">-${fmtARS(v)}</div>
+          </div>`;
+        }).join('')}</div>`:`<div style="color:var(--muted);font-size:12px;padding:12px 0;">Sin movimientos recientes.</div>`}
+      </div>
+    </div>
+
   </div>`;
+
+  tickClock();
 }
 
 // =============================================
