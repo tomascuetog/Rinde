@@ -929,22 +929,21 @@ body.privacy svg text{
     <div id="auth-step-login" style="display:none;">
       <div class="auth-card">
         <div class="auth-title" id="auth-form-title">Bienvenido</div>
-        <div class="auth-sub" id="auth-form-sub">Ingresá tu email y te mandamos un link</div>
+        <div class="auth-sub" id="auth-form-sub">Ingresá con tu email y contraseña</div>
         <div class="auth-err" id="login-err"></div>
         <div class="auth-field">
           <label>Email</label>
           <input type="email" id="auth-email" placeholder="vos@mail.com" autocomplete="email"
-            onkeydown="if(event.key==='Enter')sendMagicLink();">
+            onkeydown="if(event.key==='Enter')document.getElementById('auth-pass').focus();">
         </div>
-        <button class="auth-btn" id="auth-magic-btn" onclick="sendMagicLink()">Recibir link por email →</button>
-        <div class="auth-magic-ok" id="magic-ok">✓ Revisá tu email — hacé clic en el link para entrar</div>
-        <div class="auth-divider" id="auth-divider-magic"><span onclick="showPasswordLogin()" style="cursor:pointer;text-decoration:underline;">Ingresar con contraseña</span></div>
-        <div class="auth-field" id="auth-pass-field" style="display:none;">
+        <div class="auth-field" id="auth-pass-field">
           <label>Contraseña</label>
           <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password"
             onkeydown="if(event.key==='Enter')submitAuth();">
         </div>
-        <button class="auth-btn secondary" id="auth-submit-btn" onclick="submitAuth()" style="display:none;">Entrar con contraseña →</button>
+        <button class="auth-btn" id="auth-submit-btn" onclick="submitAuth()">Entrar →</button>
+        <div class="auth-magic-ok" id="magic-ok">✓ Revisá tu email — hacé clic en el link para entrar</div>
+        <div class="auth-divider" id="auth-divider-magic"><span onclick="sendMagicLink()" id="auth-magic-link-text" style="cursor:pointer;text-decoration:underline;">¿Olvidaste la contraseña? Recibí un link por email</span></div>
         <button class="auth-btn secondary" id="auth-toggle-btn" onclick="toggleAuthMode()">¿No tenés cuenta? Registrate</button>
       </div>
     </div>
@@ -1188,48 +1187,34 @@ function toggleAuthMode(){
   _authMode=_authMode==='login'?'register':'login';
   const isReg=_authMode==='register';
   document.getElementById('auth-form-title').textContent=isReg?'Crear cuenta':'Bienvenido';
-  document.getElementById('auth-form-sub').textContent=isReg?'Ingresá tu email y una contraseña':'Ingresá tu email y te mandamos un link';
+  document.getElementById('auth-form-sub').textContent=isReg?'Ingresá tu email y una contraseña':'Ingresá con tu email y contraseña';
   document.getElementById('auth-toggle-btn').textContent=isReg?'¿Ya tenés cuenta? Iniciá sesión':'¿No tenés cuenta? Registrate';
   document.getElementById('login-err').classList.remove('show');
-  document.getElementById('auth-magic-btn').style.display=isReg?'none':'';
   document.getElementById('auth-divider-magic').style.display=isReg?'none':'';
   document.getElementById('magic-ok').style.display='none';
-  document.getElementById('auth-pass-field').style.display=isReg?'':'none';
-  const sb=document.getElementById('auth-submit-btn');
-  sb.style.display=isReg?'':'none';
-  sb.textContent=isReg?'Crear cuenta →':'Entrar con contraseña →';
-}
-
-function showPasswordLogin(){
-  document.getElementById('auth-divider-magic').style.display='none';
-  document.getElementById('auth-pass-field').style.display='';
-  const sb=document.getElementById('auth-submit-btn');
-  sb.style.display='';
-  sb.textContent='Entrar con contraseña →';
-  setTimeout(()=>document.getElementById('auth-pass')?.focus(),50);
+  document.getElementById('auth-submit-btn').textContent=isReg?'Crear cuenta →':'Entrar →';
 }
 
 async function sendMagicLink(){
   const email=document.getElementById('auth-email').value.trim();
   const err=document.getElementById('login-err');
-  const btn=document.getElementById('auth-magic-btn');
+  const lnk=document.getElementById('auth-magic-link-text');
   const ok=document.getElementById('magic-ok');
   err.classList.remove('show'); ok.style.display='none';
   if(!email){ err.textContent='Ingresá tu email primero.'; err.classList.add('show'); return; }
-  btn.disabled=true; btn.textContent='Enviando...';
+  if(lnk){ lnk.textContent='Enviando...'; lnk.style.pointerEvents='none'; }
   try{
     const r=await _sb.auth.signInWithOtp({
       email,
       options:{ shouldCreateUser:false, emailRedirectTo:'https://rinde-tcg.vercel.app/' }
     });
     if(r.error) throw r.error;
-    btn.textContent='Email enviado ✓';
     ok.style.display='block';
-    setTimeout(()=>{ btn.disabled=false; btn.textContent='Recibir link por email →'; ok.style.display='none'; },90000);
+    if(lnk){ lnk.textContent='Link enviado ✓ — revisá tu email'; lnk.style.pointerEvents='none'; }
   }catch(e){
-    err.textContent=e.message?.includes('rate limit')?'Demasiados intentos. Esperá unos minutos e intentá de nuevo.':(e.message||'Error al enviar email');
+    err.textContent=e.message?.includes('rate limit')?'Demasiados intentos. Esperá unos minutos.':(e.message||'Error al enviar email');
     err.classList.add('show');
-    btn.disabled=false; btn.textContent='Recibir link por email →';
+    if(lnk){ lnk.textContent='¿Olvidaste la contraseña? Recibí un link por email'; lnk.style.pointerEvents=''; }
   }
 }
 
