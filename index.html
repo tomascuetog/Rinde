@@ -3714,8 +3714,12 @@ function renderEgresosFijos(){
   for(let m=mes; m<=FIN; m=mesNext(m)){ hastaFinARS+=mesARS(m); hastaFinUSD+=mesUSD(m); }
 
   const esEs=(ec)=>ec.esencial===true||ec.esencial==='si';
-  const noEsARS=list.filter(ec=>ec.moneda==='ARS'&&!esEs(ec)).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
-  const noEsUSD=list.filter(ec=>ec.moneda==='USD'&&!esEs(ec)).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
+  // Include ALL optional items within their active range (desde≤mes≤hasta),
+  // regardless of billing frequency — so quarterly/bimonthly items are always visible.
+  const isInRange=(ec)=>{ const d=(ec.desde||'').slice(0,7),h=(ec.hasta||'').slice(0,7); return(!d||d<=mes)&&(!h||h>=mes); };
+  const noEsItems=list.filter(ec=>!esEs(ec)&&isInRange(ec));
+  const noEsARS=noEsItems.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+(ec.montoCuota||0),0);
+  const noEsUSD=noEsItems.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+(ec.montoCuota||0),0);
 
   function kpiCard(cls,label,ars,usd){
     const hA=ars>0,hU=usd>0;
@@ -3753,7 +3757,7 @@ function renderEgresosFijos(){
   const opcionalPct=100-esencialPct;
 
   // Insight
-  const noEsCount=todayItems.filter(ec=>!esEs(ec)).length;
+  const noEsCount=noEsItems.length;
   const noEsUSDEq=noEsUSD+noEsARS/cotiz;
   const insightHtml=noEsUSDEq>0?`
   <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:8px;background:var(--warn-bg);border:1px solid var(--warn);margin-bottom:16px;font-size:12px;color:var(--warn);">
