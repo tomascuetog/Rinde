@@ -364,6 +364,10 @@ hr.divider{border:none;border-top:1px solid var(--border2);margin:16px 0;}
 .auth-btn:hover{opacity:.88;}
 .auth-btn:disabled{opacity:.4;cursor:not-allowed;}
 .auth-btn.secondary{background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);margin-top:8px;}
+.auth-btn.magic{background:transparent;border:1px solid rgba(155,193,188,.2);color:rgba(155,193,188,.6);margin-top:8px;}
+.auth-btn.magic:hover{border-color:rgba(155,193,188,.5);color:rgba(155,193,188,.9);}
+.auth-divider{text-align:center;color:rgba(255,255,255,.2);font-size:11px;margin:10px 0 2px;}
+.auth-magic-ok{display:none;text-align:center;font-size:12px;color:var(--pos);margin-top:10px;}
 .auth-err{background:rgba(215,38,61,.15);border:1px solid rgba(215,38,61,.3);border-radius:7px;padding:8px 12px;font-size:12px;color:#F4909A;margin-bottom:12px;display:none;}
 .auth-err.show{display:block;}
 .auth-link{text-align:center;font-size:12px;color:rgba(255,255,255,.32);margin-top:14px;cursor:pointer;}
@@ -933,6 +937,9 @@ body.privacy svg text{
         </div>
         <button class="auth-btn" id="auth-submit-btn" onclick="submitAuth()">Entrar →</button>
         <button class="auth-btn secondary" id="auth-toggle-btn" onclick="toggleAuthMode()">¿No tenés cuenta? Registrate</button>
+        <div class="auth-divider" id="auth-divider-magic">o</div>
+        <button class="auth-btn magic" id="auth-magic-btn" onclick="sendMagicLink()">Entrar sin contraseña →</button>
+        <div class="auth-magic-ok" id="magic-ok">✓ Revisá tu email — te mandamos un link para entrar</div>
       </div>
     </div>
 
@@ -1177,6 +1184,33 @@ function toggleAuthMode(){
   document.getElementById('auth-submit-btn').textContent=isReg?'Crear cuenta →':'Entrar →';
   document.getElementById('auth-toggle-btn').textContent=isReg?'¿Ya tenés cuenta? Iniciá sesión':'¿No tenés cuenta? Registrate';
   document.getElementById('login-err').classList.remove('show');
+  document.getElementById('auth-divider-magic').style.display=isReg?'none':'block';
+  document.getElementById('auth-magic-btn').style.display=isReg?'none':'block';
+  document.getElementById('magic-ok').style.display='none';
+}
+
+async function sendMagicLink(){
+  const email=document.getElementById('auth-email').value.trim();
+  const err=document.getElementById('login-err');
+  const btn=document.getElementById('auth-magic-btn');
+  const ok=document.getElementById('magic-ok');
+  err.classList.remove('show'); ok.style.display='none';
+  if(!email){ err.textContent='Ingresá tu email primero.'; err.classList.add('show'); return; }
+  btn.disabled=true; btn.textContent='Enviando...';
+  try{
+    const r=await _sb.auth.signInWithOtp({
+      email,
+      options:{ shouldCreateUser:false, emailRedirectTo:'https://rinde-tcg.vercel.app/' }
+    });
+    if(r.error) throw r.error;
+    btn.textContent='Email enviado ✓';
+    ok.style.display='block';
+    setTimeout(()=>{ btn.disabled=false; btn.textContent='Entrar sin contraseña →'; ok.style.display='none'; },90000);
+  }catch(e){
+    err.textContent=e.message?.includes('rate limit')?'Demasiados intentos. Esperá unos minutos e intentá de nuevo.':(e.message||'Error al enviar email');
+    err.classList.add('show');
+    btn.disabled=false; btn.textContent='Entrar sin contraseña →';
+  }
 }
 
 async function submitAuth(){
@@ -6380,6 +6414,15 @@ async function init(){
     tickClock(); setInterval(tickClock,10000);
     applyPrivacy(); showWelcome();
     return;
+  }
+
+  // Detect expired/failed magic link in URL hash
+  if(window.location.hash.includes('error=access_denied')||window.location.hash.includes('otp_expired')){
+    history.replaceState(null,'',window.location.pathname);
+    setTimeout(()=>{
+      const err=document.getElementById('login-err');
+      if(err){ err.textContent='El link expiró. Usá "Entrar sin contraseña" para recibir uno nuevo.'; err.classList.add('show'); }
+    },300);
   }
 
   // Init client and check session
