@@ -1146,10 +1146,12 @@ async function pushAllToCloud(){
 let _authMode='login'; // 'login' or 'register'
 
 function showAuthStep(step){
-  ['config','login','loading'].forEach(s=>{
-    document.getElementById('auth-step-'+s).style.display='none';
+  ['login','loading'].forEach(s=>{
+    const el=document.getElementById('auth-step-'+s);
+    if(el) el.style.display='none';
   });
-  document.getElementById('auth-step-'+step).style.display='block';
+  const target=document.getElementById('auth-step-'+step);
+  if(target) target.style.display='block';
 }
 
 function showAuthOverlay(){
