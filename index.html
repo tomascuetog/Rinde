@@ -929,23 +929,23 @@ body.privacy svg text{
     <div id="auth-step-login" style="display:none;">
       <div class="auth-card">
         <div class="auth-title" id="auth-form-title">Bienvenido</div>
-        <div class="auth-sub" id="auth-form-sub">Ingresá con tu cuenta de Rinde</div>
+        <div class="auth-sub" id="auth-form-sub">Ingresá tu email y te mandamos un link</div>
         <div class="auth-err" id="login-err"></div>
         <div class="auth-field">
           <label>Email</label>
           <input type="email" id="auth-email" placeholder="vos@mail.com" autocomplete="email"
-            onkeydown="if(event.key==='Enter')document.getElementById('auth-pass').focus();">
+            onkeydown="if(event.key==='Enter')sendMagicLink();">
         </div>
-        <div class="auth-field">
+        <button class="auth-btn" id="auth-magic-btn" onclick="sendMagicLink()">Recibir link por email →</button>
+        <div class="auth-magic-ok" id="magic-ok">✓ Revisá tu email — hacé clic en el link para entrar</div>
+        <div class="auth-divider" id="auth-divider-magic"><span onclick="showPasswordLogin()" style="cursor:pointer;text-decoration:underline;">Ingresar con contraseña</span></div>
+        <div class="auth-field" id="auth-pass-field" style="display:none;">
           <label>Contraseña</label>
           <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password"
             onkeydown="if(event.key==='Enter')submitAuth();">
         </div>
-        <button class="auth-btn" id="auth-submit-btn" onclick="submitAuth()">Entrar →</button>
+        <button class="auth-btn secondary" id="auth-submit-btn" onclick="submitAuth()" style="display:none;">Entrar con contraseña →</button>
         <button class="auth-btn secondary" id="auth-toggle-btn" onclick="toggleAuthMode()">¿No tenés cuenta? Registrate</button>
-        <div class="auth-divider" id="auth-divider-magic">o</div>
-        <button class="auth-btn magic" id="auth-magic-btn" onclick="sendMagicLink()">Entrar sin contraseña →</button>
-        <div class="auth-magic-ok" id="magic-ok">✓ Revisá tu email — te mandamos un link para entrar</div>
       </div>
     </div>
 
@@ -1186,13 +1186,25 @@ function toggleAuthMode(){
   _authMode=_authMode==='login'?'register':'login';
   const isReg=_authMode==='register';
   document.getElementById('auth-form-title').textContent=isReg?'Crear cuenta':'Bienvenido';
-  document.getElementById('auth-form-sub').textContent=isReg?'Registrate para empezar':'Ingresá con tu cuenta de Rinde';
-  document.getElementById('auth-submit-btn').textContent=isReg?'Crear cuenta →':'Entrar →';
+  document.getElementById('auth-form-sub').textContent=isReg?'Ingresá tu email y una contraseña':'Ingresá tu email y te mandamos un link';
   document.getElementById('auth-toggle-btn').textContent=isReg?'¿Ya tenés cuenta? Iniciá sesión':'¿No tenés cuenta? Registrate';
   document.getElementById('login-err').classList.remove('show');
-  document.getElementById('auth-divider-magic').style.display=isReg?'none':'block';
-  document.getElementById('auth-magic-btn').style.display=isReg?'none':'block';
+  document.getElementById('auth-magic-btn').style.display=isReg?'none':'';
+  document.getElementById('auth-divider-magic').style.display=isReg?'none':'';
   document.getElementById('magic-ok').style.display='none';
+  document.getElementById('auth-pass-field').style.display=isReg?'':'none';
+  const sb=document.getElementById('auth-submit-btn');
+  sb.style.display=isReg?'':'none';
+  sb.textContent=isReg?'Crear cuenta →':'Entrar con contraseña →';
+}
+
+function showPasswordLogin(){
+  document.getElementById('auth-divider-magic').style.display='none';
+  document.getElementById('auth-pass-field').style.display='';
+  const sb=document.getElementById('auth-submit-btn');
+  sb.style.display='';
+  sb.textContent='Entrar con contraseña →';
+  setTimeout(()=>document.getElementById('auth-pass')?.focus(),50);
 }
 
 async function sendMagicLink(){
@@ -1211,11 +1223,11 @@ async function sendMagicLink(){
     if(r.error) throw r.error;
     btn.textContent='Email enviado ✓';
     ok.style.display='block';
-    setTimeout(()=>{ btn.disabled=false; btn.textContent='Entrar sin contraseña →'; ok.style.display='none'; },90000);
+    setTimeout(()=>{ btn.disabled=false; btn.textContent='Recibir link por email →'; ok.style.display='none'; },90000);
   }catch(e){
     err.textContent=e.message?.includes('rate limit')?'Demasiados intentos. Esperá unos minutos e intentá de nuevo.':(e.message||'Error al enviar email');
     err.classList.add('show');
-    btn.disabled=false; btn.textContent='Entrar sin contraseña →';
+    btn.disabled=false; btn.textContent='Recibir link por email →';
   }
 }
 
@@ -6412,20 +6424,6 @@ document.addEventListener('keydown',e=>{
 // INIT
 // =============================================
 async function init(){
-  // If Supabase CDN failed to load, run in offline mode
-  if(typeof supabase === 'undefined'){
-    console.warn('Supabase CDN not loaded — running offline');
-    document.getElementById('auth-overlay').classList.add('hidden');
-    initDefaultData();
-    renderDashboard();
-    updateTopbar('dashboard');
-    updateBadges();
-    try{ if(localStorage.getItem('rinde_sidebar_collapsed')==='1'){ document.getElementById('sidebar').classList.add('collapsed'); document.getElementById('toggle-btn').textContent='▶'; } }catch(e){} restoreNavGroups();
-    tickClock(); setInterval(tickClock,10000);
-    applyPrivacy(); showWelcome();
-    return;
-  }
-
   // Detect expired/failed magic link in URL hash
   if(window.location.hash.includes('error=access_denied')||window.location.hash.includes('otp_expired')){
     history.replaceState(null,'',window.location.pathname);
@@ -6435,13 +6433,17 @@ async function init(){
     },300);
   }
 
-  // Init client and check session
-  if(!initSbClient()){
+  // If Supabase CDN failed to load, show error — never bypass login
+  if(typeof supabase === 'undefined'){
     showAuthStep('login');
+    setTimeout(()=>{
+      const err=document.getElementById('login-err');
+      if(err){ err.textContent='Error de conexión. Revisá tu internet y recargá la página.'; err.classList.add('show'); }
+    },200);
     return;
   }
 
-  // Jump to login step while checking session
+  initSbClient();
   showAuthStep('login');
 
   try{
@@ -6453,18 +6455,20 @@ async function init(){
     }
   }catch(e){ console.warn('Session check failed',e); }
 
-  // No active session — show login (already visible)
+  // No active session — login screen already visible
 }
 
 // Start clock early regardless of auth state
 tickClock(); setInterval(tickClock,10000);
 
-// Run init with error fallback
+// Run init — always show login on any error
 init().catch(e=>{
   console.error('Init error',e);
-  // Fallback: offline mode
-  document.getElementById('auth-overlay').classList.add('hidden');
-  try{ initDefaultData(); renderDashboard(); updateTopbar('dashboard'); updateBadges(); applyPrivacy(); showWelcome(); }catch(e2){}
+  showAuthStep('login');
+  setTimeout(()=>{
+    const err=document.getElementById('login-err');
+    if(err){ err.textContent='Error al iniciar. Recargá la página.'; err.classList.add('show'); }
+  },200);
 });
 </script>
 </body>
