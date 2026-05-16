@@ -4939,7 +4939,6 @@ let _objView = 'lista';
 
 function setObjetivosView(view){
   _objView = view;
-  // Update tab styles
   const lista = document.getElementById('obj-tab-lista');
   const mapa = document.getElementById('obj-tab-mapa');
   if(lista && mapa){
@@ -4954,158 +4953,257 @@ function setObjetivosView(view){
 }
 
 function renderObjetivos(){
-  if(_objView === 'mapa'){
-    renderObjetivosMapa();
-  } else {
-    renderObjetivosLista();
-  }
-  // Re-sync tab buttons
+  if(_objView === 'mapa') renderObjetivosMapa();
+  else renderObjetivosLista();
   setObjetivosView(_objView);
+}
+
+// --- Helpers de objetivos ---
+function avgNetoMensualReciente(){
+  const netos=[];
+  for(let i=1;i<=3;i++){
+    const m=mesNext(MES_ACTUAL,-i);
+    const n=totalIngresosUSD(m)-totalEgresosUSD(m);
+    if(n!==0) netos.push(n);
+  }
+  if(netos.length) return netos.reduce((s,n)=>s+n,0)/netos.length;
+  return Math.max(0,totalIngresosUSD(MES_ACTUAL)-totalEgresosUSD(MES_ACTUAL));
+}
+
+function activosVinculadosValor(ob){
+  const refs=getCarteraRefs();
+  const usdArs=refs.USD_ARS||1;
+  return (ob.activos_vinculados||[]).reduce((s,id)=>{
+    const a=dbGet('activos').find(x=>x.id===id);
+    if(!a) return s;
+    const va=a.valorActual!=null?a.valorActual:(a.precioCompra||0);
+    return s+(a.moneda==='ARS'?va/usdArs:va);
+  },0);
+}
+
+function objetivoTotalCubierto(ob){
+  return (ob.asignacion_liquida||0)+activosVinculadosValor(ob);
+}
+
+function objetivoBrecha(ob){
+  const meta=ob.monto_objetivo||ob.meta||0;
+  return Math.max(0,meta-objetivoTotalCubierto(ob));
+}
+
+function objetivoETA(ob,avgNeto){
+  const brecha=objetivoBrecha(ob);
+  if(brecha<=0) return {meses:0,fecha:null};
+  const flujo=avgNeto*((ob.porcentaje_prioridad||0)/100);
+  if(flujo<=0) return {meses:null,fecha:null};
+  const meses=Math.ceil(brecha/flujo);
+  return {meses,fecha:mesNext(MES_ACTUAL,meses)};
 }
 
 function renderObjetivosLista(){
   const list=dbGet('objetivos');
-  const periodoLabel={mensual:'Este mes',anual:'Año '+MES_ACTUAL.slice(0,4),evento:'Evento',unico:'Único'};
+  const avgNeto=avgNetoMensualReciente();
+  const totalMeta=list.reduce((s,o)=>s+(o.monto_objetivo||o.meta||0),0);
+  const totalCubierto=list.reduce((s,o)=>s+objetivoTotalCubierto(o),0);
+  const totalBrecha=list.reduce((s,o)=>s+objetivoBrecha(o),0);
+  const totalAsigLiq=list.reduce((s,o)=>s+(o.asignacion_liquida||0),0);
+  const fondosLibres=patrimonioDolarizado()-totalAsigLiq;
+  const progGlobal=totalMeta>0?Math.min(100,totalCubierto/totalMeta*100):0;
+  const activos_count=list.filter(o=>!o.completado).length;
+  const totalPrio=list.filter(o=>!o.completado).reduce((s,o)=>s+(o.porcentaje_prioridad||0),0);
+  const warnPrio=activos_count>1&&Math.abs(totalPrio-100)>1;
 
-  function row(ob){
-    const pct=ob.meta>0?Math.min(100,ob.actual/ob.meta*100):ob.completado?100:0;
-    const statusColor=ob.completado?'pos':pct>=80?'warn':pct<30?'neg':'warn';
-    return `<div class="task-item ${ob.completado?'done':''}">
-      <div class="tchk ${ob.completado?'ok':pct<30&&ob.meta>0?'urg':''}">${ob.completado?'✓':pct<30&&ob.meta>0?'!':''}</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:500;">${ob.descripcion}</div>
-        ${ob.meta>0?`<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-          <div class="bb" style="flex:1;"><div class="bf" style="width:${pct}%;background:var(--${statusColor==='pos'?'pos':statusColor==='warn'?'warn-b':'neg'});"></div></div>
-          <span style="font-size:11px;font-weight:600;">${ob.moneda?fmtUSD(ob.actual)+'/'+fmtUSD(ob.meta)+' '+ob.moneda:ob.actual+'/'+ob.meta}</span>
-        </div>`:''}
+  function objCard(ob){
+    const meta=ob.monto_objetivo||ob.meta||0;
+    const cubierto=objetivoTotalCubierto(ob);
+    const brecha=objetivoBrecha(ob);
+    const pct=meta>0?Math.min(100,cubierto/meta*100):ob.completado?100:0;
+    const eta=objetivoETA(ob,avgNeto);
+    const prio=ob.porcentaje_prioridad||0;
+    const flujoMes=avgNeto*(prio/100);
+    const activosVal=activosVinculadosValor(ob);
+    const activosList=(ob.activos_vinculados||[]).map(id=>{
+      const a=dbGet('activos').find(x=>x.id===id);
+      return a?(a.nombre||a.descripcion):'';
+    }).filter(Boolean);
+    const isDone=ob.completado||brecha<=0;
+    const barColor=isDone?'var(--pos)':pct>=70?'var(--pos)':pct>=30?'var(--warn-b)':'var(--neg)';
+    return `<div class="task-item ${isDone?'done':''}" style="flex-direction:column;align-items:stretch;gap:10px;padding:14px 16px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="font-size:14px;font-weight:600;">${ob.nombre||ob.descripcion}</div>
+        <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+          ${isDone?'<span class="pill pos">&#10003; Logrado</span>':`<span class="pill ${pct>=70?'pos':pct>=30?'warn':'neg'}">${Math.round(pct)}%</span>`}
+          <button class="btn sm ghost" onclick="editObjetivo('${ob.id}')" title="Editar">&#9998;</button>
+          <button class="btn sm ghost" onclick="asignarObjetivo('${ob.id}')" title="Asignar fondos">&#8853;</button>
+          <button class="btn sm danger" onclick="deleteObjetivo('${ob.id}')">&#10005;</button>
+        </div>
       </div>
-      <span class="pill gr">${periodoLabel[ob.periodo]||ob.periodo}</span>
-      <span class="pill ${statusColor}">${ob.completado?'✓ Listo':fmtPct(pct)}</span>
-      <button class="btn sm ghost" onclick="editObjetivo('${ob.id}')">✏</button>
-      <button class="btn sm danger" onclick="deleteObjetivo('${ob.id}')">✕</button>
+      ${meta>0?`<div>
+        <div class="bb" style="height:8px;margin-bottom:5px;"><div class="bf" style="width:${pct}%;height:8px;background:${barColor};border-radius:4px;transition:width .3s;"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;">
+          <span style="color:var(--muted);">${fmtUSD(cubierto)} cubierto</span>
+          <span style="font-weight:700;">${fmtUSD(meta)} USD</span>
+        </div>
+      </div>`:''}
+      <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:12px;">
+        ${(ob.asignacion_liquida||0)>0?`<span style="background:var(--pos-bg);color:var(--pos-dk);border-radius:6px;padding:3px 8px;font-weight:600;">&#128167; ${fmtUSD(ob.asignacion_liquida)} USD l&#237;quido</span>`:''}
+        ${activosVal>0?`<span style="background:var(--pos-bg);color:var(--pos-dk);border-radius:6px;padding:3px 8px;font-weight:600;">&#127968; ${fmtUSD(activosVal)} USD${activosList.length?' ('+activosList.join(', ')+')':''}</span>`:''}
+        ${brecha>0?`<span style="background:rgba(237,106,90,.08);color:var(--neg-dk);border-radius:6px;padding:3px 8px;font-weight:600;">Faltan ${fmtUSD(brecha)} USD</span>`:''}
+        ${prio>0&&!isDone?`<span style="background:var(--s2);color:var(--muted);border-radius:6px;padding:3px 8px;">${prio}% &#8594; ${fmtUSD(flujoMes)}/mes</span>`:''}
+        ${eta.meses&&brecha>0?`<span style="background:var(--pos-bg);color:var(--pos-dk);border-radius:6px;padding:3px 8px;font-weight:600;">&#8987; ${eta.meses} meses &#183; ${mesLabel(eta.fecha)}</span>`:''}
+        ${ob.fecha_limite?`<span style="background:var(--s2);color:var(--muted);border-radius:6px;padding:3px 8px;">&#128197; l&#237;m. ${mesLabel(ob.fecha_limite)}</span>`:''}
+      </div>
     </div>`;
   }
 
-  const byPeriodo={mensual:list.filter(x=>x.periodo==='mensual'),anual:list.filter(x=>x.periodo==='anual'),evento:list.filter(x=>x.periodo==='evento'),unico:list.filter(x=>x.periodo==='unico')};
-
   document.getElementById('objetivos-content').innerHTML=`
   <div class="g3">
-    <div class="card ${list.filter(o=>o.completado).length===list.length&&list.length>0?'pos':'warn'}"><div class="cl">Completados</div><div class="cv">${list.filter(o=>o.completado).length}/${list.length}</div></div>
-    <div class="card neg-s"><div class="cl">Urgentes</div><div class="cv">${list.filter(o=>!o.completado&&o.meta>0&&o.actual/o.meta<0.3).length}</div></div>
-    <div class="card pos-s"><div class="cl">En curso</div><div class="cv">${list.filter(o=>!o.completado&&o.actual>0).length}</div></div>
+    <div class="card pos"><div class="cl">Progreso global</div><div class="cv">${Math.round(progGlobal)}%</div><div class="cs">${fmtUSD(totalCubierto)} / ${fmtUSD(totalMeta)} USD</div></div>
+    <div class="card ${fondosLibres>=0?'pos-s':'neg-s'}"><div class="cl">Fondos libres</div><div class="cv">${fmtUSD(fondosLibres)} USD</div><div class="cs">sin asignar a metas</div></div>
+    <div class="card neg-s"><div class="cl">Brecha total</div><div class="cv">${fmtUSD(totalBrecha)} USD</div><div class="cs">resta para completar todo</div></div>
   </div>
-  ${Object.entries(byPeriodo).filter(([,v])=>v.length>0).map(([p,items])=>`
-    <div class="sh">${periodoLabel[p]}</div>
-    ${items.map(row).join('')}`).join('')}
-  ${!list.length?`<div class="empty-state"><p>Todavía no cargaste objetivos.</p></div>`:''}
+  <div style="background:var(--pos-bg);border:1px solid #a8e8e7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="color:var(--pos-dk);font-weight:600;">&#128176; Ahorro mensual: ${fmtUSD(avgNeto)} USD prom.</span>
+    ${warnPrio?`<span style="margin-left:auto;color:var(--warn-dk);font-weight:600;">&#9888; Prioridades suman ${totalPrio}% (deben dar 100%)</span>`:'<span style="margin-left:auto;color:var(--muted);">distribuido seg&#250;n prioridad por meta</span>'}
+  </div>
+  ${list.length?list.map(objCard).join(''):'<div class="empty-state"><p>Todav&#237;a no carg&#225;s objetivos financieros.</p></div>'}
   <div class="sh">+ Nuevo objetivo</div>
   <button class="btn pos" onclick="addObjetivo()">+ Agregar objetivo</button>`;
 }
 
 function renderObjetivosMapa(){
-  // Re-use mapa hitos data
-  const hitos=JSON.parse(localStorage.getItem('rinde_mapa')||'[]');
-  const patrimonio=patrimonioDolarizado();
-  const mes=MES_ACTUAL;
+  const list=dbGet('objetivos');
+  const avgNeto=avgNetoMensualReciente();
+  const activos=list
+    .filter(o=>!o.completado&&(o.monto_objetivo||o.meta||0)>0)
+    .map(o=>({...o,_eta:objetivoETA(o,avgNeto)}))
+    .sort((a,b)=>{
+      if(!a._eta.fecha&&!b._eta.fecha) return 0;
+      if(!a._eta.fecha) return 1;
+      if(!b._eta.fecha) return -1;
+      return a._eta.fecha.localeCompare(b._eta.fecha);
+    });
+  const done=list.filter(o=>o.completado).length;
 
-  function pct(h){
-    if(!h.meta||+h.meta===0) return h.completado?100:0;
-    let actual=+h.actual;
-    if(h.linkTipo==='portafolio') actual=patrimonio;
-    if(h.linkTipo==='ahorro_mes') actual=Math.max(0,totalIngresosUSD(mes)-totalEgresosUSD(mes));
-    return Math.min(100,Math.round(actual/+h.meta*100));
-  }
-
-  const catEmoji={financiero:'💰',viaje:'✈️',vida:'🏠',inversion:'📈',otro:'⭐'};
-  const cats=[
-    {key:'financiero',label:'Financieros',emoji:'💰'},
-    {key:'inversion',label:'Inversiones',emoji:'📈'},
-    {key:'viaje',label:'Viajes',emoji:'✈️'},
-    {key:'vida',label:'Vida',emoji:'🏠'},
-    {key:'otro',label:'Otros',emoji:'⭐'},
-  ];
-  const porCat={financiero:[],inversion:[],viaje:[],vida:[],otro:[]};
-  hitos.forEach(h=>{ const c=h.categoria||'otro'; (porCat[c]||porCat.otro).push(h); });
-
-  const total=hitos.length;
-  const done=hitos.filter(h=>pct(h)>=100||h.completado).length;
-  const inProg=hitos.filter(h=>{ const p=pct(h); return p>0&&p<100&&!h.completado; }).length;
-
-  function hitoCard(h,idx){
-    const p=pct(h);
-    const isDone=p>=100||h.completado;
-    const isActive=!isDone&&p>0;
-    const cls=isDone?'done':isActive?'active':'future';
-    const metaDisplay=h.moneda==='USD'?fmtUSD(+h.meta||0)+' USD':h.moneda==='ARS'?fmtARS(+h.meta||0):h.meta||'';
-    const actualVal=h.linkTipo==='portafolio'?patrimonio:h.linkTipo==='ahorro_mes'?Math.max(0,totalIngresosUSD(mes)-totalEgresosUSD(mes)):+h.actual;
-    const actualDisplay=h.moneda==='USD'?fmtUSD(actualVal)+' USD':h.moneda==='ARS'?fmtARS(actualVal):actualVal;
-    return `<div class="mapa-item">
-      <div class="mapa-dot ${cls}">${isDone?'✓':isActive?'→':(idx+1)}</div>
-      <div class="mapa-card ${cls}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
-          <div class="mapa-title">${catEmoji[h.categoria]||'⭐'} ${h.nombre}</div>
-          <div style="display:flex;gap:5px;">
-            ${isDone?`<span class="pill pos">✓ Logrado</span>`:''}
-            <button class="btn sm ghost" onclick="editHito('${h.id}')">✏</button>
-            <button class="btn sm danger" onclick="deleteHito('${h.id}')">✕</button>
-          </div>
-        </div>
-        <div class="mapa-meta">${h.descripcion||''}${h.fecha?' · meta: '+mesLabel(h.fecha):''}${h.linkTipo&&h.linkTipo!=='manual'?` · <span style="color:var(--pos-dk);font-weight:600;">actualización automática</span>`:''}</div>
-        ${h.meta?`
-        <div class="mapa-bar-wrap">
-          <div class="bb" style="flex:1;"><div class="bf" style="width:${p}%;background:${isDone?'var(--pos)':isActive?'var(--neg)':'var(--border)'};"></div></div>
-          <div class="mapa-pct" style="color:${isDone?'var(--pos-dk)':isActive?'var(--neg-dk)':'var(--muted)'};">${p}%</div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:4px;color:var(--muted);">
-          <span>${actualDisplay}</span><span>${metaDisplay}</span>
-        </div>`:''}
+  function timelineCard(ob,idx){
+    const meta=ob.monto_objetivo||ob.meta||0;
+    const cubierto=objetivoTotalCubierto(ob);
+    const pct=meta>0?Math.min(100,cubierto/meta*100):0;
+    const brecha=objetivoBrecha(ob);
+    const eta=ob._eta;
+    const barColor=pct>=70?'var(--pos)':pct>=30?'var(--warn-b)':'var(--neg)';
+    return `<div style="display:flex;flex-direction:column;align-items:center;min-width:190px;max-width:220px;">
+      <div style="font-size:11px;font-weight:700;color:var(--pos-dk);margin-bottom:6px;white-space:nowrap;">${eta.fecha?mesLabel(eta.fecha):'Sin ETA'}</div>
+      <div style="width:34px;height:34px;border-radius:50%;background:${idx===0?'var(--pos)':'var(--surface)'};border:2.5px solid ${barColor};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:${idx===0?'#fff':'var(--text)'};box-shadow:0 1px 4px rgba(0,0,0,.1);">${idx+1}</div>
+      <div style="width:2px;height:14px;background:var(--border2);"></div>
+      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:13px 14px;width:100%;box-sizing:border-box;box-shadow:0 1px 4px rgba(0,0,0,.05);">
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px;line-height:1.3;">${ob.nombre||ob.descripcion}</div>
+        <div class="bb" style="height:6px;margin-bottom:6px;"><div class="bf" style="width:${pct}%;height:6px;background:${barColor};border-radius:3px;"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">${Math.round(pct)}% &#183; ${fmtUSD(cubierto)} / ${fmtUSD(meta)} USD</div>
+        ${brecha>0?`<div style="font-size:11px;color:var(--neg-dk);font-weight:600;">Faltan ${fmtUSD(brecha)} USD</div>`:''}
+        ${eta.meses?`<div style="font-size:11px;color:var(--pos-dk);margin-top:4px;font-weight:600;">&#8987; ${eta.meses} meses</div>`:''}
       </div>
     </div>`;
   }
 
   document.getElementById('objetivos-content').innerHTML=`
   <div class="g3" style="margin-bottom:14px;">
-    <div class="card pos"><div class="cl">Hitos totales</div><div class="cv">${total}</div></div>
-    <div class="card pos-s"><div class="cl">Logrados</div><div class="cv">${done}</div><div class="cs">${total>0?Math.round(done/total*100):0}%</div></div>
-    <div class="card neg-s"><div class="cl">En progreso</div><div class="cv">${inProg}</div></div>
+    <div class="card pos"><div class="cl">Hoja de ruta</div><div class="cv">${activos.length}</div><div class="cs">objetivos activos</div></div>
+    <div class="card pos-s"><div class="cl">Logrados</div><div class="cv">${done}/${list.length}</div></div>
+    <div class="card neg-s"><div class="cl">Ahorro / mes</div><div class="cv">${fmtUSD(avgNeto)} USD</div><div class="cs">prom. &#250;ltimos 3 meses</div></div>
   </div>
-  ${cats.map(cat=>{
-    const items=porCat[cat.key]||[];
-    if(!items.length) return '';
-    return `<div class="sh">${cat.emoji} ${cat.label}</div>
-    <div class="mapa-timeline">${items.map((h,i)=>hitoCard(h,i)).join('')}</div>`;
-  }).join('')}
-  ${!total?`<div class="empty-state" style="margin:24px 0;"><p>Todavía no cargaste hitos de vida.</p></div>`:''}
-  <div class="sh">+ Nuevo hito</div>
-  <button class="btn pos" onclick="addHito()">+ Agregar hito</button>`;
+  ${activos.length?`<div style="overflow-x:auto;padding-bottom:16px;-webkit-overflow-scrolling:touch;">
+    <div style="display:flex;align-items:flex-start;gap:0;min-width:max-content;padding:4px 2px;">
+      ${activos.map((ob,i)=>(i>0?'<div style="height:2px;width:28px;background:var(--border2);margin-top:54px;flex-shrink:0;"></div>':'')+timelineCard(ob,i)).join('')}
+    </div>
+  </div>`:'<div class="empty-state"><p>Carg&#225; objetivos con monto y prioridad para ver la l&#237;nea de tiempo.</p></div>'}
+  <div class="sh">+ Nuevo objetivo</div>
+  <button class="btn pos" onclick="addObjetivo()">+ Agregar objetivo</button>`;
 }
 
 function addObjetivo(){
   openModal('Nuevo objetivo',[
-    {key:'descripcion',label:'Descripción',type:'text',required:true},
-    {key:'meta',label:'Meta (0 = solo check)',type:'number',value:'0'},
-    {key:'actual',label:'Valor actual',type:'number',value:'0'},
-    {key:'moneda',label:'Moneda (vacío si es conteo)',type:'select',options:['USD','ARS','']},
-    {key:'periodo',label:'Período',type:'select',options:['mensual','anual','evento','unico']},
+    {key:'nombre',label:'Nombre',type:'text',required:true,hint:'ej. Departamento, Auto, Viaje'},
+    {key:'monto_objetivo',label:'Meta (USD)',type:'number',value:'0'},
+    {key:'fecha_limite',label:'Fecha límite (YYYY-MM, opcional)',type:'text',hint:'ej. 2028-06'},
+    {key:'porcentaje_prioridad',label:'Prioridad % del ahorro mensual',type:'number',value:'0',hint:'Todos los activos deben sumar 100'},
   ],(data)=>{
-    dbAdd('objetivos',{...data,meta:+data.meta,actual:+data.actual,completado:false});
+    dbAdd('objetivos',{
+      nombre:data.nombre,
+      descripcion:data.nombre,
+      monto_objetivo:+data.monto_objetivo||0,
+      meta:+data.monto_objetivo||0,
+      fecha_limite:data.fecha_limite.trim()||null,
+      porcentaje_prioridad:+data.porcentaje_prioridad||0,
+      asignacion_liquida:0,
+      activos_vinculados:[],
+      completado:false,
+    });
     renderObjetivos();
   });
 }
+
 function editObjetivo(id){
   const ob=dbGet('objetivos').find(x=>x.id===id);
+  if(!ob) return;
   openModal('Editar objetivo',[
-    {key:'descripcion',label:'Descripción',type:'text',value:ob.descripcion,required:true},
-    {key:'meta',label:'Meta',type:'number',value:ob.meta},
-    {key:'actual',label:'Valor actual',type:'number',value:ob.actual},
-    {key:'moneda',label:'Moneda',type:'select',options:['USD','ARS',''],value:ob.moneda||''},
-    {key:'periodo',label:'Período',type:'select',options:['mensual','anual','evento','unico'],value:ob.periodo},
+    {key:'nombre',label:'Nombre',type:'text',value:ob.nombre||ob.descripcion,required:true},
+    {key:'monto_objetivo',label:'Meta (USD)',type:'number',value:ob.monto_objetivo||ob.meta||0},
+    {key:'fecha_limite',label:'Fecha límite (YYYY-MM)',type:'text',value:ob.fecha_limite||''},
+    {key:'porcentaje_prioridad',label:'Prioridad % del ahorro mensual',type:'number',value:ob.porcentaje_prioridad||0},
     {key:'completado',label:'Completado',type:'select',options:['false','true'],value:String(ob.completado)},
   ],(data)=>{
-    dbUpdate('objetivos',id,{...data,meta:+data.meta,actual:+data.actual,completado:data.completado==='true'});
+    dbUpdate('objetivos',id,{
+      nombre:data.nombre,
+      descripcion:data.nombre,
+      monto_objetivo:+data.monto_objetivo||0,
+      meta:+data.monto_objetivo||0,
+      fecha_limite:data.fecha_limite.trim()||null,
+      porcentaje_prioridad:+data.porcentaje_prioridad||0,
+      completado:data.completado==='true',
+    });
     renderObjetivos();
   });
 }
+
+function asignarObjetivo(id){
+  const ob=dbGet('objetivos').find(x=>x.id===id);
+  if(!ob) return;
+  const all=dbGet('objetivos');
+  const otrosLiq=all.filter(x=>x.id!==id).reduce((s,x)=>s+(x.asignacion_liquida||0),0);
+  const portTotal=patrimonioDolarizado();
+  const maxLiq=Math.max(0,portTotal-otrosLiq);
+  const activosFis=dbGet('activos');
+  const refs=getCarteraRefs();
+  const usdArs=refs.USD_ARS||1;
+  const vinculados=ob.activos_vinculados||[];
+  const activosHTML=activosFis.length?activosFis.map(a=>{
+    const va=a.valorActual!=null?a.valorActual:(a.precioCompra||0);
+    const val=a.moneda==='ARS'?va/usdArs:va;
+    const chk=vinculados.includes(a.id)?'checked':'';
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;"><input type="checkbox" id="av-${a.id}" ${chk} style="width:16px;height:16px;accent-color:var(--pos);"><span>${a.nombre||a.descripcion||'Activo'} <span style="color:var(--muted);">(${fmtUSD(val)} USD)</span></span></label>`;
+  }).join(''):'<div style="color:var(--muted);font-size:12px;">No tenés activos físicos cargados.</div>';
+  _modalCallback=()=>{
+    const liqEl=document.getElementById('mf-liq');
+    const liq=Math.min(+(liqEl&&liqEl.value)||0,maxLiq);
+    const actVinc=activosFis.map(a=>a.id).filter(aid=>{ const el=document.getElementById('av-'+aid); return el&&el.checked; });
+    dbUpdate('objetivos',id,{asignacion_liquida:liq,activos_vinculados:actVinc});
+    renderObjetivos();
+  };
+  document.getElementById('modal-title').textContent='Asignación — '+(ob.nombre||ob.descripcion);
+  document.getElementById('modal-fields').innerHTML=`
+    <div class="modal-field">
+      <label>Fondos líquidos (USD) · Disponible: ${fmtUSD(maxLiq)} USD</label>
+      <input type="number" id="mf-liq" value="${ob.asignacion_liquida||0}" max="${maxLiq}" min="0">
+      <div class="hint">Total portafolio: ${fmtUSD(portTotal)} USD · Asignado a otras metas: ${fmtUSD(otrosLiq)} USD</div>
+    </div>
+    <div class="modal-field">
+      <label>Activos físicos vinculados (su valor descuenta la brecha)</label>
+      ${activosHTML}
+    </div>`;
+  document.getElementById('modal-save-btn').style.display='';
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
 function deleteObjetivo(id){ confirmDelete(()=>{ dbDelete('objetivos',id); renderObjetivos(); }); }
 
 // =============================================
