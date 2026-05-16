@@ -2377,7 +2377,7 @@ function deleteCotiz(id){ confirmDelete(()=>{ dbDelete('cotizaciones',id); rende
 // =============================================
 function renderInflacion(){
   const list=dbGet('inflacion').sort((a,b)=>a.mes.localeCompare(b.mes));
-  const cur=list.find(x=>x.mes===MES_ACTUAL)||{porcentaje:3.8};
+  const cur=list.find(x=>x.mes===MES_ACTUAL)||null;
   const acum=list.filter(x=>x.mes<=MES_ACTUAL&&x.mes.startsWith('2026')).reduce((a,x)=>(1+a/100)*(1+x.porcentaje/100)*100-100,0);
 
   // affected egresos
@@ -2410,7 +2410,7 @@ function renderInflacion(){
 
   document.getElementById('inflacion-content').innerHTML=`
   <div class="g4">
-    <div class="card neg-s"><div class="cl">Inflación ${mesLabel(MES_ACTUAL)}</div><div class="cv">${fmtPct(cur.porcentaje)}</div><div class="cs">mensual · real</div></div>
+    <div class="card neg-s"><div class="cl">Inflación ${mesLabel(MES_ACTUAL)}</div><div class="cv">${cur?fmtPct(cur.porcentaje):'—'}</div><div class="cs">${cur?'mensual · real':'sin datos'}</div></div>
     <div class="card neg-s"><div class="cl">Acumulada 2026</div><div class="cv">${fmtPct(acum)}</div><div class="cs">ene–${mesLabel(MES_ACTUAL).slice(0,3).toLowerCase()}</div></div>
     <div class="card warn"><div class="cl">Egresos ajustables</div><div class="cv">${egAjust}</div><div class="cs">${ingAjust} ingresos también</div></div>
     <div class="card opal"><div class="cl">Próx. impacto</div><div class="cv">${mesLabel(mesProx)}</div><div class="cs">+${fmtPct(getInflacion(mesProx))} proyectado</div></div>
@@ -4881,11 +4881,25 @@ function renderProyeccion(){
 
   const maxPP=Math.max(...portProj);
 
+  // KPI: Activos a Dic. 2026 — portProj del row de diciembre 2026
+  const idxDic2026=rows.findIndex(r=>r.mes==='2026-12');
+  const portDic2026=idxDic2026>=0?portProj[idxDic2026]:portProj[portProj.length-1];
+
+  // KPI: Activos a Dic. 2027 — Dic2026 + promedio neto Q4-2026 × 12
+  const q4Rows=['2026-10','2026-11','2026-12']
+    .map(m=>rows.find(r=>r.mes===m)).filter(Boolean);
+  const avgNetoQ4=q4Rows.length?q4Rows.reduce((s,r)=>s+r.neto,0)/q4Rows.length:0;
+  const ahorroAnual2027=avgNetoQ4*12;
+  const portDic2027=portDic2026+ahorroAnual2027;
+
+  // KPI: Proyección a 2030 — Dic2027 + mismo ahorro anual × 3 años
+  const port2030=portDic2027+ahorroAnual2027*3;
+
   document.getElementById('proyeccion-content').innerHTML=`
   <div class="g3">
-    <div class="card pos"><div class="cl">Portafolio en 2 años</div><div class="cv">~${fmtUSD(patrimonioDolarizado()*(1.075**2)+totalIngresosUSD(MES_ACTUAL)*12*0.4)} USD</div><div class="cs">blend 7.5% + aportes</div></div>
-    <div class="card pos"><div class="cl">Portafolio en 5 años</div><div class="cv">~${fmtUSD(patrimonioDolarizado()*(1.075**5)+totalIngresosUSD(MES_ACTUAL)*12*5*0.4)} USD</div><div class="cs">blend 7.5% + aportes</div></div>
-    <div class="card pos-s"><div class="cl">Con viaje anual</div><div class="cv">-${fmtUSD(3500*5)} USD</div><div class="cs">impacto acumulado 5 años</div></div>
+    <div class="card pos"><div class="cl">Activos a Dic. 2026</div><div class="cv">${fmtUSD(portDic2026)} USD</div><div class="cs">portafolio est. fin de año</div></div>
+    <div class="card pos"><div class="cl">Activos a Dic. 2027</div><div class="cv">${fmtUSD(portDic2027)} USD</div><div class="cs">+${fmtUSD(ahorroAnual2027)} ahorro anual proy.</div></div>
+    <div class="card pos-s"><div class="cl">Proyección a 2030</div><div class="cv">${fmtUSD(port2030)} USD</div><div class="cs">+3 años de ahorro proyectado</div></div>
   </div>
   <div class="sh">Proyección mes a mes · ${mesLabel(meses[0])} → ${mesLabel(meses[meses.length-1])}</div>
   <div class="table-wrap">
