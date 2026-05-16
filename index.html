@@ -4990,7 +4990,7 @@ function activosVinculadosValor(ob){
 }
 
 function objetivoTotalCubierto(ob){
-  return (ob.asignacion_liquida||0)+activosVinculadosValor(ob);
+  return (ob.asignacion_liquida||0)+(ob.cubierto_egresos||0)+activosVinculadosValor(ob);
 }
 
 function objetivoBrecha(ob){
@@ -5012,11 +5012,12 @@ function objetivoLlega(ob){
   const meta=ob.monto_objetivo||ob.meta||0;
   if(meta<=0) return null;
   const cubierto=objetivoTotalCubierto(ob);
-  if(cubierto>=meta) return {llega:true,faltaria:0};
+  if(cubierto>=meta) return {llega:true,faltaria:0,sobra:cubierto-meta};
   const mesesRest=mesDiff(MES_ACTUAL,ob.fecha_limite);
-  if(mesesRest<=0) return {llega:cubierto>=meta,faltaria:Math.max(0,meta-cubierto)};
+  if(mesesRest<=0) return {llega:false,faltaria:meta-cubierto,sobra:0};
   const proyectado=cubierto+(ob.ahorro_mensual||0)*mesesRest;
-  return {llega:proyectado>=meta,faltaria:Math.max(0,meta-proyectado)};
+  const llega=proyectado>=meta;
+  return {llega,faltaria:Math.max(0,meta-proyectado),sobra:Math.max(0,proyectado-meta)};
 }
 
 function renderObjetivosLista(){
@@ -5047,6 +5048,8 @@ function renderObjetivosLista(){
     const isDone=ob.completado||brecha<=0;
     const barColor=isDone?'var(--pos)':pct>=70?'var(--pos)':pct>=30?'var(--warn-b)':'var(--neg)';
     const llegaInfo=isDone?null:objetivoLlega(ob);
+    const mesesRest=ob.fecha_limite&&!isDone?Math.max(0,mesDiff(MES_ACTUAL,ob.fecha_limite)):0;
+    const necesarioPorMes=mesesRest>0&&brecha>0?Math.ceil(brecha/mesesRest):null;
     return `<div class="task-item ${isDone?'done':''}" style="flex-direction:column;align-items:stretch;gap:10px;padding:14px 16px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div style="font-size:14px;font-weight:600;">${ob.nombre||ob.descripcion}</div>
@@ -5066,12 +5069,13 @@ function renderObjetivosLista(){
       </div>`:''}
       <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:12px;">
         ${(ob.asignacion_liquida||0)>0?`<span style="background:var(--pos-bg);color:var(--pos-dk);border-radius:6px;padding:3px 8px;font-weight:600;">&#128167; ${fmtUSD(ob.asignacion_liquida)} USD l&#237;quido</span>`:''}
+        ${(ob.cubierto_egresos||0)>0?`<span style="background:var(--pos-bg);color:var(--pos-dk);border-radius:6px;padding:3px 8px;font-weight:600;">&#129534; ${fmtUSD(ob.cubierto_egresos)} USD en gastos</span>`:''}
         ${activosVal>0?`<span style="background:var(--pos-bg);color:var(--pos-dk);border-radius:6px;padding:3px 8px;font-weight:600;">&#127968; ${fmtUSD(activosVal)} USD${activosList.length?' ('+activosList.join(', ')+')':''}</span>`:''}
         ${(ob.ahorro_mensual||0)>0&&!isDone?`<span style="background:var(--s2);color:var(--muted);border-radius:6px;padding:3px 8px;">&#128197; ${fmtUSD(ob.ahorro_mensual)}/mes</span>`:''}
         ${brecha>0?`<span style="background:rgba(237,106,90,.08);color:var(--neg-dk);border-radius:6px;padding:3px 8px;font-weight:600;">Faltan ${fmtUSD(brecha)} USD</span>`:''}
         ${eta.meses&&brecha>0?`<span style="background:var(--pos-bg);color:var(--pos-dk);border-radius:6px;padding:3px 8px;font-weight:600;">&#8987; ${eta.meses} meses &#183; ${mesLabel(eta.fecha)}</span>`:''}
-        ${ob.fecha_limite&&!isDone?`<span style="background:var(--s2);color:var(--muted);border-radius:6px;padding:3px 8px;">l&#237;m. ${mesLabel(ob.fecha_limite)}</span>`:''}
-        ${llegaInfo?`<span style="background:${llegaInfo.llega?'var(--pos-bg)':'rgba(237,106,90,.08)'};color:${llegaInfo.llega?'var(--pos-dk)':'var(--neg-dk)'};border-radius:6px;padding:3px 8px;font-weight:600;">${llegaInfo.llega?'&#10003; Vas a llegar a la fecha':'&#9888; Faltan '+fmtUSD(llegaInfo.faltaria)+' USD para llegar a la fecha'}</span>`:''}
+        ${necesarioPorMes&&(ob.ahorro_mensual||0)!==necesarioPorMes?`<span style="background:var(--s2);color:var(--muted);border-radius:6px;padding:3px 8px;">Necesario: ${fmtUSD(necesarioPorMes)}/mes para llegar</span>`:''}
+        ${llegaInfo?`<span style="background:${llegaInfo.llega?'var(--pos-bg)':'rgba(237,106,90,.08)'};color:${llegaInfo.llega?'var(--pos-dk)':'var(--neg-dk)'};border-radius:6px;padding:3px 8px;font-weight:600;">${llegaInfo.llega?'&#10003; Vas a llegar con '+fmtUSD(llegaInfo.sobra)+' USD de sobra':'&#9888; Faltan '+fmtUSD(llegaInfo.faltaria)+' USD para llegar en fecha'}</span>`:''}
       </div>
     </div>`;
   }
@@ -5156,6 +5160,7 @@ function addObjetivo(){
     {key:'monto_objetivo',label:'Meta (USD)',type:'number',value:'0'},
     {key:'fecha_limite',label:'Fecha límite (YYYY-MM, opcional)',type:'text',hint:'ej. 2028-06'},
     {key:'asignacion_liquida',label:`Fondos ya asignados (USD) · Disponible: ${fmtUSD(maxLiq)} USD`,type:'number',value:'0'},
+    {key:'cubierto_egresos',label:'Ya cubierto con gastos (USD)',type:'number',value:'0',hint:'Gastos ya pagados que cuentan hacia esta meta (ej. reserva de hotel, pasaje)'},
     {key:'ahorro_mensual',label:'Ahorro mensual para esta meta (USD/mes)',type:'number',value:'0',hint:'Cuánto de tu ahorro mensual va a esta meta'},
   ],(data)=>{
     dbAdd('objetivos',{
@@ -5165,6 +5170,7 @@ function addObjetivo(){
       meta:+data.monto_objetivo||0,
       fecha_limite:data.fecha_limite.trim()||null,
       asignacion_liquida:Math.min(+data.asignacion_liquida||0,maxLiq),
+      cubierto_egresos:+data.cubierto_egresos||0,
       ahorro_mensual:+data.ahorro_mensual||0,
       activos_vinculados:[],
       completado:false,
@@ -5182,6 +5188,7 @@ function editObjetivo(id){
     {key:'monto_objetivo',label:'Meta (USD)',type:'number',value:ob.monto_objetivo||ob.meta||0},
     {key:'fecha_limite',label:'Fecha límite (YYYY-MM)',type:'text',value:ob.fecha_limite||''},
     {key:'asignacion_liquida',label:`Fondos ya asignados (USD) · Disponible: ${fmtUSD(maxLiq)} USD`,type:'number',value:ob.asignacion_liquida||0},
+    {key:'cubierto_egresos',label:'Ya cubierto con gastos (USD)',type:'number',value:ob.cubierto_egresos||0,hint:'Gastos ya pagados que cuentan hacia esta meta (ej. reserva, pasaje)'},
     {key:'ahorro_mensual',label:'Ahorro mensual para esta meta (USD/mes)',type:'number',value:ob.ahorro_mensual||0},
     {key:'completado',label:'Completado',type:'select',options:['false','true'],value:String(ob.completado)},
   ],(data)=>{
@@ -5192,6 +5199,7 @@ function editObjetivo(id){
       meta:+data.monto_objetivo||0,
       fecha_limite:data.fecha_limite.trim()||null,
       asignacion_liquida:Math.min(+data.asignacion_liquida||0,maxLiq),
+      cubierto_egresos:+data.cubierto_egresos||0,
       ahorro_mensual:+data.ahorro_mensual||0,
       completado:data.completado==='true',
     });
