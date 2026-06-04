@@ -1567,7 +1567,17 @@ function usdToArs(usd,mes){ return usd*getCotizacion(mes); }
 function fmtUSD(n,dec=0){ return '$'+Math.round(n).toLocaleString('es-AR'); }
 function fmtARS(n){ return '$'+Math.round(n).toLocaleString('es-AR'); }
 function fmtPct(n){ return n.toFixed(1)+'%'; }
-function fmtFecha(f){ if(!f) return '-'; const [y,m,d]=f.split('-'); return `${d}/${m}/${y}`; }
+function fmtFecha(f){
+  if(!f) return '-';
+  const iso=f.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const _mes={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12};
+  const largo=f.match(/(\d{1,2}) de (\w+) de (\d{4})/);
+  if(largo&&_mes[largo[2].toLowerCase()]){
+    return `${String(+largo[1]).padStart(2,'0')}/${String(_mes[largo[2].toLowerCase()]).padStart(2,'0')}/${largo[3]}`;
+  }
+  return f.slice(0,10);
+}
 
 // Compute monthly value of an income for a given mes
 function ingresoEnMes(ing, mes){
@@ -3221,8 +3231,10 @@ function cardPill(tarjeta){
   return {cls:'other',lbl:tarjeta.slice(0,4).toUpperCase()};
 }
 let _cuotaFilter='todos';
+let _cuotaTarjetaFilter='todas';
 let _cuotaSearch='';
 function setCuotaFilter(f){_cuotaFilter=f;renderEgresosCuotas();}
+function setCuotaTarjetaFilter(t){_cuotaTarjetaFilter=t;renderEgresosCuotas();}
 function setCuotaSearch(v){
   _cuotaSearch=v;
   renderEgresosCuotas();
@@ -3404,8 +3416,9 @@ function renderEgresosCuotas(){
 
   // ── Filter/search ──
   const filterFn=ec=>{
-    if(_cuotaFilter==='es') return esEs(ec);
-    if(_cuotaFilter==='op') return !esEs(ec);
+    if(_cuotaFilter==='es'&&!esEs(ec)) return false;
+    if(_cuotaFilter==='op'&&esEs(ec)) return false;
+    if(_cuotaTarjetaFilter!=='todas'&&(ec.tarjeta||'–')!==_cuotaTarjetaFilter) return false;
     return true;
   };
   const searchFn=ec=>{
@@ -3595,6 +3608,13 @@ function renderEgresosCuotas(){
     </div>
     <div class="fsearch"><input type="text" placeholder="Buscar… ⌘K" value="${(_cuotaSearch||'').replace(/"/g,'&quot;')}" oninput="setCuotaSearch(this.value)"><span class="fkbd">⌘K</span></div>
   </div>
+  <div class="filter-row" style="margin-top:-4px;">
+    <div class="chip-grp" style="flex-wrap:wrap;">
+      <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;align-self:center;margin-right:2px;">Tarjeta</span>
+      <button class="fchip${_cuotaTarjetaFilter==='todas'?' active':''}" onclick="setCuotaTarjetaFilter('todas')">Todas</button>
+      ${[...new Set(list.map(ec=>ec.tarjeta||'–').filter(t=>t!=='–'))].sort().map(t=>`<button class="fchip${_cuotaTarjetaFilter===t?' active':''}" onclick="setCuotaTarjetaFilter('${t.replace(/'/g,"\\'")}'">${t}</button>`).join('')}
+    </div>
+  </div>
 
   <!-- MONTH CARDS -->
   <div style="display:flex;flex-direction:column;gap:8px;">
@@ -3621,7 +3641,8 @@ function _setupCuotaModal(){
 }
 function addEgresoCuota(modo){
   const tarjetas=dbGet('tarjetas').map(t=>t.nombre);
-  const tOpts=tarjetas.length?tarjetas:['VISA','MC','AMEX','Débito','Transferencia'];
+  const tBase=tarjetas.length?tarjetas:['VISA','MC','AMEX','Débito'];
+  const tOpts=tBase.includes('Transferencia')?tBase:[...tBase,'Transferencia'];
   const esPeriodico=modo==='periodico';
   const fields=[
     {key:'fecha',label:'Fecha del gasto',type:'date',required:true},
