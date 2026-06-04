@@ -3463,8 +3463,9 @@ function renderEgresosCuotas(){
   const newMonthCards=activeMonths.map(m=>{
     const allInM=list.filter(ec=>cuotaMontoEnMes(ec,m)>0);
     const filtered=allInM.filter(filterFn).filter(searchFn);
-    const items=(_cuotaFilter==='todos'&&!_cuotaSearch)?allInM:filtered;
-    if(!items.length&&(_cuotaFilter!=='todos'||_cuotaSearch)) return '';
+    const noFilter=_cuotaFilter==='todos'&&!_cuotaSearch&&_cuotaTarjetaFilter==='todas';
+    const items=noFilter?allInM:filtered;
+    if(!items.length&&!noFilter) return '';
     const aT=allInM.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
     const uT=allInM.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
     const cotM=getCotizacion(m)||cotiz||1;
