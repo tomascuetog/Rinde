@@ -3232,9 +3232,11 @@ function cardPill(tarjeta){
 }
 let _cuotaFilter='todos';
 let _cuotaTarjetaFilter='todas';
+let _cuotaTarjetasList=[];
 let _cuotaSearch='';
 function setCuotaFilter(f){_cuotaFilter=f;renderEgresosCuotas();}
 function setCuotaTarjetaFilter(t){_cuotaTarjetaFilter=t;renderEgresosCuotas();}
+function setCuotaTarjetaByIdx(i){setCuotaTarjetaFilter(i===0?'todas':_cuotaTarjetasList[i-1]);}
 function setCuotaSearch(v){
   _cuotaSearch=v;
   renderEgresosCuotas();
@@ -3445,7 +3447,7 @@ function renderEgresosCuotas(){
           <span class="itag ${ec.moneda==='ARS'?'ars':'usd'}">${ec.moneda}</span>
           <span class="itag cuota">Cuota ${idx}/${total}</span>
           <span class="itag ${esEs(ec)?'es':'op'}">${esEs(ec)?'Esencial':'Opcional'}</span>
-          ${ec.fecha?`<span class="itag dt">${fmtFecha(ec.fecha)}</span>`:''}
+          ${ec.fecha&&ec.fecha.slice(0,10)!==new Date().toISOString().slice(0,10)?`<span class="itag dt">${fmtFecha(ec.fecha)}</span>`:''}
         </div>
       </div>
       <div class="irow-right">
@@ -3612,8 +3614,8 @@ function renderEgresosCuotas(){
   <div class="filter-row" style="margin-top:-4px;">
     <div class="chip-grp" style="flex-wrap:wrap;">
       <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;align-self:center;margin-right:2px;">Tarjeta</span>
-      <button class="fchip${_cuotaTarjetaFilter==='todas'?' active':''}" onclick="setCuotaTarjetaFilter('todas')">Todas</button>
-      ${[...new Set(list.map(ec=>ec.tarjeta||'–').filter(t=>t!=='–'))].sort().map(t=>`<button class="fchip${_cuotaTarjetaFilter===t?' active':''}" onclick="setCuotaTarjetaFilter('${t.replace(/'/g,"\\'")}'">${t}</button>`).join('')}
+      <button class="fchip${_cuotaTarjetaFilter==='todas'?' active':''}" onclick="setCuotaTarjetaByIdx(0)">Todas</button>
+      ${(()=>{_cuotaTarjetasList=[...new Set(list.map(ec=>ec.tarjeta||'').filter(Boolean))].sort();return _cuotaTarjetasList.map((t,i)=>`<button class="fchip${_cuotaTarjetaFilter===t?' active':''}" onclick="setCuotaTarjetaByIdx(${i+1})">${t}</button>`).join('');})()}
     </div>
   </div>
 
@@ -3646,7 +3648,7 @@ function addEgresoCuota(modo){
   const tOpts=tBase.includes('Transferencia')?tBase:[...tBase,'Transferencia'];
   const esPeriodico=modo==='periodico';
   const fields=[
-    {key:'fecha',label:'Fecha del gasto',type:'date',required:true},
+    {key:'fecha',label:'Fecha del gasto (opcional)',type:'date'},
     {key:'descripcion',label:'Descripción',type:'text',required:true},
     {key:'montoCuota',label:esPeriodico?'Monto':'Monto por cuota',type:'number',required:true},
     {key:'moneda',label:'Moneda',type:'select',options:['ARS','USD']},
