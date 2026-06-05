@@ -1657,6 +1657,11 @@ function totalEgresosUSD(mes){
   },0);
   return inm+cuotas;
 }
+function egresosUSDpuroEnMes(mes){
+  const inm=dbGet('egresos_inm').filter(e=>e.moneda==='USD').reduce((s,e)=>s+egresoInmEnMes(e,mes),0);
+  const cuotas=dbGet('egresos_cuotas').filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
+  return inm+cuotas;
+}
 
 function getCarteraRefs(){ try{ return JSON.parse(localStorage.getItem('rinde_cartera_refs'))||{}; }catch(e){ return {}; } }
 function setCarteraRef(key,val){ const r=getCarteraRefs(); r[key]=+val||0; localStorage.setItem('rinde_cartera_refs',JSON.stringify(r)); renderCartera(); }
@@ -4381,6 +4386,24 @@ function renderCartera(){
   </div>${legacy.map(carteraRow).join('')}`:'';
 
   const hasARS=totalARS>0;
+  const gastoUSDMes=egresosUSDpuroEnMes(MES_ACTUAL);
+
+  // Flow table: 3 past + current + 8 future
+  const flowMeses=[];
+  for(let i=-3;i<=8;i++) flowMeses.push(mesNext(MES_ACTUAL,i));
+  let saldoProj=totalUSD;
+  const flowRows=flowMeses.map(m=>{
+    const gastos=egresosUSDpuroEnMes(m);
+    const isCur=m===MES_ACTUAL;
+    const isPast=m<MES_ACTUAL;
+    let saldoDisplay=null;
+    if(!isPast){
+      saldoDisplay=saldoProj;
+      saldoProj=Math.max(0,saldoProj-gastos);
+    }
+    return {m,gastos,saldo:saldoDisplay,isCur,isPast};
+  });
+
   document.getElementById('cartera-content').innerHTML=`
   <div class="page-hdr">
     <div class="page-hdr-left">
@@ -4398,7 +4421,7 @@ function renderCartera(){
       </button>
     </div>
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+  <div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));">
     <div class="kpi-card kc-green">
       <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">$</div>
       <div style="flex:1;">
@@ -4423,12 +4446,35 @@ function renderCartera(){
         <div class="kpi-meta">${rendUSD>=0?'+':''}${fmtARS(Math.abs(rendUSD*usdArs))}</div>
       </div>
     </div>
+    <div class="kpi-card kc-red">
+      <div class="kpi-ico" style="background:var(--neg-bg);color:var(--neg);font-weight:700;">↓</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Egresos USD ${mesLabel(MES_ACTUAL).split(' ')[0]}</div>
+        <div class="kpi-val">${gastoUSDMes>0?'-'+fmtUSD(gastoUSDMes)+' USD':'$0'}</div>
+        <div class="kpi-meta">pagos en USD este mes</div>
+      </div>
+    </div>
   </div>
   <div class="month-card">
     <div class="mc-body" style="display:block;">
       ${list.length?(grupoSection('Moneda extranjera')+grupoSection('Criptomoneda')+grupoSection('Bono/Acción Negociable')+legacySection)
         :'<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px;">Sin activos registrados.</div>'}
     </div>
+  </div>
+  <div class="sh" style="margin-top:16px;">Egresos USD · balance mensual</div>
+  <div class="table-wrap">
+  <table class="tbl" style="font-size:12px;">
+    <tr>
+      <th>Mes</th>
+      <th style="text-align:right;">Egresos USD</th>
+      <th style="text-align:right;">Saldo cartera</th>
+    </tr>
+    ${flowRows.map(r=>`<tr style="${r.isCur?'background:rgba(54,201,198,.06);':''}${r.isPast?'opacity:.65;':''}">
+      <td><strong style="${r.isCur?'color:var(--pos-dk);':''}">${mesLabel(r.m)}${r.isCur?' ◈':''}</strong></td>
+      <td style="text-align:right;font-family:var(--font-mono);color:${r.gastos>0?'var(--neg-dk)':'var(--muted)'};">${r.gastos>0?'-'+fmtUSD(r.gastos)+' USD':'—'}</td>
+      <td style="text-align:right;font-family:var(--font-mono);font-weight:${r.isCur?700:400};">${r.saldo!==null?fmtUSD(r.saldo)+' USD':'—'}</td>
+    </tr>`).join('')}
+  </table>
   </div>`;
 }
 function _setupCarteraModal(){
