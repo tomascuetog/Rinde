@@ -4398,8 +4398,8 @@ function renderCartera(){
     const isPast=m<MES_ACTUAL;
     let saldoDisplay=null;
     if(!isPast){
-      saldoDisplay=saldoProj;
       saldoProj=Math.max(0,saldoProj-gastos);
+      saldoDisplay=saldoProj;
     }
     return {m,gastos,saldo:saldoDisplay,isCur,isPast};
   });
@@ -5097,7 +5097,7 @@ function renderObjetivosLista(){
   const totalCubierto=list.reduce((s,o)=>s+objetivoTotalCubierto(o),0);
   const totalBrecha=list.reduce((s,o)=>s+objetivoBrecha(o),0);
   const totalAsigLiq=list.reduce((s,o)=>s+(o.asignacion_liquida||0),0);
-  const fondosLibres=patrimonioDolarizado()-totalAsigLiq;
+  const fondosLibres=patrimonioDolarizado()-totalAsigLiq-egresosUSDpuroEnMes(MES_ACTUAL);
   const progGlobal=totalMeta>0?Math.min(100,totalCubierto/totalMeta*100):0;
   const totalMensual=list.filter(o=>!o.completado).reduce((s,o)=>s+(o.ahorro_mensual||0),0);
   const sobreMensual=avgNeto-totalMensual;
