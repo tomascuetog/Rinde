@@ -3452,7 +3452,7 @@ function renderEgresosCuotas(){
           <span class="itag ${ec.moneda==='ARS'?'ars':'usd'}">${ec.moneda}</span>
           <span class="itag cuota">Cuota ${idx}/${total}</span>
           <span class="itag ${esEs(ec)?'es':'op'}">${esEs(ec)?'Esencial':'Opcional'}</span>
-          ${ec.fecha&&ec.fecha.slice(0,10)!==new Date().toISOString().slice(0,10)?`<span class="itag dt">${fmtFecha(ec.fecha)}</span>`:''}
+          ${ec.fecha?`<span class="itag dt">${fmtFecha(ec.fecha)}</span>`:''}
         </div>
       </div>
       <div class="irow-right">
