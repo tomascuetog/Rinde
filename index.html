@@ -2012,9 +2012,12 @@ function renderDashboard(){
         if(v) _dbgIng+=v;
       });
     }
-    dbGet('egresos_inm')
-      .filter(e=>e.moneda==='ARS'&&e.categoria!=='Compra USD'&&e.fecha&&e.fecha.slice(0,7)<=mes&&e.fecha.slice(0,7)>=`${curY}-01`)
-      .forEach(e=>{ _dbgDeb+=e.monto; });
+    for(let m=1;m<=+mes.split('-')[1];m++){
+      const mm=`${curY}-${String(m).padStart(2,'0')}`;
+      dbGet('egresos_inm')
+        .filter(e=>e.fecha&&e.fecha.slice(0,7)===mm&&e.categoria!=='Compra USD'&&e.moneda==='ARS')
+        .forEach(e=>{ _dbgDeb+=e.monto; });
+    }
     const cuotaList=dbGet('egresos_cuotas').filter(ec=>ec.moneda==='ARS');
     for(let m=1;m<=+mes.split('-')[1];m++){
       const mm=`${curY}-${String(m).padStart(2,'0')}`;
