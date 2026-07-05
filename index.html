@@ -1891,7 +1891,15 @@ function renderDashboard(){
   const scoreGrade=score>=80?'Excelente':score>=65?'Saludable':score>=50?'Regular':'Mejorar';
 
   // ── Objetivos ──
-  const objetivos=(dbGet('objetivos')||[]).filter(o=>!o.completado&&(o.monto_objetivo||o.meta||0)>0).slice(0,3);
+  const _PRIO_OBJ=['Viaje 2026','Crédito Casa','Viaje 2027'];
+  const objetivos=(dbGet('objetivos')||[])
+    .filter(o=>!o.completado&&(o.monto_objetivo||o.meta||0)>0)
+    .sort((a,b)=>{
+      const ia=_PRIO_OBJ.findIndex(p=>(a.descripcion||'').toLowerCase().includes(p.toLowerCase()));
+      const ib=_PRIO_OBJ.findIndex(p=>(b.descripcion||'').toLowerCase().includes(p.toLowerCase()));
+      return (ia===-1?999:ia)-(ib===-1?999:ib);
+    })
+    .slice(0,3);
 
   // ── Tarjetas / vencimientos ──
   const tarjetas=dbGet('tarjetas')||[];
@@ -1992,20 +2000,30 @@ function renderDashboard(){
   }
 
   // ── Saldo ARS acumulado ──
-  const allMesData=[
-    ...dbGet('ingresos').map(i=>(i.desde||'').slice(0,7)),
-    ...dbGet('egresos_inm').map(e=>(e.fecha||'').slice(0,7)),
-    ...dbGet('egresos_cuotas').map(ec=>(ec.desde||'').slice(0,7)),
-  ].filter(m=>m&&/^\d{4}-\d{2}$/.test(m)).sort();
-  const startMes=allMesData.length?allMesData[0]:`${curY}-01`;
+  // startMes: fijado a enero del año actual para evitar loops con datos viejos
+  const saldoStartMes=`${curY}-01`;
   let saldoARS=0;
   {
-    let mLoop=startMes;
+    let mLoop=saldoStartMes;
     while(mLoop<=mes){
       const c=getCotizacion(mLoop)||cotiz||1;
-      dbGet('ingresos').forEach(ing=>{const v=ingresoEnMes(ing,mLoop);if(v) saldoARS+=ing.moneda==='ARS'?v:v*c;});
-      dbGet('egresos_inm').forEach(e=>{if(e.categoria==='Compra USD')return;const v=egresoInmEnMes(e,mLoop);if(v) saldoARS-=e.moneda==='ARS'?v:v*c;});
-      dbGet('egresos_cuotas').forEach(ec=>{const v=cuotaMontoEnMes(ec,mLoop);if(v) saldoARS-=ec.moneda==='ARS'?v:v*c;});
+      // Ingresos: solo items con 'desde' seteado (items sin desde causarían conteo indefinido)
+      dbGet('ingresos').forEach(ing=>{
+        if(!ing.desde) return;
+        const v=ingresoEnMes(ing,mLoop);
+        if(v) saldoARS+=ing.moneda==='ARS'?v:v*c;
+      });
+      // Débito/Transf
+      dbGet('egresos_inm').forEach(e=>{
+        if(e.categoria==='Compra USD') return;
+        const v=egresoInmEnMes(e,mLoop);
+        if(v) saldoARS-=e.moneda==='ARS'?v:v*c;
+      });
+      // Crédito + Fijo
+      dbGet('egresos_cuotas').forEach(ec=>{
+        const v=cuotaMontoEnMes(ec,mLoop);
+        if(v) saldoARS-=ec.moneda==='ARS'?v:v*c;
+      });
       mLoop=mesNext(mLoop);
     }
   }
