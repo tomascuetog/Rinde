@@ -2006,32 +2006,38 @@ function renderDashboard(){
   {
     let mLoop=saldoStartMes;
     while(mLoop<=mes){
-      const c=getCotizacion(mLoop)||cotiz||1;
       // Ingresos: solo items con 'desde' seteado (items sin desde causarían conteo indefinido)
       dbGet('ingresos').forEach(ing=>{
         if(!ing.desde) return;
         const v=ingresoEnMes(ing,mLoop);
-        if(v) saldoARS+=ing.moneda==='ARS'?v:v*c;
+        if(v) saldoARS+=ing.moneda==='ARS'?v:v*cotiz;
       });
       // Débito/Transf
       dbGet('egresos_inm').forEach(e=>{
         if(e.categoria==='Compra USD') return;
         const v=egresoInmEnMes(e,mLoop);
-        if(v) saldoARS-=e.moneda==='ARS'?v:v*c;
+        if(v) saldoARS-=e.moneda==='ARS'?v:v*cotiz;
       });
       // Crédito + Fijo
       dbGet('egresos_cuotas').forEach(ec=>{
         const v=cuotaMontoEnMes(ec,mLoop);
-        if(v) saldoARS-=ec.moneda==='ARS'?v:v*c;
+        if(v) saldoARS-=ec.moneda==='ARS'?v:v*cotiz;
       });
       mLoop=mesNext(mLoop);
     }
   }
-  // ── Gastos comprometidos del mes ──
-  const gastosMes=dbGet('egresos_cuotas').filter(ec=>cuotaMontoEnMes(ec,mes)>0)
-    .map(ec=>({desc:ec.descripcion||'Sin nombre',monto:cuotaMontoEnMes(ec,mes),moneda:ec.moneda,tarjeta:ec.tarjeta,esFijo:!!(ec.periodicidad&&ec.periodicidad!=='unico'),esencial:ec.esencial===true||ec.esencial==='si'}))
-    .sort((a,b)=>(b.moneda==='USD'?b.monto*cotiz:b.monto)-(a.moneda==='USD'?a.monto*cotiz:a.monto));
-  const totalCompARS=gastosMes.reduce((s,g)=>s+(g.moneda==='ARS'?g.monto:g.monto*cotiz),0);
+  // ── Gastos compartidos pendientes de saldar ──
+  const splitPendientes=[];
+  (dbGet('split')||[]).forEach(sp=>{
+    if(!sp.direccion) return;
+    getSplitInstancias(sp).forEach(inst=>{
+      if(inst.pagado) return;
+      splitPendientes.push({desc:sp.descripcion||'—',contraparte:sp.contraparte||'',monto:inst.monto,moneda:sp.moneda||'ARS',mes:inst.mes,isDebo:sp.direccion!=='Me deben'});
+    });
+  });
+  splitPendientes.sort((a,b)=>(b.moneda==='USD'?b.monto*cotiz:b.monto)-(a.moneda==='USD'?a.monto*cotiz:a.monto));
+  const totalDeboARS=splitPendientes.filter(s=>s.isDebo).reduce((s,g)=>s+(g.moneda==='ARS'?g.monto:g.monto*cotiz),0);
+  const totalMeDebenARS=splitPendientes.filter(s=>!s.isDebo).reduce((s,g)=>s+(g.moneda==='ARS'?g.monto:g.monto*cotiz),0);
 
   // ── BUILD HTML ──
   const saldoARSColor=saldoARS>=0?'#1F8A5B':'#D7263D';
@@ -2160,17 +2166,20 @@ function renderDashboard(){
 
     <div class="dh-panel">
       <div class="dh-panel-hd">
-        <div class="dh-panel-hd-l"><div class="dh-panel-title">Gastos comprometidos</div><div class="dh-panel-sub">${mesLabel(mes)}</div></div>
-        <button class="dh-link" onclick="nav('egresos-cuotas')">Ver crédito →</button>
+        <div class="dh-panel-hd-l"><div class="dh-panel-title">Gastos compartidos</div><div class="dh-panel-sub">Pendientes de saldar</div></div>
+        <button class="dh-link" onclick="nav('split')">Ver todos →</button>
       </div>
       <div style="padding:0 12px 14px;">
-        ${gastosMes.length?`<div class="dh-movs">${gastosMes.slice(0,7).map(g=>`<div class="dh-mov">
-          <div style="width:28px;height:28px;border-radius:8px;background:${g.esFijo?'#EAF2FB':'#FEF6E4'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${g.esFijo?'#2A6FA8':'#B87D1A'};">${g.esFijo?'F':'C'}</div>
-          <div style="flex:1;min-width:0;"><div class="dh-mov-nm" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${g.desc}</div><div class="dh-mov-meta">${g.esFijo?'Fijo':'Crédito'} · ${g.moneda}${g.tarjeta?' · '+g.tarjeta:''}</div></div>
-          <div class="dh-mov-amt neg">-${g.moneda==='ARS'?fmtARS(g.monto):fmtUSD(g.monto)+' USD'}</div>
+        ${splitPendientes.length?`<div class="dh-movs">${splitPendientes.slice(0,7).map(g=>`<div class="dh-mov">
+          <div style="width:28px;height:28px;border-radius:8px;background:${g.isDebo?'#FDECEA':'#E6F4EE'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${g.isDebo?'#D7263D':'#1F8A5B'};">${g.isDebo?'D':'C'}</div>
+          <div style="flex:1;min-width:0;"><div class="dh-mov-nm" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${g.desc}</div><div class="dh-mov-meta">${g.isDebo?'Debo':'Me deben'} · ${g.contraparte} · ${g.moneda}</div></div>
+          <div class="dh-mov-amt ${g.isDebo?'neg':'pos'}">${g.isDebo?'-':'+'}${g.moneda==='ARS'?fmtARS(g.monto):fmtUSD(g.monto)+' USD'}</div>
         </div>`).join('')}
-        <div style="border-top:1px solid var(--border2);padding-top:8px;margin-top:4px;display:flex;justify-content:space-between;font-size:12px;font-weight:600;"><span style="color:var(--muted);">Total</span><span style="color:var(--neg-dk);">-${fmtARS(totalCompARS)}</span></div>
-        </div>`:`<div style="color:var(--muted);font-size:12px;padding:12px 0;">Sin gastos comprometidos este mes.</div>`}
+        ${(totalDeboARS>0||totalMeDebenARS>0)?`<div style="border-top:1px solid var(--border2);padding-top:8px;margin-top:4px;display:flex;flex-direction:column;gap:2px;font-size:12px;">
+          ${totalDeboARS>0?`<div style="display:flex;justify-content:space-between;font-weight:600;"><span style="color:var(--muted);">Debo</span><span style="color:var(--neg-dk);">-${fmtARS(totalDeboARS)}</span></div>`:''}
+          ${totalMeDebenARS>0?`<div style="display:flex;justify-content:space-between;font-weight:600;"><span style="color:var(--muted);">Me deben</span><span style="color:#1F8A5B;">+${fmtARS(totalMeDebenARS)}</span></div>`:''}
+        </div>`:''}
+        </div>`:`<div style="color:var(--muted);font-size:12px;padding:12px 0;">Sin gastos compartidos pendientes.</div>`}
       </div>
     </div>
 
