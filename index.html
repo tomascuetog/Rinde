@@ -2000,28 +2000,28 @@ function renderDashboard(){
   }
 
   // ── Saldo ARS acumulado ──
-  // startMes: fijado a enero del año actual para evitar loops con datos viejos
-  const saldoStartMes=`${curY}-01`;
+  // Usa la misma lógica que cada módulo para calcular su YTD en ARS
   let saldoARS=0;
   {
-    let mLoop=saldoStartMes;
-    while(mLoop<=mes){
-      dbGet('ingresos').forEach(ing=>{
+    // Ingresos YTD: misma lógica que ingresos module (mesARS × meses 1..N)
+    const ingList=dbGet('ingresos');
+    for(let m=1;m<=+mes.split('-')[1];m++){
+      const mm=`${curY}-${String(m).padStart(2,'0')}`;
+      ingList.forEach(ing=>{
         if(ing.moneda!=='ARS') return;
-        const v=ingresoEnMes(ing,mLoop);
+        const v=ingresoEnMes(ing,mm);
         if(v) saldoARS+=v;
       });
-      dbGet('egresos_inm').forEach(e=>{
-        if(e.moneda!=='ARS'||e.categoria==='Compra USD') return;
-        const v=egresoInmEnMes(e,mLoop);
-        if(v) saldoARS-=v;
-      });
-      dbGet('egresos_cuotas').forEach(ec=>{
-        if(ec.moneda!=='ARS') return;
-        const v=cuotaMontoEnMes(ec,mLoop);
-        if(v) saldoARS-=v;
-      });
-      mLoop=mesNext(mLoop);
+    }
+    // Débito/Transf YTD: misma lógica que el módulo — filtra por fecha del gasto
+    dbGet('egresos_inm')
+      .filter(e=>e.moneda==='ARS'&&e.categoria!=='Compra USD'&&e.fecha&&e.fecha.slice(0,7)<=mes&&e.fecha.slice(0,7)>=`${curY}-01`)
+      .forEach(e=>{ saldoARS-=e.monto; });
+    // Crédito + Fijo YTD: cuotaMontoEnMes por mes (misma lógica que los módulos)
+    const cuotaList=dbGet('egresos_cuotas').filter(ec=>ec.moneda==='ARS');
+    for(let m=1;m<=+mes.split('-')[1];m++){
+      const mm=`${curY}-${String(m).padStart(2,'0')}`;
+      cuotaList.forEach(ec=>{ const v=cuotaMontoEnMes(ec,mm); if(v) saldoARS-=v; });
     }
   }
   // ── Gastos compartidos pendientes de saldar ──
