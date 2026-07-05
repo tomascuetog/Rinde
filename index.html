@@ -1874,7 +1874,11 @@ function renderDashboard(){
   const months8=[];
   for(let i=5;i<=12;i++) months8.push(`${curY}-${String(i).padStart(2,'0')}`);
   const ings8=months8.map(m=>totalIngresosUSD(m)+totalIngresosFuturosUSD(m));
-  const egs8=months8.map(m=>totalEgresosUSD(m));
+  const egs8=months8.map(m=>{
+    const base=totalEgresosUSD(m);
+    const compraUSD=dbGet('egresos_inm').filter(e=>e.categoria==='Compra USD'&&e.moneda==='ARS'&&e.fecha&&e.fecha.slice(0,7)===m).reduce((s,e)=>s+arsToUsd(e.monto,m),0);
+    return base+compraUSD;
+  });
   const maxBar=Math.max(...ings8,...egs8,1);
 
   // ── Patrimony sparkline (cumulative from patriTotal) ──
