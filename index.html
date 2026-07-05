@@ -2006,22 +2006,19 @@ function renderDashboard(){
   {
     let mLoop=saldoStartMes;
     while(mLoop<=mes){
-      // Ingresos: solo items con 'desde' seteado (items sin desde causarían conteo indefinido)
+      const c=getCotizacion(mLoop)||cotiz||1;
       dbGet('ingresos').forEach(ing=>{
-        if(!ing.desde) return;
         const v=ingresoEnMes(ing,mLoop);
-        if(v) saldoARS+=ing.moneda==='ARS'?v:v*cotiz;
+        if(v) saldoARS+=ing.moneda==='ARS'?v:v*c;
       });
-      // Débito/Transf
       dbGet('egresos_inm').forEach(e=>{
         if(e.categoria==='Compra USD') return;
         const v=egresoInmEnMes(e,mLoop);
-        if(v) saldoARS-=e.moneda==='ARS'?v:v*cotiz;
+        if(v) saldoARS-=e.moneda==='ARS'?v:v*c;
       });
-      // Crédito + Fijo
       dbGet('egresos_cuotas').forEach(ec=>{
         const v=cuotaMontoEnMes(ec,mLoop);
-        if(v) saldoARS-=ec.moneda==='ARS'?v:v*cotiz;
+        if(v) saldoARS-=ec.moneda==='ARS'?v:v*c;
       });
       mLoop=mesNext(mLoop);
     }
