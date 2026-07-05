@@ -1857,9 +1857,9 @@ function renderDashboard(){
   const rachaData=calcRacha();
 
   // ── Categorías ──
-  const CAT_COLORS_HEX={Vivienda:'#3D7DB3',Auto:'#D7263D',Telefonía:'#9B59B6',Conectividad:'#6AA3D9',River:'#C4BA30',Plataformas:'#1F8A5B',Gatos:'#E8895A',Comida:'#E8A93C',Salud:'#48C9B0',Ocio:'#E74C3C','A eliminar':'#95A5A6',Otro:'#7D8694'};
+  const CAT_COLORS_HEX={Vivienda:'#3D7DB3',Auto:'#D7263D',Telefonía:'#9B59B6',Conectividad:'#6AA3D9',River:'#C4BA30',Plataformas:'#1F8A5B',Gatos:'#E8895A',Comida:'#E8A93C',Salud:'#48C9B0',Ocio:'#E74C3C','A eliminar':'#95A5A6','Compra USD':'#F0A500',Otro:'#7D8694'};
   const cats={};
-  dbGet('egresos_inm').forEach(e=>{ if(e.categoria==='Compra USD')return; const v=egresoInmEnMes(e,mes); if(!v)return; cats[e.categoria]=(cats[e.categoria]||0)+(e.moneda==='USD'?v:arsToUsd(v,mes)); });
+  dbGet('egresos_inm').forEach(e=>{ const v=egresoInmEnMes(e,mes); if(!v)return; cats[e.categoria]=(cats[e.categoria]||0)+(e.moneda==='USD'?v:arsToUsd(v,mes)); });
   dbGet('egresos_cuotas').forEach(e=>{ const v=egresoCuotaEnMes(e,mes); if(!v)return; cats[e.categoria]=(cats[e.categoria]||0)+(e.moneda==='USD'?v:arsToUsd(v,mes)); });
   const totalCatUSD=Object.values(cats).reduce((a,b)=>a+b,0)||1;
   const catEntries=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
