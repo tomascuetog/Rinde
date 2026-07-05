@@ -2003,7 +2003,7 @@ function renderDashboard(){
   <div class="dh-greeting">
     <h1>${saludo}, <span class="dh-name">${nombre}</span>.&nbsp;<span id="dash-clock" style="font-size:16px;font-weight:500;color:var(--muted);vertical-align:middle;font-family:var(--font-mono);"></span></h1>
     <div class="dh-gdate">
-      <span>${fmtFecha()}</span>
+      <span>${fmtFechaHoy()}</span>
       <span class="dh-pill dh-pill-g">↑ USD $${fmtARS(cotiz)} · ${fmtPct(infMes)}/mes</span>
       <span class="dh-pill dh-pill-r">Inflación ${fmtPct(infMes)}/mes</span>
       <span class="dh-pill dh-pill-d">🔥 ${rachaData.racha} mes${rachaData.racha!==1?'es':''} en positivo · récord ${rachaData.record}m</span>
@@ -6579,7 +6579,7 @@ function getSaludo(){
   for(const [from,label] of SALUDO_MAP){ if(h>=from) s=label; }
   return s;
 }
-function fmtFecha(){
+function fmtFechaHoy(){
   return new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 }
 function tickClock(){
@@ -6634,7 +6634,7 @@ function showWelcome(){
   const nameRow=document.getElementById('welcome-name-row');
   const continueDiv=document.getElementById('welcome-continue');
   tickClock();
-  datetime.textContent=fmtFecha();
+  datetime.textContent=fmtFechaHoy();
   if(!nombre){
     greeting.textContent='¡Bienvenido/a a Rinde!';
     nameRow.style.display='flex';
