@@ -1891,7 +1891,7 @@ function renderDashboard(){
   const scoreGrade=score>=80?'Excelente':score>=65?'Saludable':score>=50?'Regular':'Mejorar';
 
   // ── Objetivos ──
-  const objetivos=(dbGet('objetivos')||[]).filter(o=>!o.completado&&o.meta>0).slice(0,3);
+  const objetivos=(dbGet('objetivos')||[]).filter(o=>!o.completado&&(o.monto_objetivo||o.meta||0)>0).slice(0,3);
 
   // ── Tarjetas / vencimientos ──
   const tarjetas=dbGet('tarjetas')||[];
@@ -1991,11 +1991,33 @@ function renderDashboard(){
     return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;"><defs><linearGradient id="pg-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1F8A5B" stop-opacity="0.28"/><stop offset="100%" stop-color="#1F8A5B" stop-opacity="0.02"/></linearGradient></defs><line x1="${PL}" y1="${PT}" x2="${PL}" y2="${(PT+cH).toFixed(1)}" stroke="#ECEEF2" stroke-width="1"/><line x1="${PL}" y1="${(PT+cH).toFixed(1)}" x2="${(W-PR).toFixed(1)}" y2="${(PT+cH).toFixed(1)}" stroke="#ECEEF2" stroke-width="1"/>${zLine}<path d="${areaPath}" fill="url(#pg-grad)"/><polyline points="${allPts.join(' ')}" fill="none" stroke="#1F8A5B" stroke-width="2" stroke-dasharray="6,4" stroke-linejoin="round"/>${yLbls}${xLbls.join('')}<circle cx="${dotCx}" cy="${dotCy}" r="5" fill="#C9A227" stroke="#fff" stroke-width="2"/><text x="${dotCx}" y="${(parseFloat(dotCy)-9).toFixed(1)}" text-anchor="middle" font-size="9" fill="#C9A227" font-weight="700" font-family="JetBrains Mono,monospace">${fmtK(patriTotal)}</text></svg>`;
   }
 
+  // ── Saldo ARS acumulado ──
+  const allMesData=[
+    ...dbGet('ingresos').map(i=>(i.desde||'').slice(0,7)),
+    ...dbGet('egresos_inm').map(e=>(e.fecha||'').slice(0,7)),
+    ...dbGet('egresos_cuotas').map(ec=>(ec.desde||'').slice(0,7)),
+  ].filter(m=>m&&/^\d{4}-\d{2}$/.test(m)).sort();
+  const startMes=allMesData.length?allMesData[0]:`${curY}-01`;
+  let saldoARS=0;
+  {
+    let mLoop=startMes;
+    while(mLoop<=mes){
+      const c=getCotizacion(mLoop)||cotiz||1;
+      dbGet('ingresos').forEach(ing=>{const v=ingresoEnMes(ing,mLoop);if(v) saldoARS+=ing.moneda==='ARS'?v:v*c;});
+      dbGet('egresos_inm').forEach(e=>{if(e.categoria==='Compra USD')return;const v=egresoInmEnMes(e,mLoop);if(v) saldoARS-=e.moneda==='ARS'?v:v*c;});
+      dbGet('egresos_cuotas').forEach(ec=>{const v=cuotaMontoEnMes(ec,mLoop);if(v) saldoARS-=ec.moneda==='ARS'?v:v*c;});
+      mLoop=mesNext(mLoop);
+    }
+  }
+  // ── Gastos comprometidos del mes ──
+  const gastosMes=dbGet('egresos_cuotas').filter(ec=>cuotaMontoEnMes(ec,mes)>0)
+    .map(ec=>({desc:ec.descripcion||'Sin nombre',monto:cuotaMontoEnMes(ec,mes),moneda:ec.moneda,tarjeta:ec.tarjeta,esFijo:!!(ec.periodicidad&&ec.periodicidad!=='unico'),esencial:ec.esencial===true||ec.esencial==='si'}))
+    .sort((a,b)=>(b.moneda==='USD'?b.monto*cotiz:b.monto)-(a.moneda==='USD'?a.monto*cotiz:a.monto));
+  const totalCompARS=gastosMes.reduce((s,g)=>s+(g.moneda==='ARS'?g.monto:g.monto*cotiz),0);
+
   // ── BUILD HTML ──
-  const netoSign=neto>=0?'+':'';
-  const saldoColor=neto>=0?'#1F8A5B':'#D7263D';
-  const saldoDeltaCls=neto>=0?'p':'n';
-  const ytdSign=ytdNeto>=0?'+':'';
+  const saldoARSColor=saldoARS>=0?'#1F8A5B':'#D7263D';
+  const saldoARSSign=saldoARS>=0?'+':'';
 
   document.getElementById('dash-content').innerHTML=`
 
@@ -2014,120 +2036,47 @@ function renderDashboard(){
     </div>
   </div>
 
-  <!-- HERO HEALTH SCORE -->
-  <div class="dh-hero">
-    <div class="dh-hero-glow"></div>
-    <div class="dh-hero-inner">
-      <div class="dh-gauge-side">
-        <div class="dh-gauge-lbl">Salud financiera</div>
-        ${gaugeSVG(score)}</svg>
-        <div class="dh-gauge-score">
-          <div class="dh-gauge-num">${score}</div>
-          <div class="dh-gauge-sub">/ 100</div>
-          <div class="dh-gauge-grade">${scoreGrade}</div>
-        </div>
-      </div>
-      <div class="dh-hero-body">
-        <div class="dh-hero-title">Tu situación financiera ${score>=65?'es sólida':'requiere atención'}</div>
-        <div class="dh-hero-desc">
-          Saldo del mes <b>${netoSign}${fmtUSD(neto)} USD</b> · Patrimonio <b>${fmtUSD(patriTotal)} USD</b> · Proyección dic <b>${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)} USD</b>
-        </div>
-        <div class="dh-pillars">
-          ${[
-            {nm:'Saldo mes',val:`${netoSign}${fmtUSD(neto)}`,tag:neto>=0?'Positivo':'Negativo',cls:neto>=0?'g':'a',pct:Math.min(100,Math.abs(neto)/(ing||1)*200),color:neto>=0?'#1F8A5B':'#E8A93C',meta:`Ing: ${fmtUSD(ing)}`},
-            {nm:'Ahorro rate',val:`${Math.round(ahorroPct*100)}%`,tag:ahorroPct>=.2?'En meta':'Mejorar',cls:ahorroPct>=.2?'g':'a',pct:Math.min(100,ahorroPct/.3*100),color:'#1F8A5B',meta:'Meta: 20% ingreso'},
-            {nm:'Carga fija',val:`${Math.round(fijo/(ing||1)*100)}%`,tag:fijo/(ing||1)<.5?'OK':'Alto',cls:fijo/(ing||1)<.5?'g':'a',pct:Math.min(100,fijo/(ing||1)/.7*100),color:'#E8A93C',meta:'Límite: 50% ingreso'},
-            {nm:'Diversif.',val:`${Math.round(patriCart/(patriTotal||1)*100)}%`,tag:patriCart/(patriTotal||1)>=.5?'Sólido':'Mejorar',cls:patriCart/(patriTotal||1)>=.5?'g':'a',pct:Math.min(100,patriCart/(patriTotal||1)/.6*100),color:'#6AA3D9',meta:'Meta: 60% USD'},
-          ].map(p=>`<div class="dh-pilar"><div class="dh-pilar-hd"><span class="dh-pilar-nm">${p.nm}</span><span class="dh-pilar-tag ${p.cls}">${p.tag}</span></div><div class="dh-pilar-val">${p.val}</div><div class="dh-pilar-bar"><div class="dh-pilar-fill" style="width:${p.pct}%;background:${p.color};"></div></div><div class="dh-pilar-meta">${p.meta}</div></div>`).join('')}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- KPI GRID -->
-  <div class="dh-kpi-grid">
+  <!-- KPI BLOCK: 2 cards -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
 
     <div class="dh-kpi">
-      <div class="dh-kpi-stripe" style="background:linear-gradient(180deg,#3FB07C,#1F8A5B);"></div>
+      <div class="dh-kpi-stripe" style="background:linear-gradient(180deg,${saldoARS>=0?'#3FB07C,#1F8A5B':'#E8687A,#D7263D'});"></div>
       <div class="dh-kpi-inner">
-        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Saldo del mes</div><div class="dh-kpi-ico" style="background:#E6F4EE;color:#155F3E;">↕</div></div>
-        <div class="dh-kpi-amount"><span class="dh-kpi-num" style="color:${saldoColor};">${netoSign}${fmtARS(neto*cotiz)}</span><span class="dh-kpi-cur">ARS</span></div>
-        <div class="dh-kpi-ssub">${netoSign}${fmtUSD(neto)} USD</div>
-        <div class="dh-kpi-delta ${saldoDeltaCls}">${neto>=0?'↑':'↓'} YTD ${ytdSign}${fmtUSD(ytdNeto)}</div>
-        <div class="dh-kpi-meta">Ingresos − Egresos · ${mesLabel(mes)}</div>
+        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Saldo ARS actual</div><div class="dh-kpi-ico" style="background:${saldoARS>=0?'#E6F4EE':'#FDECEA'};color:${saldoARS>=0?'#155F3E':'#D7263D'};">$</div></div>
+        <div class="dh-kpi-amount"><span class="dh-kpi-num" style="color:${saldoARSColor};">${saldoARSSign}${fmtARS(saldoARS)}</span><span class="dh-kpi-cur">ARS</span></div>
+        <div class="dh-kpi-ssub">${saldoARSSign}${fmtUSD(saldoARS/(cotiz||1))} USD</div>
+        <div class="dh-kpi-meta">Ingresos reales − egresos acumulados hasta ${mesLabel(mes)}</div>
       </div>
-      ${sparkSVG(months8.map((_,i)=>{ let s=0; for(let j=0;j<=i;j++)s+=ings8[j]-egs8[j]; return s; }), neto>=0?'#1F8A5B':'#D7263D')}
     </div>
 
     <div class="dh-kpi">
       <div class="dh-kpi-stripe" style="background:linear-gradient(180deg,#77B2DD,#3D7DB3);"></div>
       <div class="dh-kpi-inner">
-        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Patrimonio neto</div><div class="dh-kpi-ico" style="background:#EAF2FB;color:#2A6FA8;">◈</div></div>
-        <div class="dh-kpi-amount"><span class="dh-kpi-num">${fmtUSD(patriTotal)}</span><span class="dh-kpi-cur">USD</span></div>
-        <div class="dh-kpi-ssub">${fmtARS(patriTotal*usdArs)}</div>
-        <div class="dh-kpi-delta i">Cartera ${fmtUSD(patriCart)} · Físicos ${fmtUSD(patriAct)}</div>
-        <div class="dh-kpi-meta">Activos totales valorizados en USD</div>
+        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Patrimonio USD</div><div class="dh-kpi-ico" style="background:#EAF2FB;color:#2A6FA8;">◈</div></div>
+        <div class="dh-kpi-amount"><span class="dh-kpi-num">${fmtUSD(patriCart)}</span><span class="dh-kpi-cur">USD</span></div>
+        <div class="dh-kpi-ssub">${fmtARS(patriCart*usdArs)}</div>
+        <div class="dh-kpi-meta">Total cartera de inversiones valorizada en USD</div>
       </div>
-      ${sparkSVG(patriSpark,'#3D7DB3')}
-    </div>
-
-    <div class="dh-kpi">
-      <div class="dh-kpi-stripe" style="background:linear-gradient(180deg,#F5B942,#C98A1F);"></div>
-      <div class="dh-kpi-inner">
-        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Proyectado dic 2026</div><div class="dh-kpi-ico" style="background:#FEF6E4;color:#B87D1A;">↗</div></div>
-        <div class="dh-kpi-amount"><span class="dh-kpi-num" style="color:${ahorroProyTotal>=0?'#B87D1A':'var(--neg-dk)'};">${ahorroProyTotal>=0?'+':''}${fmtUSD(ahorroProyTotal)}</span><span class="dh-kpi-cur">USD</span></div>
-        <div class="dh-kpi-ssub">${ahorroProyTotal>=0?'+':''}${fmtARS(ahorroProyTotal*usdArs)}</div>
-        <div class="dh-kpi-delta w">Ahorro ${months8.filter(m=>m>=mes).length} meses restantes</div>
-        <div class="dh-kpi-meta">Neto acumulado ${mesLabel(mes)} → Dic ${curY}</div>
-      </div>
-      ${sparkSVG(ahorroFuturoRows.map(r=>r.neto),'#C98A1F')}
-    </div>
-
-    <div class="dh-kpi">
-      <div class="dh-kpi-stripe" style="background:linear-gradient(180deg,#3FB07C,#1F8A5B);"></div>
-      <div class="dh-kpi-inner">
-        <div class="dh-kpi-hd"><div class="dh-kpi-nm">Patrimonio proy. dic 26</div><div class="dh-kpi-ico" style="background:#E6F4EE;color:#155F3E;">⊕</div></div>
-        <div class="dh-kpi-amount"><span class="dh-kpi-num">${fmtUSD(patriTotal+ahorroProyTotal)}</span><span class="dh-kpi-cur">USD</span></div>
-        <div class="dh-kpi-ssub">${fmtARS((patriTotal+ahorroProyTotal)*usdArs)}</div>
-        <div class="dh-kpi-delta p">↑ +${fmtUSD(ahorroProyTotal)} ahorro 2026</div>
-        <div class="dh-kpi-meta">Patrimonio actual + ahorro proyectado</div>
-      </div>
-      ${sparkSVG([patriTotal,...patriSpark.slice(1)],'#1F8A5B')}
     </div>
 
   </div>
 
-  <!-- PATRIMONIO NETO (historical + projected) -->
-  <div class="dh-panel" style="margin-bottom:18px;">
-    <div class="dh-panel-hd">
-      <div class="dh-panel-hd-l"><div class="dh-panel-title">Patrimonio neto proyectado</div><div class="dh-panel-sub">Mayo 2026 – Mayo 2027</div></div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div class="dh-leg-row">
-          <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#1F8A5B;opacity:0.5;border:1px dashed #1F8A5B;"></div> Proyectado</div>
-          <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#C9A227;"></div> Hoy</div>
+  <!-- CHARTS BLOCK: Ingresos vs Egresos | Egresos por categoría -->
+  <div class="dh-grid-7-5" style="margin-bottom:18px;">
+
+    <div class="dh-panel">
+      <div class="dh-panel-hd">
+        <div class="dh-panel-hd-l"><div class="dh-panel-title">Ingresos vs Egresos</div><div class="dh-panel-sub">May–Dic ${curY}</div></div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="dh-leg-row">
+            <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#1F8A5B;"></div> Ingresos</div>
+            <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#D7263D;"></div> Egresos</div>
+            <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#E8A93C;"></div> Mes actual</div>
+          </div>
         </div>
       </div>
+      <div class="dh-panel-bd">${barChartSVG()}</div>
     </div>
-    <div class="dh-panel-bd">${patriChartSVG()}</div>
-  </div>
-
-  <!-- INGRESOS VS EGRESOS (full width) -->
-  <div class="dh-panel" style="margin-bottom:18px;">
-    <div class="dh-panel-hd">
-      <div class="dh-panel-hd-l"><div class="dh-panel-title">Ingresos vs Egresos</div><div class="dh-panel-sub">May–Dic ${curY}</div></div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div class="dh-leg-row">
-          <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#1F8A5B;"></div> Ingresos</div>
-          <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#D7263D;"></div> Egresos</div>
-          <div class="dh-leg-item"><div class="dh-leg-dot" style="background:#E8A93C;"></div> Mes actual</div>
-        </div>
-      </div>
-    </div>
-    <div class="dh-panel-bd">${barChartSVG()}</div>
-  </div>
-
-  <!-- DONUT + CALIDAD -->
-  <div class="dh-grid-7-5">
 
     <div class="dh-panel">
       <div class="dh-panel-hd">
@@ -2136,48 +2085,6 @@ function renderDashboard(){
       <div class="dh-panel-bd">${donutSVG()}</div>
     </div>
 
-    <div class="dh-panel">
-      <div class="dh-panel-hd">
-        <div class="dh-panel-hd-l"><div class="dh-panel-title">Calidad del gasto</div><div class="dh-panel-sub">${mesLabel(mes)}</div></div>
-      </div>
-      <div class="dh-panel-bd">
-        ${[
-          {nm:'Fijo',val:fijo,pct:Math.round(fijo/totalQual*100),color:'#3F7CB3',meta:'Suscripciones, cuotas, expensas'},
-          {nm:'No esencial',val:noEsencial,pct:totalQual>0?Math.round(noEsencial/totalQual*100):0,color:'#D7263D',meta:'Candidatos a recortar'},
-        ].map(q=>`<div class="dh-qual-row">
-          <div class="dh-qual-hd">
-            <div class="dh-qual-left"><div class="dh-qual-sw" style="background:${q.color};"></div><span class="dh-qual-nm">${q.nm}</span></div>
-            <span class="dh-qual-val" style="color:${q.color};">${fmtUSD(q.val)}</span>
-          </div>
-          <div class="dh-qual-bar"><div class="dh-qual-fill" style="width:${q.pct}%;background:${q.color};"></div></div>
-          <div style="display:flex;justify-content:space-between;">
-            <div class="dh-qual-meta">${q.meta}</div>
-            <div class="dh-qual-meta" style="font-weight:600;">${q.pct}%</div>
-          </div>
-        </div>`).join('')}
-      </div>
-      ${noEsencial>0?`<div class="dh-footer-hint">✂ ${fmtARS(noEsencial*usdArs)} candidatos a recortar en ${mesLabel(mes)}.</div>`:''}
-    </div>
-
-  </div>
-
-  <!-- COMPOSICIÓN PATRIMONIAL -->
-  <div class="dh-panel" style="margin-bottom:18px;">
-    <div class="dh-panel-hd">
-      <div class="dh-panel-hd-l"><div class="dh-panel-title">Composición patrimonial</div><div class="dh-panel-sub">${mesLabel(mes)}</div></div>
-    </div>
-    <div class="dh-panel-bd">
-      ${patriTotal>0?`
-      <div class="dh-stack">
-        <div class="dh-seg" style="width:${Math.round(patriCart/patriTotal*100)}%;background:linear-gradient(90deg,#3FB07C,#1F8A5B);">USD ${Math.round(patriCart/patriTotal*100)}%</div>
-        <div class="dh-seg" style="width:${Math.round(patriAct/patriTotal*100)}%;background:linear-gradient(90deg,#F5B942,#C98A1F);min-width:${patriAct>0?'36':'0'}px;">Fís. ${Math.round(patriAct/patriTotal*100)}%</div>
-      </div>
-      <div class="dh-legend-cards">
-        <div class="dh-lc"><div class="dh-lc-lbl">Cartera USD</div><div class="dh-lc-val" style="color:#1F8A5B;">${fmtUSD(patriCart)}</div><div class="dh-lc-sub">${Math.round(patriCart/patriTotal*100)}% del patrimonio</div></div>
-        <div class="dh-lc"><div class="dh-lc-lbl">Activos Físicos</div><div class="dh-lc-val" style="color:#C98A1F;">${fmtUSD(patriAct)}</div><div class="dh-lc-sub">${Math.round(patriAct/patriTotal*100)}% del patrimonio</div></div>
-        <div class="dh-lc"><div class="dh-lc-lbl">Total</div><div class="dh-lc-val">${fmtUSD(patriTotal)}</div><div class="dh-lc-sub">${fmtARS(patriTotal*usdArs)}</div></div>
-      </div>`:'<div style="color:var(--muted);font-size:12px;">Cargá activos en Cartera y Activos Físicos.</div>'}
-    </div>
   </div>
 
   <!-- OBJETIVOS -->
@@ -2189,20 +2096,22 @@ function renderDashboard(){
     </div>
     <div class="dh-panel-bd">
       <div class="dh-goal-grid">
-        ${objetivos.map(ob=>{
-          const pct=ob.meta>0?Math.min(100,Math.round(ob.actual/ob.meta*100)):0;
+        ${objetivos.map((ob,i)=>{
+          const meta=ob.monto_objetivo||ob.meta||0;
+          const cubierto=objetivoTotalCubierto(ob);
+          const pct=meta>0?Math.min(100,Math.round(cubierto/meta*100)):0;
           const colors=['#1F8A5B','#C98A1F','#3D7DB3'];
-          const color=colors[objetivos.indexOf(ob)%3];
-          const emo=['🎯','✈','🏠','🚗','💰','📚'][objetivos.indexOf(ob)%6];
+          const color=colors[i%3];
+          const emo=['🎯','✈','🏠','🚗','💰','📚'][i%6];
           return`<div class="dh-gc">
             <div class="dh-gc-hd"><div class="dh-gc-ico" style="background:${color}22;">${emo}</div><div class="dh-gc-nm">${ob.descripcion}</div><div class="dh-gc-pct" style="color:${color};">${pct}%</div></div>
             <div class="dh-gc-bar"><div class="dh-gc-fill" style="width:${pct}%;background:${color};"></div></div>
             <div class="dh-gc-vals">
-              <span class="dh-gc-cur" style="color:${color};">${ob.moneda?fmtUSD(ob.actual)+' '+ob.moneda:ob.actual}</span>
-              <span class="dh-gc-tot">${ob.moneda?fmtUSD(ob.meta)+' '+ob.moneda:ob.meta}</span>
+              <span class="dh-gc-cur" style="color:${color};">${fmtUSD(cubierto)} USD</span>
+              <span class="dh-gc-tot">${fmtUSD(meta)} USD</span>
             </div>
             <div class="dh-gc-ftr">
-              <span class="dh-gc-eta">${ob.periodo==='mensual'?'Este mes':ob.periodo==='anual'?'Este año':'Evento'}</span>
+              <span class="dh-gc-eta">${ob.fecha_limite?mesLabel(ob.fecha_limite.slice(0,7)):'Sin fecha'}</span>
               <span class="dh-gc-status ${pct>=80?'ok':'behind'}">${pct>=80?'En meta':'En progreso'}</span>
             </div>
           </div>`;
@@ -2211,22 +2120,8 @@ function renderDashboard(){
     </div>
   </div>`:''}
 
-  <!-- VENCIMIENTOS + MOVIMIENTOS -->
+  <!-- ÚLTIMOS MOVIMIENTOS + GASTOS COMPROMETIDOS -->
   <div class="dh-grid-7-5">
-
-    <div class="dh-panel">
-      <div class="dh-panel-hd">
-        <div class="dh-panel-hd-l"><div class="dh-panel-title">Próximos vencimientos</div><div class="dh-panel-sub">30 días</div></div>
-        <button class="dh-link" onclick="nav('tarjetas')">Ver tarjetas →</button>
-      </div>
-      <div style="padding:0 12px 14px;">
-        ${bills.length?`<div class="dh-bills">${bills.map(b=>`<div class="dh-bill">
-          <div class="dh-dchip ${b.type}"><div class="dh-dchip-day">${b.day}</div><div class="dh-dchip-mon">${b.mon}</div></div>
-          <div><div class="dh-bill-nm">${b.name}</div><div class="dh-bill-meta"><div class="dh-bill-dot" style="background:${b.catColor};"></div><span>${b.cat}</span><span>· ${b.days}</span></div></div>
-          <div class="dh-bill-amt ${b.dir}">${b.amt}</div>
-        </div>`).join('')}</div>`:`<div style="color:var(--muted);font-size:12px;padding:12px 0;">Sin tarjetas configuradas. <button class="dh-link" onclick="nav('tarjetas')">Agregar →</button></div>`}
-      </div>
-    </div>
 
     <div class="dh-panel">
       <div class="dh-panel-hd">
@@ -2242,6 +2137,22 @@ function renderDashboard(){
             <div class="dh-mov-amt neg">-${fmtARS(v)}</div>
           </div>`;
         }).join('')}</div>`:`<div style="color:var(--muted);font-size:12px;padding:12px 0;">Sin movimientos recientes.</div>`}
+      </div>
+    </div>
+
+    <div class="dh-panel">
+      <div class="dh-panel-hd">
+        <div class="dh-panel-hd-l"><div class="dh-panel-title">Gastos comprometidos</div><div class="dh-panel-sub">${mesLabel(mes)}</div></div>
+        <button class="dh-link" onclick="nav('egresos-cuotas')">Ver crédito →</button>
+      </div>
+      <div style="padding:0 12px 14px;">
+        ${gastosMes.length?`<div class="dh-movs">${gastosMes.slice(0,7).map(g=>`<div class="dh-mov">
+          <div style="width:28px;height:28px;border-radius:8px;background:${g.esFijo?'#EAF2FB':'#FEF6E4'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${g.esFijo?'#2A6FA8':'#B87D1A'};">${g.esFijo?'F':'C'}</div>
+          <div style="flex:1;min-width:0;"><div class="dh-mov-nm" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${g.desc}</div><div class="dh-mov-meta">${g.esFijo?'Fijo':'Crédito'} · ${g.moneda}${g.tarjeta?' · '+g.tarjeta:''}</div></div>
+          <div class="dh-mov-amt neg">-${g.moneda==='ARS'?fmtARS(g.monto):fmtUSD(g.monto)+' USD'}</div>
+        </div>`).join('')}
+        <div style="border-top:1px solid var(--border2);padding-top:8px;margin-top:4px;display:flex;justify-content:space-between;font-size:12px;font-weight:600;"><span style="color:var(--muted);">Total</span><span style="color:var(--neg-dk);">-${fmtARS(totalCompARS)}</span></div>
+        </div>`:`<div style="color:var(--muted);font-size:12px;padding:12px 0;">Sin gastos comprometidos este mes.</div>`}
       </div>
     </div>
 
