@@ -2000,30 +2000,18 @@ function renderDashboard(){
   }
 
   // ── Saldo ARS acumulado ──
+  // Ingresos ARS × mes; Débito por fecha del gasto (igual que el módulo); Cuotas ARS por mes
   let saldoARS=0;
-  let _dbgIng=0,_dbgDeb=0,_dbgCuotas=0;
   {
+    const nMes=+mes.split('-')[1];
     const ingList=dbGet('ingresos');
-    for(let m=1;m<=+mes.split('-')[1];m++){
-      const mm=`${curY}-${String(m).padStart(2,'0')}`;
-      ingList.forEach(ing=>{
-        if(ing.moneda!=='ARS') return;
-        const v=ingresoEnMes(ing,mm);
-        if(v) _dbgIng+=v;
-      });
-    }
-    for(let m=1;m<=+mes.split('-')[1];m++){
-      const mm=`${curY}-${String(m).padStart(2,'0')}`;
-      dbGet('egresos_inm')
-        .filter(e=>e.fecha&&e.fecha.slice(0,7)===mm&&e.moneda==='ARS')
-        .forEach(e=>{ _dbgDeb+=e.monto; });
-    }
     const cuotaList=dbGet('egresos_cuotas').filter(ec=>ec.moneda==='ARS');
-    for(let m=1;m<=+mes.split('-')[1];m++){
+    for(let m=1;m<=nMes;m++){
       const mm=`${curY}-${String(m).padStart(2,'0')}`;
-      cuotaList.forEach(ec=>{ const v=cuotaMontoEnMes(ec,mm); if(v) _dbgCuotas+=v; });
+      ingList.forEach(ing=>{ if(ing.moneda!=='ARS') return; const v=ingresoEnMes(ing,mm); if(v) saldoARS+=v; });
+      dbGet('egresos_inm').filter(e=>e.fecha&&e.fecha.slice(0,7)===mm&&e.moneda==='ARS').forEach(e=>{ saldoARS-=e.monto; });
+      cuotaList.forEach(ec=>{ const v=cuotaMontoEnMes(ec,mm); if(v) saldoARS-=v; });
     }
-    saldoARS=_dbgIng-_dbgDeb-_dbgCuotas;
   }
   // ── Gastos compartidos pendientes de saldar ──
   const splitPendientes=[];
@@ -2068,7 +2056,7 @@ function renderDashboard(){
         <div class="dh-kpi-hd"><div class="dh-kpi-nm">Saldo ARS actual</div><div class="dh-kpi-ico" style="background:${saldoARS>=0?'#E6F4EE':'#FDECEA'};color:${saldoARS>=0?'#155F3E':'#D7263D'};">$</div></div>
         <div class="dh-kpi-amount"><span class="dh-kpi-num" style="color:${saldoARSColor};">${saldoARSSign}${fmtARS(saldoARS)}</span><span class="dh-kpi-cur">ARS</span></div>
         <div class="dh-kpi-ssub">${saldoARSSign}${fmtUSD(saldoARS/(cotiz||1))} USD</div>
-        <div class="dh-kpi-meta">Ing: ${fmtARS(_dbgIng)} | Deb: ${fmtARS(_dbgDeb)} | Cuotas: ${fmtARS(_dbgCuotas)}</div>
+        <div class="dh-kpi-meta">Ingresos reales − egresos acumulados hasta ${mesLabel(mes)}</div>
       </div>
     </div>
 
