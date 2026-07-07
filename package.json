@@ -7,6 +7,8 @@
     "build": "echo \"No build step required for static site\""
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.105.4",
+    "level": "^10.0.0",
     "vercel": "^29.0.0"
   }
 }

@@ -704,7 +704,6 @@ body.privacy svg text{
   <div class="ns" onclick="toggleNavGroup(this)" data-group="economia">Economía <span class="ns-chev">▾</span></div>
   <div class="nav-items" id="ng-economia">
     <div class="ni" onclick="nav('cotizacion')" data-label="Cotización USD"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 3.5v9M6 5.5c0-.83.9-1.5 2-1.5s2 .67 2 1.5S9.1 7 8 7s-2 .67-2 1.5S6.9 10 8 10s2-.67 2-1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="ni-label">Cotización USD</span></div>
-    <div class="ni" onclick="nav('inflacion')" data-label="Inflación"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M1.5 12L5.5 7l3 3 5-6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M11.5 3.5H14v2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Inflación</span></div>
   </div>
 
   <div class="ns" onclick="toggleNavGroup(this)" data-group="config">Configuración <span class="ns-chev">▾</span></div>
@@ -777,13 +776,6 @@ body.privacy svg text{
   <div id="cotizacion-content"></div>
 </div>
 
-<!-- INFLACIÓN -->
-<div class="panel" id="panel-inflacion">
-  <div class="ptitle">Inflación</div>
-  <div class="psub">Cargás datos reales a mes vencido · proyectás futuros · impacta egresos e ingresos marcados</div>
-  <div id="inflacion-content"></div>
-</div>
-
 <!-- INGRESOS -->
 <div class="panel" id="panel-ingresos">
   <div id="ingresos-content"></div>
@@ -846,7 +838,7 @@ body.privacy svg text{
 <!-- PROYECCIÓN -->
 <div class="panel" id="panel-proyeccion">
   <div class="ptitle">Proyección global</div>
-  <div class="psub">Ingresos − egresos con inflación y cotización proyectada → portafolio futuro</div>
+  <div class="psub">Ingresos − egresos con la cotización cargada por mes → portafolio futuro</div>
   <div id="proyeccion-content"></div>
 </div>
 
@@ -1309,7 +1301,7 @@ async function logout(){
 // DATA LAYER (hybrid: localStorage + Supabase)
 // =============================================
 const KEYS = {
-  cotizaciones:'rinde_cotizaciones', inflacion:'rinde_inflacion',
+  cotizaciones:'rinde_cotizaciones',
   ingresos:'rinde_ingresos', ingresos_futuros:'rinde_ingresos_futuros', egresos_inm:'rinde_egresos_inm',
   egresos_cuotas:'rinde_egresos_cuotas', split:'rinde_split',
   cartera:'rinde_cartera', activos:'rinde_activos', tarjetas:'rinde_tarjetas',
@@ -1327,7 +1319,7 @@ const TABLAS_DEFAULTS={
   categorias:['Vivienda','Auto','Telefonía','Conectividad','River','Plataformas','Gatos','Ocio','Comida','Salud','Educación','Ropa','Viaje','Compras casa','A eliminar','Otro'],
   modosPago:['VISA','MC','AMEX','Débito','Transferencia'],
   tiposActivo:['Inmueble','Vehículo','Electrónica','Mueble/Decoración','Otro'],
-  camposIngresos:['descripcion','monto','moneda','frecuencia','desde','hasta','ajustaInflacion','notas'],
+  camposIngresos:['descripcion','monto','moneda','frecuencia','desde','hasta','notas'],
   camposEgresos:['fecha','descripcion','monto','moneda','categoria','esencial','notas'],
   camposSplit:['direccion','descripcion','contraparte','monto','moneda','tipo','desde','hasta','notas'],
   camposActivos:['nombre','tipo','moneda','fechaCompra','precioCompra','valorActual','notas'],
@@ -1376,7 +1368,7 @@ function updateBadges(){
 
 // ---- ACTIVITY LOG ----
 const MODULE_LABELS={
-  cotizaciones:'Cotización',inflacion:'Inflación',ingresos:'Ingreso',
+  cotizaciones:'Cotización',ingresos:'Ingreso',
   egresos_inm:'Egreso inmediato',egresos_cuotas:'Cuota',split:'Gasto compartido',
   cartera:'Cartera',tarjetas:'Tarjeta',tareas:'Tarea',objetivos:'Objetivo',
   productos:'Producto',platos:'Plato',actividad:'Actividad',
@@ -1556,11 +1548,6 @@ function getCotizacion(mes){
   if(prev.length) return prev[0].valor;
   return 1420;
 }
-function getInflacion(mes){
-  const list=dbGet('inflacion');
-  const found=list.find(x=>x.mes===mes);
-  return found?found.porcentaje:0;
-}
 function arsToUsd(ars,mes){ return ars/getCotizacion(mes); }
 function usdToArs(usd,mes){ return usd*getCotizacion(mes); }
 
@@ -1587,15 +1574,7 @@ function ingresoEnMes(ing, mes){
   if(freq==='unico') return (ing.desde.slice(0,7)===mes) ? ing.monto : 0;
   if(freq==='mensual' || freq==='variable'){
     if(ing.montosOverride && ing.montosOverride[mes] !== undefined) return ing.montosOverride[mes];
-    let monto = ing.monto;
-    if(ing.ajustaInflacion && mes > ing.desde.slice(0,7)){
-      const mesesDelta = mesDiff(ing.desde.slice(0,7), mes);
-      for(let i=1;i<=mesesDelta;i++){
-        const m = mesNext(ing.desde.slice(0,7), i);
-        monto *= (1+getInflacion(m)/100);
-      }
-    }
-    return monto;
+    return ing.monto;
   }
   if(freq==='semestral'){
     const [,mm]=mes.split('-');
@@ -1614,14 +1593,7 @@ function egresoInmEnMes(eg, mes){
   if(!eg.desde) return (eg.fecha && eg.fecha.slice(0,7)===mes) ? eg.monto : 0;
   if(mes < eg.desde.slice(0,7)) return 0;
   if(eg.hasta && mes > eg.hasta.slice(0,7)) return 0;
-  let monto = eg.monto;
-  if(eg.ajustaInflacion && mes > eg.desde.slice(0,7)){
-    const delta=mesDiff(eg.desde.slice(0,7),mes);
-    for(let i=1;i<=delta;i++){
-      monto*=(1+getInflacion(mesNext(eg.desde.slice(0,7),i))/100);
-    }
-  }
-  return monto;
+  return eg.monto;
 }
 
 function egresoCuotaEnMes(ec, mes){
@@ -1664,6 +1636,16 @@ function egresosUSDpuroEnMes(mes){
   return inm+cuotas;
 }
 
+// Gastos en USD desde Ago 2026 en adelante: se descuentan del patrimonio a medida que llega cada mes
+// (antes de Ago 2026 el ajuste ya se resolvió a mano, moviendo las posiciones de cartera)
+const CORTE_DESCUENTO_USD='2026-08';
+function usdEgresadoDesdeCorte(hasta){
+  if(hasta<CORTE_DESCUENTO_USD) return 0;
+  let s=0;
+  for(let m=CORTE_DESCUENTO_USD; m<=hasta; m=mesNext(m,1)) s+=egresosUSDpuroEnMes(m);
+  return s;
+}
+
 function getCarteraRefs(){ try{ return JSON.parse(localStorage.getItem('rinde_cartera_refs'))||{}; }catch(e){ return {}; } }
 function setCarteraRef(key,val){ const r=getCarteraRefs(); r[key]=+val||0; localStorage.setItem('rinde_cartera_refs',JSON.stringify(r)); renderCartera(); }
 function updateCarteraPrecioActual(id,val){ dbUpdate('cartera',id,{precioActual:+val||0}); renderCartera(); }
@@ -1671,7 +1653,7 @@ function patrimonioDolarizado(){
   const list=dbGet('cartera');
   const refs=getCarteraRefs();
   const usdArs=refs.USD_ARS||1;
-  return list.reduce((s,c)=>{
+  const raw=list.reduce((s,c)=>{
     if(c.tipo==='Moneda extranjera') return s+c.cantidad;
     if(c.tipo==='Criptomoneda') return s+(c.precioActual||0)*c.cantidad;
     if(c.tipo==='Bono/Acción Negociable'){
@@ -1680,6 +1662,7 @@ function patrimonioDolarizado(){
     }
     return s+(c.precioActual||0)*c.cantidad;
   },0);
+  return Math.max(0, raw-usdEgresadoDesdeCorte(MES_ACTUAL));
 }
 
 function patrimonioActivosFisicos(){
@@ -1759,7 +1742,6 @@ const BC_MAP={
   'dashboard':['Dashboard'],
   'tareas':['Tareas'],
   'cotizacion':['Referencia','Cotización USD/ARS'],
-  'inflacion':['Referencia','Inflación'],
   'ingresos':['Ingresos reales'],
   'ingresos-futuros':['Ingresos','Ingresos futuros'],
   'egresos-inm':['Egresos','Débito/Transferencias'],
@@ -1804,7 +1786,7 @@ function nav(id){
   // render
   const renders={
     dashboard:renderDashboard, tareas:renderTareas,
-    cotizacion:renderCotizacion, inflacion:renderInflacion,
+    cotizacion:renderCotizacion,
     ingresos:renderIngresos, 'ingresos-futuros':renderIngresosFuturos, 'egresos-inm':renderEgresosInm,
     'egresos-cuotas':renderEgresosCuotas, 'egresos-fijos':renderEgresosFijos, split:renderSplit,
     cartera:renderCartera, activos:renderActivos, tarjetas:renderTarjetas,
@@ -1825,7 +1807,6 @@ function nav(id){
 function renderDashboard(){
   const mes=MES_ACTUAL;
   const cotiz=getCotizacion(mes);
-  const infMes=getInflacion(mes);
   const refs=getCarteraRefs();
   const usdArs=refs.USD_ARS||cotiz||1;
   const nombre=localStorage.getItem('rinde_nombre')||'vos';
@@ -1857,11 +1838,14 @@ function renderDashboard(){
   // ── Racha ──
   const rachaData=calcRacha();
 
-  // ── Categorías ──
+  // ── Categorías (acumulado May→mes actual, sin Compra USD) ──
   const CAT_COLORS_HEX={Vivienda:'#3D7DB3',Auto:'#D7263D',Telefonía:'#9B59B6',Conectividad:'#6AA3D9',River:'#C4BA30',Plataformas:'#1F8A5B',Gatos:'#E8895A',Comida:'#E8A93C',Salud:'#48C9B0',Ocio:'#E74C3C','A eliminar':'#95A5A6','Compra USD':'#F0A500',Otro:'#7D8694'};
   const cats={};
-  dbGet('egresos_inm').forEach(e=>{ const v=egresoInmEnMes(e,mes); if(!v)return; cats[e.categoria]=(cats[e.categoria]||0)+(e.moneda==='USD'?v:arsToUsd(v,mes)); });
-  dbGet('egresos_cuotas').forEach(e=>{ const v=egresoCuotaEnMes(e,mes); if(!v)return; cats[e.categoria]=(cats[e.categoria]||0)+(e.moneda==='USD'?v:arsToUsd(v,mes)); });
+  for(let m=5;m<=+mes.split('-')[1];m++){
+    const mm=`${curY}-${String(m).padStart(2,'0')}`;
+    dbGet('egresos_inm').forEach(e=>{ if(e.categoria==='Compra USD')return; const v=egresoInmEnMes(e,mm); if(!v)return; cats[e.categoria]=(cats[e.categoria]||0)+(e.moneda==='USD'?v:arsToUsd(v,mm)); });
+    dbGet('egresos_cuotas').forEach(e=>{ if(e.categoria==='Compra USD')return; const v=egresoCuotaEnMes(e,mm); if(!v)return; cats[e.categoria]=(cats[e.categoria]||0)+(e.moneda==='USD'?v:arsToUsd(v,mm)); });
+  }
   const totalCatUSD=Object.values(cats).reduce((a,b)=>a+b,0)||1;
   const catEntries=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
 
@@ -1965,7 +1949,7 @@ function renderDashboard(){
   }
 
   function donutSVG(){
-    if(!catEntries.length) return '<div style="color:var(--muted);font-size:12px;padding:20px 0;">Sin egresos este mes.</div>';
+    if(!catEntries.length) return '<div style="color:var(--muted);font-size:12px;padding:20px 0;">Sin egresos en el período.</div>';
     const R=65,sw=16,cx=80,cy=80,circ=2*Math.PI*R;
     let off=0;
     const arcs=catEntries.slice(0,7).map(([cat,val])=>{
@@ -2042,9 +2026,6 @@ function renderDashboard(){
     <h1>${saludo}, <span class="dh-name">${nombre}</span>.&nbsp;<span id="dash-clock" style="font-size:16px;font-weight:500;color:var(--muted);vertical-align:middle;font-family:var(--font-mono);"></span></h1>
     <div class="dh-gdate">
       <span>${fmtFechaHoy()}</span>
-      <span class="dh-pill dh-pill-g">↑ USD $${fmtARS(cotiz)} · ${fmtPct(infMes)}/mes</span>
-      <span class="dh-pill dh-pill-r">Inflación ${fmtPct(infMes)}/mes</span>
-      <span class="dh-pill dh-pill-d">🔥 ${rachaData.racha} mes${rachaData.racha!==1?'es':''} en positivo · récord ${rachaData.record}m</span>
     </div>
     <div class="dh-actions">
       <button class="btn-month-sel" onclick="nav('analisis')">↗ Análisis</button>
@@ -2071,7 +2052,7 @@ function renderDashboard(){
         <div class="dh-kpi-hd"><div class="dh-kpi-nm">Patrimonio USD</div><div class="dh-kpi-ico" style="background:#EAF2FB;color:#2A6FA8;">◈</div></div>
         <div class="dh-kpi-amount"><span class="dh-kpi-num">${fmtUSD(patriCart)}</span><span class="dh-kpi-cur">USD</span></div>
         <div class="dh-kpi-ssub">${fmtARS(patriCart*usdArs)}</div>
-        <div class="dh-kpi-meta">Total cartera de inversiones valorizada en USD</div>
+        <div class="dh-kpi-meta">${usdEgresadoDesdeCorte(mes)>0?`Cartera − ${fmtUSD(usdEgresadoDesdeCorte(mes))} USD gastados desde Ago 2026`:'Total cartera de inversiones valorizada en USD'}</div>
       </div>
     </div>
 
@@ -2096,7 +2077,7 @@ function renderDashboard(){
 
     <div class="dh-panel">
       <div class="dh-panel-hd">
-        <div class="dh-panel-hd-l"><div class="dh-panel-title">Egresos por categoría</div><div class="dh-panel-sub">${mesLabel(mes)}</div></div>
+        <div class="dh-panel-hd-l"><div class="dh-panel-title">Egresos por categoría</div><div class="dh-panel-sub">May–${mesLabel(mes)}</div></div>
       </div>
       <div class="dh-panel-bd">${donutSVG()}</div>
     </div>
@@ -2318,116 +2299,6 @@ function editCotiz(id){
 function deleteCotiz(id){ confirmDelete(()=>{ dbDelete('cotizaciones',id); renderCotizacion(); }); }
 
 // =============================================
-// RENDER: INFLACIÓN
-// =============================================
-function renderInflacion(){
-  const list=dbGet('inflacion').sort((a,b)=>a.mes.localeCompare(b.mes));
-  const cur=list.find(x=>x.mes===MES_ACTUAL)||null;
-  const acum=list.filter(x=>x.mes<=MES_ACTUAL&&x.mes.startsWith('2026')).reduce((a,x)=>(1+a/100)*(1+x.porcentaje/100)*100-100,0);
-
-  // affected egresos
-  const egAjust=dbGet('egresos_inm').filter(e=>e.ajustaInflacion).length;
-  const ingAjust=dbGet('ingresos').filter(i=>i.ajustaInflacion).length;
-
-  function row(c){
-    const isCur=c.mes===MES_ACTUAL;
-    const anual=((1+c.porcentaje/100)**12-1)*100;
-    return `<div class="data-row ${isCur?'current':''}">
-      <div style="min-width:85px;font-size:13px;font-weight:${isCur?700:600};color:${isCur?'var(--neg)':'var(--text)'};">${mesLabel(c.mes)}${isCur?' ◈':''}</div>
-      <div style="min-width:70px;font-size:15px;font-weight:700;color:${c.tipo==='real'?'var(--neg-dk)':'var(--warn)'};">${fmtPct(c.porcentaje)}</div>
-      <div style="flex:1;font-size:11px;color:var(--muted);">anualizado: ~${fmtPct(anual)}</div>
-      <span class="pill ${c.tipo==='real'?'neg':'warn'}">${c.tipo}</span>
-      <button class="btn sm ghost" style="margin-left:8px;" onclick="editInflacion('${c.id}')">✏</button>
-      <button class="btn sm danger" onclick="deleteInflacion('${c.id}')">✕</button>
-    </div>`;
-  }
-
-  // Impacto en egresos próximo mes
-  const mesProx=mesNext(MES_ACTUAL);
-  const egrowth=getInflacion(mesProx);
-  const egresosAjust=dbGet('egresos_inm').filter(e=>e.ajustaInflacion).map(e=>{
-    const cur=egresoInmEnMes(e,MES_ACTUAL);
-    const prox=egresoInmEnMes(e,mesProx);
-    const usdCur=e.moneda==='USD'?cur:arsToUsd(cur,MES_ACTUAL);
-    const usdProx=e.moneda==='USD'?prox:arsToUsd(prox,mesProx);
-    return {desc:e.descripcion,cur,prox,usdCur,usdProx,moneda:e.moneda};
-  }).slice(0,5);
-
-  document.getElementById('inflacion-content').innerHTML=`
-  <div class="g4">
-    <div class="card neg-s"><div class="cl">Inflación ${mesLabel(MES_ACTUAL)}</div><div class="cv">${cur?fmtPct(cur.porcentaje):'—'}</div><div class="cs">${cur?'mensual · real':'sin datos'}</div></div>
-    <div class="card neg-s"><div class="cl">Acumulada 2026</div><div class="cv">${fmtPct(acum)}</div><div class="cs">ene–${mesLabel(MES_ACTUAL).slice(0,3).toLowerCase()}</div></div>
-    <div class="card warn"><div class="cl">Egresos ajustables</div><div class="cv">${egAjust}</div><div class="cs">${ingAjust} ingresos también</div></div>
-    <div class="card opal"><div class="cl">Próx. impacto</div><div class="cv">${mesLabel(mesProx)}</div><div class="cs">+${fmtPct(getInflacion(mesProx))} proyectado</div></div>
-  </div>
-  <div class="g2">
-    <div>
-      <div class="sh">Historial y proyección</div>
-      ${list.map(row).join('')}
-      <div class="sh">+ Cargar inflación</div>
-      <button class="btn pos" onclick="addInflacion()">+ Agregar mes</button>
-    </div>
-    <div>
-      <div class="sh">Impacto en egresos · ${mesLabel(mesProx)} (con ${fmtPct(egrowth)} inflación)</div>
-      ${egresosAjust.map(e=>`
-        <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px 13px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-          <div><div style="font-size:13px;font-weight:600;">${e.desc}</div><div style="font-size:11px;color:var(--muted);">ajusta por inflación ✓</div></div>
-          <div style="text-align:right;">
-            <div style="font-size:11px;color:var(--muted);">actual</div>
-            <div style="font-size:13px;font-weight:700;color:var(--neg-dk);">${e.moneda==='ARS'?fmtARS(e.cur):fmtUSD(e.cur)+' USD'}</div>
-            <div style="font-size:11px;color:var(--muted);">→ prox: <strong style="color:var(--neg-dk);">${e.moneda==='ARS'?fmtARS(e.prox):fmtUSD(e.prox)+' USD'}</strong></div>
-          </div>
-        </div>`).join('')}
-      <div class="sh">Impacto en ingreso principal</div>
-      ${dbGet('ingresos').filter(i=>i.ajustaInflacion).slice(0,2).map(i=>{
-        const cur=ingresoEnMes(i,MES_ACTUAL);
-        const prox=ingresoEnMes(i,mesProx);
-        if(!cur&&!prox)return'';
-        const usdCur=i.moneda==='USD'?cur:arsToUsd(cur,MES_ACTUAL);
-        const usdProx=i.moneda==='USD'?prox:arsToUsd(prox,mesProx);
-        return `<div style="background:var(--pos-bg);border:1px solid #a8e8e7;border-radius:8px;padding:10px 13px;margin-bottom:6px;">
-          <div style="font-size:13px;font-weight:600;">${i.descripcion}</div>
-          <div style="font-size:12px;margin-top:4px;display:flex;justify-content:space-between;">
-            <span style="color:var(--muted);">${mesLabel(MES_ACTUAL)}</span>
-            <span class="pos-text">${i.moneda==='ARS'?fmtARS(cur):fmtUSD(cur)+' USD'} = ${fmtUSD(usdCur)} USD</span>
-          </div>
-          <div style="font-size:12px;display:flex;justify-content:space-between;">
-            <span style="color:var(--muted);">${mesLabel(mesProx)} (si ajusta +${fmtPct(egrowth)})</span>
-            <span class="pos-text">${i.moneda==='ARS'?fmtARS(prox):fmtUSD(prox)+' USD'} = ${fmtUSD(usdProx)} USD</span>
-          </div>
-        </div>`;
-      }).join('')}
-      <div style="background:var(--warn-bg);border-radius:8px;padding:10px 13px;border-left:3px solid var(--warn-b);margin-top:8px;">
-        <div style="font-size:12px;font-weight:600;color:var(--warn);">⚠ Poder adquisitivo real</div>
-        <div style="font-size:11px;color:var(--warn);margin-top:2px;">Si tu sueldo sube menos que la inflación, perdés capacidad de compra en términos reales.</div>
-      </div>
-    </div>
-  </div>`;
-}
-function addInflacion(){
-  openModal('Nueva inflación mensual',[
-    {key:'mes',label:'Mes (YYYY-MM)',type:'month',required:true},
-    {key:'porcentaje',label:'Inflación mensual (%)',type:'number',required:true,hint:'Ej: 3.8 para 3.8%'},
-    {key:'tipo',label:'Tipo',type:'select',options:['real','proyectado']},
-  ],(data)=>{
-    const list=dbGet('inflacion');
-    const existing=list.find(x=>x.mes===data.mes);
-    if(existing){ dbUpdate('inflacion',existing.id,{porcentaje:+data.porcentaje,tipo:data.tipo}); }
-    else { dbAdd('inflacion',{...data,porcentaje:+data.porcentaje}); }
-    renderInflacion();
-  });
-}
-function editInflacion(id){
-  const c=dbGet('inflacion').find(x=>x.id===id);
-  openModal('Editar inflación',[
-    {key:'mes',label:'Mes',type:'month',value:c.mes,required:true},
-    {key:'porcentaje',label:'Inflación mensual (%)',type:'number',value:c.porcentaje,required:true},
-    {key:'tipo',label:'Tipo',type:'select',options:['real','proyectado'],value:c.tipo},
-  ],(data)=>{ dbUpdate('inflacion',id,{...data,porcentaje:+data.porcentaje}); renderInflacion(); });
-}
-function deleteInflacion(id){ confirmDelete(()=>{ dbDelete('inflacion',id); renderInflacion(); }); }
-
-// =============================================
 // RENDER: INGRESOS
 // =============================================
 function renderIngresos(){
@@ -2470,7 +2341,6 @@ function renderIngresos(){
           <span class="itag ${i.moneda==='ARS'?'ars':'usd'}">${i.moneda}</span>
           <span class="itag cuota">${freqLabel[i.frecuencia]||i.frecuencia}</span>
           <span class="itag dt">${periodo}</span>
-          ${i.ajustaInflacion?'<span class="itag dt">Aj. inf.</span>':''}
         </div>
       </div>
       <div class="irow-right">
@@ -2557,7 +2427,6 @@ function _setupIngresoModal(){
     show('desde', v==='mensual'||v==='unico', true);
     show('hasta', v==='mensual', false);
     show('mesIngreso', v==='semestral', true);
-    show('ajustaInflacion', v==='mensual', false);
     const desdeLabel=document.getElementById('mf-desde')?.closest('.modal-field')?.querySelector('label');
     if(desdeLabel) desdeLabel.textContent=v==='unico'?'Mes de impacto *':'Desde (YYYY-MM) *';
   }
@@ -2573,11 +2442,10 @@ function addIngreso(){
     {key:'desde',label:'Desde (YYYY-MM)',type:'month'},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month'},
     {key:'mesIngreso',label:'Primer mes de cobro',type:'month'},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si']},
     {key:'notas',label:'Notas',type:'textarea'},
   ]),(data)=>{
     const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
-    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; }
     if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
     if(data.frecuencia==='unico') obj.desde=data.desde;
     dbAdd('ingresos',obj);
@@ -2595,11 +2463,10 @@ function editIngreso(id){
     {key:'desde',label:'Desde (YYYY-MM)',type:'month',value:i.desde||''},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month',value:i.hasta||''},
     {key:'mesIngreso',label:'Primer mes de cobro',type:'month',value:i.mesIngreso||''},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],value:(i.ajustaInflacion||false)?'si':'no'},
     {key:'notas',label:'Notas',type:'textarea',value:i.notas||''},
   ]),(data)=>{
     const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
-    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; }
     if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
     if(data.frecuencia==='unico') obj.desde=data.desde;
     dbUpdate('ingresos',id,obj);
@@ -2873,11 +2740,10 @@ function addIngresoFuturo(){
     {key:'desde',label:'Desde (YYYY-MM)',type:'month'},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month'},
     {key:'mesIngreso',label:'Primer mes de cobro',type:'month'},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si']},
     {key:'notas',label:'Notas',type:'textarea'},
   ],(data)=>{
     const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas,confirmado:false};
-    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; }
     if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
     if(data.frecuencia==='unico') obj.desde=data.desde;
     dbAdd('ingresos_futuros',obj);
@@ -2896,11 +2762,10 @@ function editIngresoFuturo(id){
     {key:'desde',label:'Desde (YYYY-MM)',type:'month',value:i.desde||''},
     {key:'hasta',label:'Hasta (vacío = indefinido)',type:'month',value:i.hasta||''},
     {key:'mesIngreso',label:'Primer mes de cobro',type:'month',value:i.mesIngreso||''},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],value:(i.ajustaInflacion||false)?'si':'no'},
     {key:'notas',label:'Notas',type:'textarea',value:i.notas||''},
   ],(data)=>{
     const obj={descripcion:data.descripcion,monto:+data.monto,moneda:data.moneda,frecuencia:data.frecuencia,notas:data.notas};
-    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; obj.ajustaInflacion=data.ajustaInflacion==='si'; }
+    if(data.frecuencia==='mensual'){ obj.desde=data.desde; obj.hasta=data.hasta; }
     if(data.frecuencia==='semestral') obj.mesIngreso=data.mesIngreso;
     if(data.frecuencia==='unico') obj.desde=data.desde;
     dbUpdate('ingresos_futuros',id,obj);
@@ -3148,15 +3013,7 @@ function cuotaMontoEnMes(ec, mes){
   if(!cuotaActivaEnMes(ec,mes)) return 0;
   // Month-specific override takes precedence over base amount
   if(ec.montosOverride && ec.montosOverride[mes] !== undefined) return ec.montosOverride[mes];
-  let monto=ec.montoCuota||0;
-  // Apply inflation if flagged and future
-  if(ec.ajustaInflacion&&mes>MES_ACTUAL){
-    const delta=mesDiff(MES_ACTUAL,mes);
-    for(let i=1;i<=delta;i++){
-      monto*=(1+getInflacion(mesNext(MES_ACTUAL,i))/100);
-    }
-  }
-  return monto;
+  return ec.montoCuota||0;
 }
 
 // Keep old function name as alias for compatibility
@@ -3622,7 +3479,6 @@ function addEgresoCuota(modo){
     {key:'transferenciaAlias',label:'Alias (opcional)',type:'text'},
     {key:'categoria',label:'Categoría',type:'select',options:getCategorias()},
     {key:'esencial',label:'Esencial',type:'select',options:['si','no']},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],hint:'Si es Sí, el monto futuro se actualiza con inflación proyectada'},
     {key:'notas',label:'Notas',type:'textarea'},
   ];
   openModal(esPeriodico?'Nuevo gasto periódico / fijo':'Nueva compra en cuotas',fields,(data)=>{
@@ -3632,7 +3488,6 @@ function addEgresoCuota(modo){
       nCuotas:+(data.nCuotas||1),
       cuotaActual:+(data.cuotaActual||1),
       esencial:data.esencial==='si',
-      ajustaInflacion:data.ajustaInflacion==='si',
     });
     renderEgresosCuotas(); renderEgresosFijos();
   });
@@ -3718,7 +3573,6 @@ function _editEgresoCuotaFull(id){
     {key:'transferenciaAlias',label:'Alias (opcional)',type:'text',value:ec.transferenciaAlias||''},
     {key:'categoria',label:'Categoría',type:'select',options:getCategorias(),value:ec.categoria},
     {key:'esencial',label:'Esencial',type:'select',options:['si','no'],value:ec.esencial?'si':'no'},
-    {key:'ajustaInflacion',label:'Ajusta por inflación',type:'select',options:['no','si'],value:(ec.ajustaInflacion||false)?'si':'no'},
     {key:'notas',label:'Notas',type:'textarea',value:ec.notas||''},
   ],(data)=>{
     dbUpdate('egresos_cuotas',id,{
@@ -3727,7 +3581,6 @@ function _editEgresoCuotaFull(id){
       nCuotas:+(data.nCuotas||1),
       cuotaActual:+(data.cuotaActual||1),
       esencial:data.esencial==='si',
-      ajustaInflacion:data.ajustaInflacion==='si',
     });
     renderEgresosCuotas(); renderEgresosFijos();
   });
@@ -4295,12 +4148,14 @@ function renderCartera(){
       :c.moneda==='ARS'?fmtARS(c.vARS):`${fmtUSD(c.vUSD)} USD`;
     const rendStr=(c.rUSD>=0?'+':'')+fmtUSD(c.rUSD)+' USD';
     const priceLabel=c.tipo==='Moneda extranjera'?`Ref: ${fmtARS(usdArs)}`:`Compra: ${fmtARS(c.precioCompra||0)}`;
+    const fechaTag=c.tipo==='Moneda extranjera'&&c.fecha?`<span class="itag dt">${fmtFecha(c.fecha)}</span>`:'';
     return `<div class="irow">
       <div class="irow-info">
         <div class="irow-nm">${c.activo} <span style="font-size:11px;color:var(--muted);font-weight:400;">×${c.cantidad}</span></div>
         <div class="irow-tags">
           <span class="itag dt">${priceLabel}</span>
           <span class="itag dt">= ${valueStr}</span>
+          ${fechaTag}
         </div>
       </div>
       <div class="irow-right">
@@ -4337,6 +4192,8 @@ function renderCartera(){
 
   const hasARS=totalARS>0;
   const gastoUSDMes=egresosUSDpuroEnMes(MES_ACTUAL);
+  const usdDescCorte=usdEgresadoDesdeCorte(MES_ACTUAL);
+  const totalUSDAjustado=Math.max(0,totalUSD-usdDescCorte);
 
   // Flow table: 3 past + current + 8 future
   const flowMeses=[];
@@ -4363,7 +4220,7 @@ function renderCartera(){
     <div class="page-hdr-actions">
       <div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:5px 10px;font-size:12px;">
         <span style="color:var(--muted);font-weight:600;">1 USD =</span>
-        <input type="number" value="${refs.USD_ARS||''}" style="width:80px;font-family:var(--font-mono);font-size:13px;font-weight:700;background:transparent;border:none;border-bottom:2px solid var(--pos);padding:1px 3px;color:inherit;" oninput="setCarteraRef('USD_ARS',this.value)" placeholder="cotiz.">
+        <input type="number" value="${refs.USD_ARS||''}" style="width:80px;font-family:var(--font-mono);font-size:13px;font-weight:700;background:transparent;border:none;border-bottom:2px solid var(--pos);padding:1px 3px;color:inherit;" onchange="setCarteraRef('USD_ARS',this.value)" placeholder="cotiz.">
         <span style="color:var(--muted);font-weight:600;">ARS</span>
       </div>
       <button class="btn-cta-dark" onclick="addCartera()">
@@ -4371,12 +4228,13 @@ function renderCartera(){
       </button>
     </div>
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));">
+  <div class="kpi-grid">
     <div class="kpi-card kc-green">
       <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">$</div>
       <div style="flex:1;">
         <div class="kpi-lbl">Total USD</div>
-        <div class="kpi-val">${fmtUSD(totalUSD)} USD</div>
+        <div class="kpi-val">${fmtUSD(totalUSDAjustado)} USD</div>
+        ${usdDescCorte>0?`<div class="kpi-meta">- ${fmtUSD(usdDescCorte)} gastos USD Ago 2026+</div>`:''}
         ${hasARS?`<div class="kpi-meta">+ ${fmtARS(totalARS)} ARS</div>`:''}
       </div>
     </div>
@@ -4384,7 +4242,7 @@ function renderCartera(){
       <div class="kpi-ico" style="background:var(--opal-bg);color:var(--opal);font-weight:700;">⇄</div>
       <div style="flex:1;">
         <div class="kpi-lbl">En ARS</div>
-        <div class="kpi-val">${fmtARS(totalUSD*usdArs)}</div>
+        <div class="kpi-val">${fmtARS(totalUSDAjustado*usdArs)}</div>
         ${hasARS?`<div class="kpi-meta">+ ${fmtARS(totalARS)} propio</div>`:''}
       </div>
     </div>
@@ -4430,12 +4288,16 @@ function renderCartera(){
 function _setupCarteraModal(){
   const tipoSel=document.getElementById('mf-tipo');
   if(!tipoSel) return;
-  const show=(key,visible)=>{
+  const show=(key,visible,requiredWhenVisible)=>{
     const el=document.getElementById('mf-'+key);
     if(!el) return;
     el.closest('.modal-field').style.display=visible?'':'none';
+    if(requiredWhenVisible) el.required=visible;
   };
-  function update(){ show('moneda', tipoSel.value==='Bono/Acción Negociable'); }
+  function update(){
+    show('moneda', tipoSel.value==='Bono/Acción Negociable');
+    show('fecha', tipoSel.value==='Moneda extranjera', true);
+  }
   tipoSel.addEventListener('change',update);
   update();
 }
@@ -4446,9 +4308,10 @@ function addCartera(){
     {key:'moneda',label:'Moneda del precio',type:'select',options:['ARS','USD']},
     {key:'cantidad',label:'Cantidad',type:'number',required:true,value:'1'},
     {key:'precioCompra',label:'Precio de compra',type:'number',required:true,hint:'Moneda extran.: ARS/unidad · Crypto: USD/unidad · Bono: ARS o USD/unidad'},
+    {key:'fecha',label:'Fecha de compra',type:'date',hint:'Requerido para moneda extranjera'},
     {key:'notas',label:'Notas',type:'textarea'},
   ],(data)=>{
-    dbAdd('cartera',{activo:data.activo,tipo:data.tipo,moneda:data.moneda||'USD',cantidad:+data.cantidad,precioCompra:+data.precioCompra,precioActual:0,notas:data.notas||''});
+    dbAdd('cartera',{activo:data.activo,tipo:data.tipo,moneda:data.moneda||'USD',cantidad:+data.cantidad,precioCompra:+data.precioCompra,precioActual:0,fecha:data.fecha||'',notas:data.notas||''});
     renderCartera();
   });
   _setupCarteraModal();
@@ -4462,9 +4325,10 @@ function editCartera(id){
     {key:'moneda',label:'Moneda del precio',type:'select',options:['ARS','USD'],value:c.moneda||'USD'},
     {key:'cantidad',label:'Cantidad',type:'number',value:c.cantidad,required:true},
     {key:'precioCompra',label:'Precio de compra',type:'number',value:c.precioCompra,required:true},
+    {key:'fecha',label:'Fecha de compra',type:'date',value:c.fecha||'',hint:'Requerido para moneda extranjera'},
     {key:'notas',label:'Notas',type:'textarea',value:c.notas||''},
   ],(data)=>{
-    dbUpdate('cartera',id,{...c,activo:data.activo,tipo:data.tipo,moneda:data.moneda||c.moneda||'USD',cantidad:+data.cantidad,precioCompra:+data.precioCompra,notas:data.notas||''});
+    dbUpdate('cartera',id,{...c,activo:data.activo,tipo:data.tipo,moneda:data.moneda||c.moneda||'USD',cantidad:+data.cantidad,precioCompra:+data.precioCompra,fecha:data.fecha||'',notas:data.notas||''});
     renderCartera();
   });
   _setupCarteraModal();
@@ -4751,7 +4615,6 @@ function renderAnalisis(){
   const ingPrev=totalIngresosUSD(prevMes);
   const egPrev=totalEgresosUSD(prevMes);
   const cotiz=getCotizacion(selMes);
-  const inf=getInflacion(selMes);
 
   // Category breakdown
   const cats={};
@@ -4777,12 +4640,11 @@ function renderAnalisis(){
     <span class="muted-text" style="font-size:12px;">vs ${mesLabel(prevMes)}</span>
     <button class="btn ghost" style="margin-left:auto;" onclick="exportarCSV('${selMes}')">⬇ Exportar CSV</button>
   </div>
-  <div class="g5">
+  <div class="g4">
     <div class="card pos"><div class="cl">Ingresos</div><div class="cv">${fmtUSD(ing)} USD</div><div class="cs">${fmtARS(ing*cotiz)}</div></div>
     <div class="card neg"><div class="cl">Egresos</div><div class="cv">${fmtUSD(eg)} USD</div><div class="cs">${fmtARS(eg*cotiz)}</div></div>
     <div class="card pos-s"><div class="cl">Neto</div><div class="cv">${neto>=0?'+':''}${fmtUSD(neto)}</div><div class="cs">ratio ${fmtPct(ratio)}</div></div>
     <div class="card warn"><div class="cl">Cotización</div><div class="cv">${fmtARS(cotiz)}</div><div class="cs">${dbGet('cotizaciones').find(x=>x.mes===selMes)?.tipo||'sin dato'}</div></div>
-    <div class="card warn"><div class="cl">Inflación</div><div class="cv">${fmtPct(inf)}</div><div class="cs">${dbGet('inflacion').find(x=>x.mes===selMes)?.tipo||'sin dato'}</div></div>
   </div>
   <div class="g2">
     <div class="ana-section">
@@ -4794,13 +4656,12 @@ function renderAnalisis(){
           ['Neto',neto,ingPrev-egPrev,'pos'],
           ['Ratio ahorro',ratio,ingPrev>0?(ingPrev-egPrev)/ingPrev*100:0,null,true],
           ['Cotización',cotiz,getCotizacion(prevMes),'neg'],
-          ['Inflación',inf,getInflacion(prevMes),'neg',true],
         ].map(([label,cur,prev,dir,isPct])=>{
           const delta=cur-prev; const pct=prev>0?delta/prev*100:0;
           const pos=delta>=0?'pos-text':'neg-text';
           return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border2);">
             <span style="flex:1;font-size:12px;color:var(--muted);">${label}</span>
-            <span style="font-size:13px;font-weight:700;">${isPct?fmtPct(cur):label==='Cotización'||label==='Inflación'?fmtARS(cur)+' / '+fmtPct(cur):(fmtUSD(cur)+' USD')}</span>
+            <span style="font-size:13px;font-weight:700;">${isPct?fmtPct(cur):label==='Cotización'?fmtARS(cur)+' / '+fmtPct(cur):(fmtUSD(cur)+' USD')}</span>
             <span style="font-size:11px;font-weight:600;" class="${pos}">${delta>=0?'+':''}${isPct?fmtPct(delta):fmtUSD(Math.abs(delta))} ${pct!==0?'('+pct.toFixed(1)+'%)':''}</span>
           </div>`;
         }).join('')}
@@ -4886,14 +4747,15 @@ function renderProyeccion(){
     const eg=egBase+egSplt;
     const neto=ing-eg;
     const cotiz=getCotizacion(mes);
-    const inf=getInflacion(mes);
     const risk=neto<0;
     const hasAgui=ing>((totalIngresosUSD(mesNext(mes,-1))+totalIngresosFuturosUSD(mesNext(mes,-1)))*1.3);
-    return {mes,ing,eg,neto,cotiz,inf,risk,hasAgui,ingReal,ingFut,ingSplt,egBase,egSplt};
+    return {mes,ing,eg,neto,cotiz,risk,hasAgui,ingReal,ingFut,ingSplt,egBase,egSplt};
   });
 
-  let portafolio=patrimonioDolarizado();
-  const portProj=rows.map(r=>{
+  // Mes en curso: portafolio real (cartera + activos), no estimado. Meses futuros: proyección desde esa base real.
+  let portafolio=patrimonioDolarizado()+patrimonioActivosFisicos();
+  const portProj=rows.map((r,i)=>{
+    if(i===0) return portafolio;
     const ahorro=Math.max(0,r.neto);
     portafolio=portafolio*(1+0.075/12)+ahorro;
     return portafolio;
@@ -4924,11 +4786,10 @@ function renderProyeccion(){
   <div class="sh">Proyección mes a mes · ${mesLabel(meses[0])} → ${mesLabel(meses[meses.length-1])}</div>
   <div class="table-wrap">
   <table class="tbl">
-    <tr><th>Mes</th><th>Cotiz. USD</th><th>Inflac.</th><th>Ingresos USD</th><th>Egresos USD</th><th>Neto</th><th>Portafolio est.</th></tr>
+    <tr><th>Mes</th><th>Cotiz. USD</th><th>Ingresos USD</th><th>Egresos USD</th><th>Neto</th><th>Portafolio est.</th></tr>
     ${rows.map((r,i)=>`<tr style="${r.risk?'background:rgba(237,106,90,.06)':''}">
       <td><strong style="color:${r.risk?'var(--neg-dk)':r.hasAgui?'var(--pos-dk)':'var(--text)'}">${mesLabel(r.mes)}${r.hasAgui?' ✦':r.risk?' ⚠':''}</strong></td>
       <td class="muted-text">${fmtARS(r.cotiz)}</td>
-      <td class="${r.inf>4?'neg-text':'warn-text'}">${fmtPct(r.inf)}</td>
       <td class="pos-text">
         ${fmtUSD(r.ing)}
         <div style="font-size:9px;color:var(--muted);margin-top:2px;line-height:1.5;">
@@ -4942,13 +4803,13 @@ function renderProyeccion(){
         </div>
       </td>
       <td class="${r.neto>=0?'pos-text':'neg-text'} mono">${r.neto>=0?'+':''}${fmtUSD(r.neto)}</td>
-      <td style="font-weight:700;">${fmtUSD(portProj[i])} USD</td>
+      <td style="font-weight:700;">${fmtUSD(portProj[i])} USD${i===0?' <span style="font-size:9px;color:var(--muted);font-weight:400;">(real)</span>':''}</td>
     </tr>`).join('')}
   </table>
   </div>
   <div style="margin-top:14px;background:var(--pos-bg);border-radius:9px;padding:12px 15px;border:1px solid #a8e8e7;">
     <div style="font-size:12px;font-weight:700;color:var(--pos-dk);margin-bottom:4px;">Composición</div>
-    <div style="font-size:12px;color:var(--pos-dk);">Ingresos = Reales + Futuros + Gastos compartidos (Me deben, no saldados) · Egresos = Débito/Transf + Crédito + Fijos + Gastos compartidos (Yo debo, no saldados) · Todo en USD a cotización proyectada del mes.</div>
+    <div style="font-size:12px;color:var(--pos-dk);">Ingresos = Reales + Futuros + Gastos compartidos (Me deben, no saldados) · Egresos = Débito/Transf + Crédito + Fijos + Gastos compartidos (Yo debo, no saldados) · Todo en USD a la cotización cargada para cada mes en Cotización USD. El mes en curso muestra el portafolio real (cartera + activos); los siguientes son proyección.</div>
   </div>`;
 }
 
@@ -5047,7 +4908,9 @@ function renderObjetivosLista(){
   const totalCubierto=list.reduce((s,o)=>s+objetivoTotalCubierto(o),0);
   const totalBrecha=list.reduce((s,o)=>s+objetivoBrecha(o),0);
   const totalAsigLiq=list.reduce((s,o)=>s+(o.asignacion_liquida||0),0);
-  const fondosLibres=patrimonioDolarizado()-totalAsigLiq-egresosUSDpuroEnMes(MES_ACTUAL);
+  // Desde el corte, patrimonioDolarizado() ya descuenta el gasto USD del mes actual — no duplicar.
+  const gastoMesActualExtra=MES_ACTUAL<CORTE_DESCUENTO_USD?egresosUSDpuroEnMes(MES_ACTUAL):0;
+  const fondosLibres=patrimonioDolarizado()-totalAsigLiq-gastoMesActualExtra;
   const progGlobal=totalMeta>0?Math.min(100,totalCubierto/totalMeta*100):0;
   const totalMensual=list.filter(o=>!o.completado).reduce((s,o)=>s+(o.ahorro_mensual||0),0);
   const sobreMensual=avgNeto-totalMensual;
@@ -5655,7 +5518,7 @@ function openModal(title,fields,onSave){
   container.innerHTML=fields.map(f=>{
     if(f.type==='textarea') return `<div class="modal-field"><label>${f.label}</label><textarea id="mf-${f.key}" rows="2">${f.value||''}</textarea>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
     if(f.type==='select') return `<div class="modal-field"><label>${f.label}</label><select id="mf-${f.key}">${(f.options||[]).map(o=>`<option value="${o}" ${o===(f.value||f.options[0])?'selected':''}>${o||'(vacío)'}</option>`).join('')}</select>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
-    return `<div class="modal-field"><label>${f.label}${f.required?' *':''}</label><input type="${f.type||'text'}" id="mf-${f.key}" value="${f.value??''}" placeholder="${f.hint||''}">${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
+    return `<div class="modal-field"><label>${f.label}${f.required?' *':''}</label><input type="${f.type||'text'}" id="mf-${f.key}" value="${f.value??''}" placeholder="${f.hint||''}" ${f.required?'required':''}>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
   }).join('');
   document.getElementById('modal-overlay').classList.remove('hidden');
   // focus first input
@@ -6195,7 +6058,6 @@ const TABLAS_CAMPOS_META={
     {key:'frecuencia',label:'Frecuencia',required:true},
     {key:'desde',label:'Desde (mes)'},
     {key:'hasta',label:'Hasta (mes)'},
-    {key:'ajustaInflacion',label:'Ajusta inflación'},
     {key:'notas',label:'Notas'},
   ],
   Egresos:[
