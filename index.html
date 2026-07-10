@@ -27,7 +27,7 @@
 html,body{height:100%;font-family:var(--font);font-size:14px;background:var(--bg);color:var(--text);}
 /* ---- LAYOUT ---- */
 .app{display:flex;height:100vh;overflow:hidden;}
-.sidebar{width:220px;min-width:220px;background:var(--sidebar);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1),min-width .22s cubic-bezier(.4,0,.2,1);}
+.sidebar{width:220px;min-width:220px;background:#14130F;display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1),min-width .22s cubic-bezier(.4,0,.2,1);}
 .nav-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:4px;}
 .nav-scroll::-webkit-scrollbar{width:3px;}
 .nav-scroll::-webkit-scrollbar-track{background:transparent;}
@@ -140,40 +140,41 @@ html,body{height:100%;font-family:var(--font);font-size:14px;background:var(--bg
 .irow-amt{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--neg-dk);white-space:nowrap;}
 .irow-acts{display:flex;gap:4px;opacity:0;transition:opacity .15s;}.irow:hover .irow-acts{opacity:1;}
 /* ---- SIDEBAR ---- */
-.logo{padding:14px 12px 12px;font-size:19px;font-weight:800;font-family:var(--font-display);color:#F0EDE8;border-bottom:1px solid rgba(255,255,255,.07);letter-spacing:-.03em;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:6px;overflow:hidden;white-space:nowrap;}
-.logo em{color:#6AA3D9;font-style:italic;font-weight:400;}
+.logo{padding:18px 16px 0;font-size:17px;font-weight:800;font-family:var(--font-display);color:#fff;letter-spacing:-.01em;flex-shrink:0;display:flex;align-items:center;gap:10px;overflow:hidden;white-space:nowrap;margin-bottom:22px;}
+.logo em{color:#fff;font-style:normal;font-weight:800;}
 .logo-text{transition:opacity .15s .05s;}
 .sidebar.collapsed .logo-text{opacity:0;width:0;overflow:hidden;}
-.sidebar-toggle{background:none;border:none;cursor:pointer;padding:4px;border-radius:5px;color:rgba(255,255,255,.28);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;transition:color .15s,background .15s;}
-.sidebar-toggle:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);}
-.logo-icon{width:28px;height:28px;flex-shrink:0;transition:opacity .15s .05s;}
+.sidebar-toggle{margin-left:auto;background:none;border:none;cursor:pointer;padding:4px;border-radius:5px;color:#6E6E68;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;transition:color .15s,background .15s;}
+.sidebar-toggle:hover{background:rgba(255,255,255,.07);color:#C9C6BC;}
+.logo-icon{width:22px;height:22px;flex-shrink:0;transition:opacity .15s .05s;}
 .sidebar.collapsed .logo-icon{opacity:0;width:0;overflow:hidden;}
-.ns{padding:10px 14px 4px;font-size:13px;color:rgba(255,255,255,.82);font-weight:700;letter-spacing:-.01em;font-family:var(--font-display);overflow:hidden;white-space:nowrap;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-radius:6px;margin:6px 6px 0;user-select:none;transition:color .12s;}
-.ns:hover{color:#fff;}
+.ns{padding:0 8px 6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6E6E68;overflow:hidden;white-space:nowrap;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-radius:6px;margin:18px 8px 0;user-select:none;transition:color .12s;}
+.nav-scroll>.ns:first-child{margin-top:0;}
+.ns:hover{color:#C9C6BC;}
 .sidebar.collapsed .ns{opacity:0;height:0;padding:0;margin:0;pointer-events:none;overflow:hidden;}
-.ni{display:flex;align-items:center;gap:8px;padding:6px 12px;margin:1px 8px;border-radius:7px;cursor:pointer;color:rgba(255,255,255,.42);font-size:11.5px;font-weight:500;user-select:none;transition:background .12s,color .12s,padding .2s,margin .2s;white-space:nowrap;overflow:hidden;box-shadow:inset 0 0 0 transparent;}
-.ni:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.78);}
-.ni.active{background:rgba(232,169,60,.13);color:#E8A93C;box-shadow:inset 2.5px 0 0 #E8A93C;font-weight:600;}
-.ni-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center;}
-.ni-label{overflow:hidden;white-space:nowrap;transition:opacity .12s,width .2s;}
-.sidebar.collapsed .ni{padding:7px;margin:1px 6px;justify-content:center;}
+.ni{display:flex;align-items:center;gap:10px;padding:8px 10px;margin:2px 8px;border-radius:10px;cursor:pointer;color:#C9C6BC;font-size:13.5px;font-weight:500;user-select:none;transition:background .12s,color .12s,border-color .12s,padding .2s,margin .2s;white-space:nowrap;overflow:hidden;border:1px solid transparent;}
+.ni:hover{background:rgba(255,255,255,.05);color:#fff;}
+.ni.active{background:linear-gradient(90deg,rgba(239,161,58,.16),rgba(239,161,58,0));border-color:#EFA13A;color:#EFA13A;font-weight:600;}
+.ni-icon{font-size:14px;flex-shrink:0;width:16px;height:16px;display:flex;align-items:center;justify-content:center;color:var(--ic,#8A8A85);}
+.ni.active .ni-icon{color:#EFA13A;}
+.ni-label{overflow:hidden;white-space:nowrap;flex:1;transition:opacity .12s,width .2s;}
+.sidebar.collapsed .ni{padding:8px;margin:2px 6px;justify-content:center;}
 .sidebar.collapsed .ni-label{opacity:0;width:0;}
 .sidebar.collapsed .nbadge{display:none;}
-.nbadge{margin-left:auto;font-size:9px;padding:2px 5px;border-radius:7px;flex-shrink:0;}
-.nbadge.r{background:rgba(215,38,61,.22);color:#F4909A;}
-.nbadge.t{background:rgba(232,169,60,.2);color:#E8A93C;}
-.sb{padding:10px;border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:6px;overflow:hidden;flex-shrink:0;}
-.sidebar.collapsed .sb{padding:8px 6px;}
-.fxb{background:rgba(255,255,255,.07);border-radius:7px;padding:7px 10px;cursor:pointer;transition:opacity .15s;}
-.fxb:hover{background:rgba(255,255,255,.11);}
-.sidebar.collapsed .fxb{display:none;}
-.fxl{color:rgba(255,255,255,.32);font-size:9px;margin-bottom:1px;font-weight:600;text-transform:uppercase;}
-.fxv{color:#E8A93C;font-weight:700;font-size:13px;}
+.nbadge{margin-left:auto;font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:20px;flex-shrink:0;text-transform:uppercase;letter-spacing:.02em;}
+.nbadge.r{background:rgba(214,91,91,.2);color:#D65B5B;}
+.nbadge.t{background:#3E9C6E;color:#14130F;}
+.sb{padding:14px 16px 16px;border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:6px;overflow:hidden;flex-shrink:0;}
+.sidebar.collapsed .sb{padding:10px 6px;}
+.sb-actions{display:flex;gap:6px;margin-left:auto;flex-shrink:0;}
+.sidebar.collapsed .sb-actions{display:none;}
+.sb-icon-btn{width:26px;height:26px;border-radius:7px;background:#211F1A;border:none;display:flex;align-items:center;justify-content:center;color:#8A8A85;cursor:pointer;transition:all .15s;padding:0;flex-shrink:0;}
+.sb-icon-btn:hover{background:#2a2822;color:#C9C6BC;}
 /* collapsed tooltip on hover */
 .sidebar.collapsed .ni{position:relative;}
 .sidebar.collapsed .ni:hover::after{content:attr(data-label);position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);background:#1F2937;color:#F0EDE8;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:100;box-shadow:0 4px 14px rgba(0,0,0,.28);}
 .sidebar.collapsed .ni:hover::before{content:'';position:absolute;left:calc(100% + 4px);top:50%;transform:translateY(-50%);border:5px solid transparent;border-right-color:#1F2937;z-index:101;}
-.sidebar.collapsed .ni.active{box-shadow:none;background:rgba(232,169,60,.18);}
+.sidebar.collapsed .ni.active{background:rgba(239,161,58,.18);border-color:transparent;}
 /* ---- PANELS ---- */
 .panel{display:none;animation:fadeIn .15s ease;}
 .panel.active{display:block;}
@@ -641,7 +642,7 @@ body.privacy svg text{
 .dh-tab{padding:4px 10px;border-radius:5px;font-size:11.5px;font-weight:500;cursor:pointer;transition:all .12s;border:none;background:transparent;color:var(--muted);font-family:var(--font);}
 .dh-tab.active{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08);font-weight:600;}
 /* ---- COLLAPSIBLE NAV GROUPS ---- */
-.ns-chev{font-size:11px;color:rgba(255,255,255,.35);transition:transform .2s;flex-shrink:0;}
+.ns-chev{font-size:11px;font-weight:400;color:#6E6E68;transition:transform .2s;flex-shrink:0;}
 .ns.collapsed .ns-chev{transform:rotate(-90deg);}
 .nav-items{overflow:hidden;transition:max-height .25s ease,opacity .18s ease;max-height:500px;opacity:1;}
 .nav-items.collapsed{max-height:0;opacity:0;pointer-events:none;}
@@ -664,36 +665,24 @@ body.privacy svg text{
   <div class="nav-items" id="ng-principal">
     <div class="ni active" onclick="nav('dashboard')" data-label="Dashboard"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9"/></svg></span><span class="ni-label">Dashboard</span></div>
     <div class="ni" onclick="nav('tareas')" data-label="Tareas"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 8l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Tareas</span><span class="nbadge r" id="badge-tareas">0</span></div>
-    <div class="ni" onclick="nav('asistente')" data-label="Asistente IA" style="background:linear-gradient(135deg,rgba(54,201,198,.15),rgba(54,201,198,.05));border:1px solid rgba(54,201,198,.2);margin:3px 8px 1px;"><span class="ni-icon" style="color:var(--pos);"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 6h8M4 8.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4 14l2-2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label" style="color:rgba(230,235,224,.75);">Asistente IA</span><span class="nbadge t">nuevo</span></div>
+    <div class="ni" onclick="nav('asistente')" data-label="Asistente IA" style="background:linear-gradient(135deg,rgba(62,156,110,.14),rgba(62,156,110,.04));border:1px solid rgba(62,156,110,.3);margin:3px 8px 1px;"><span class="ni-icon" style="color:#3E9C6E;"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 6h8M4 8.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4 14l2-2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label" style="color:#EAF6EF;">Asistente IA</span><span class="nbadge t">nuevo</span></div>
   </div>
 
-  <div class="ns" onclick="toggleNavGroup(this)" data-group="ingresos">Ingresos <span class="ns-chev">▾</span></div>
-  <div class="nav-items" id="ng-ingresos">
-    <div class="ni" onclick="nav('ingresos')" data-label="Ingresos reales"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Ingresos reales</span></div>
-    <div class="ni" onclick="nav('ingresos-futuros')" data-label="Ingresos futuros"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 1.5"/><circle cx="12.5" cy="3.5" r="2.5" fill="var(--gold)" stroke="none"/></svg></span><span class="ni-label">Ingresos futuros</span></div>
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="flujo">Flujo de caja <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-flujo">
+    <div class="ni" onclick="nav('ingresos')" data-label="Ingresos reales"><span class="ni-icon" style="--ic:#3E9C6E"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Ingresos reales</span></div>
+    <div class="ni" onclick="nav('ingresos-futuros')" data-label="Ingresos futuros"><span class="ni-icon" style="--ic:#3E9C6E"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 1.5"/><circle cx="12.5" cy="3.5" r="2.5" fill="#EFA13A" stroke="none"/></svg></span><span class="ni-label">Ingresos futuros</span></div>
+    <div class="ni" onclick="nav('egresos-inm')" data-label="Débito/Transferencias"><span class="ni-icon" style="--ic:#D65B5B"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3.5 8.5L8 13l4.5-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Débito/Transf.</span></div>
+    <div class="ni" onclick="nav('egresos-cuotas')" data-label="Crédito"><span class="ni-icon" style="--ic:#D65B5B"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="10.5" cy="10" r="1" fill="currentColor"/></svg></span><span class="ni-label">Crédito</span></div>
+    <div class="ni" onclick="nav('egresos-fijos')" data-label="Fijos"><span class="ni-icon" style="--ic:#D65B5B"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5h12M2 8h8M2 11h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="ni-label">Fijos</span></div>
   </div>
 
-  <div class="ns" onclick="toggleNavGroup(this)" data-group="egresos">Egresos <span class="ns-chev">▾</span></div>
-  <div class="nav-items" id="ng-egresos">
-    <div class="ni" onclick="nav('egresos-inm')" data-label="Débito/Transferencias"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3.5 8.5L8 13l4.5-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label">Débito/Transf.</span></div>
-    <div class="ni" onclick="nav('egresos-cuotas')" data-label="Crédito"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/><circle cx="8" cy="10" r="1" fill="currentColor"/><circle cx="10.5" cy="10" r="1" fill="currentColor"/></svg></span><span class="ni-label">Crédito</span></div>
-    <div class="ni" onclick="nav('egresos-fijos')" data-label="Fijos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5h12M2 8h8M2 11h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="ni-label">Fijos</span></div>
-  </div>
-
-  <div class="ns" onclick="toggleNavGroup(this)" data-group="compartidos">Compartidos <span class="ns-chev">▾</span></div>
-  <div class="nav-items" id="ng-compartidos">
+  <div class="ns" onclick="toggleNavGroup(this)" data-group="patrimonio">Patrimonio <span class="ns-chev">▾</span></div>
+  <div class="nav-items" id="ng-patrimonio">
     <div class="ni" onclick="nav('split')" data-label="Gastos compartidos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2.21 2.015-4 4.5-4S10 10.79 10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12.5 9.5c1.38.5 2.5 1.7 2.5 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span class="ni-label">Gastos compartidos</span></div>
-  </div>
-
-  <div class="ns" onclick="toggleNavGroup(this)" data-group="activos">Activos <span class="ns-chev">▾</span></div>
-  <div class="nav-items" id="ng-activos">
     <div class="ni" onclick="nav('cartera')" data-label="Cartera"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 12V6a1 1 0 011-1h10a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.5"/><path d="M5 5V3.5A1.5 1.5 0 016.5 2h3A1.5 1.5 0 0111 3.5V5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8.5" r="1.5" fill="currentColor"/></svg></span><span class="ni-label">Cartera</span></div>
     <div class="ni" onclick="nav('activos')" data-label="Activos físicos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 14V7.5L8 2l6 5.5V14a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span><span class="ni-label">Activos físicos</span></div>
     <div class="ni" onclick="nav('simulador')" data-label="¿Puedo?"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M6 6.5c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L8 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r="1" fill="currentColor"/></svg></span><span class="ni-label">¿Puedo?</span></div>
-  </div>
-
-  <div class="ns" onclick="toggleNavGroup(this)" data-group="objetivos">Objetivos <span class="ns-chev">▾</span></div>
-  <div class="nav-items" id="ng-objetivos">
     <div class="ni" onclick="nav('objetivos')" data-label="Objetivos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg></span><span class="ni-label">Objetivos</span></div>
   </div>
 
@@ -720,26 +709,23 @@ body.privacy svg text{
   </div><!-- /nav-scroll -->
 
   <div class="sb">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 6px;">
-      <div>
-        <div style="font-size:18px;font-weight:700;font-family:var(--font-display);color:#E6EBE0;letter-spacing:-.02em;line-height:1;" id="sb-clock">--:--</div>
-        <div style="font-size:10px;color:rgba(155,193,188,.4);font-weight:500;margin-top:2px;" id="sb-date">...</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;flex-direction:column;overflow:hidden;">
+        <span class="mono" style="font-size:15px;font-weight:700;color:#fff;line-height:1.15;" id="sb-clock">--:--</span>
+        <span style="font-size:11px;color:#6E6E68;font-weight:500;margin-top:1px;" id="sb-date">...</span>
       </div>
-      <div style="display:flex;gap:5px;">
-        <button onclick="togglePrivacy()" id="privacy-btn" title="Ocultar / mostrar datos"
-          style="background:rgba(155,193,188,.1);border:none;border-radius:7px;padding:7px 9px;cursor:pointer;color:rgba(155,193,188,.55);font-size:14px;transition:all .15s;line-height:1;">
-          <svg id="privacy-icon" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/></svg>
+      <div class="sb-actions">
+        <button class="sb-icon-btn" onclick="togglePrivacy()" id="privacy-btn" title="Ocultar / mostrar datos">
+          <svg id="privacy-icon" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
-        <button onclick="if(confirm('¿Cerrar sesión?'))logout()" title="Cerrar sesión"
-          style="background:rgba(155,193,188,.1);border:none;border-radius:7px;padding:7px 9px;cursor:pointer;color:rgba(155,193,188,.45);font-size:12px;transition:all .15s;line-height:1;font-family:var(--font);">
-          ↩
+        <button class="sb-icon-btn" onclick="syncBothWays()" title="Sincronizar con la nube">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 00-9.62-3.65M2.5 8a5.5 5.5 0 009.62 3.65"/><path d="M2.5 2.5v3h3M13.5 13.5v-3h-3"/></svg>
+        </button>
+        <button class="sb-icon-btn" onclick="if(confirm('¿Cerrar sesión?'))logout()" title="Cerrar sesión">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14H3.5a1 1 0 01-1-1V3a1 1 0 011-1H6"/><path d="M10.5 11.5L14 8l-3.5-3.5"/><path d="M14 8H6"/></svg>
         </button>
       </div>
     </div>
-    <button onclick="syncBothWays()" title="Sincronizar con la nube"
-      style="width:100%;background:rgba(155,193,188,.07);border:1px solid rgba(155,193,188,.12);border-radius:7px;padding:5px;font-size:10px;font-weight:600;color:rgba(155,193,188,.4);cursor:pointer;font-family:var(--font);text-align:center;margin-top:2px;">
-      ⇅ Sincronizar
-    </button>
   </div>
 </div>
 
@@ -6339,13 +6325,13 @@ function applyPrivacy(){
   const icon=document.getElementById('privacy-icon');
   if(!btn) return;
   if(_privacyOn){
-    btn.style.background='rgba(237,106,90,.2)';
-    btn.style.color='var(--neg)';
+    btn.style.background='rgba(214,91,91,.2)';
+    btn.style.color='#D65B5B';
     icon.innerHTML='<path d="M2 2l12 12M6.5 6.7A3 3 0 009.3 9.5M4.2 4.3C2.8 5.4 1.8 6.7 1 8c1.5 2.5 4 5 7 5a7 7 0 002.8-.6M7 3.1A7 7 0 0115 8c-.4.7-1 1.5-1.7 2.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>';
     document.body.classList.add('privacy');
   } else {
-    btn.style.background='rgba(155,193,188,.1)';
-    btn.style.color='rgba(155,193,188,.55)';
+    btn.style.background='#211F1A';
+    btn.style.color='#8A8A85';
     icon.innerHTML='<path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>';
     document.body.classList.remove('privacy');
   }
