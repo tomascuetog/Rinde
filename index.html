@@ -555,15 +555,15 @@ body.privacy svg text{
 .dh-lc-val{font-size:14px;font-weight:700;font-family:var(--font-mono);}
 .dh-lc-sub{font-size:10px;color:var(--muted);margin-top:2px;}
 .dh-footer-hint{border-top:1px dashed var(--border2);padding:10px 18px;display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--muted);line-height:1.5;}
-.dh-donut-grid{display:grid;grid-template-columns:180px 1fr;gap:14px;align-items:start;}
-.dh-cat-list{display:flex;flex-direction:column;gap:1px;}
-.dh-cat-row{display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:8px;padding:6px 5px;border-radius:7px;transition:background .12s;}
-.dh-cat-row:hover{background:var(--s2);}
-.dh-cat-sw{width:13px;height:13px;border-radius:3px;}
-.dh-cat-nm{font-size:12px;font-weight:500;color:var(--text);}
-.dh-cat-sub{font-size:10px;color:var(--muted);margin-top:1px;}
-.dh-cat-amt{font-size:12px;font-weight:600;font-family:var(--font-mono);text-align:right;}
-.dh-cat-pct{font-size:10px;color:var(--muted);text-align:right;}
+.dh-catbar-list{display:flex;flex-direction:column;gap:4px;max-height:296px;overflow-y:auto;padding-right:4px;}
+.dh-catbar-list::-webkit-scrollbar{width:6px;}
+.dh-catbar-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.dh-catbar-row{display:grid;grid-template-columns:10px 96px 1fr 34px;align-items:center;gap:8px;height:26px;}
+.dh-catbar-sw{width:10px;height:10px;border-radius:2px;}
+.dh-catbar-nm{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dh-catbar-track{height:8px;border-radius:4px;background:var(--s2);overflow:hidden;}
+.dh-catbar-fill{height:100%;border-radius:4px;}
+.dh-catbar-pct{font-size:12px;font-weight:700;font-family:var(--font-mono);color:var(--text);text-align:right;}
 .dh-qual-row{margin-bottom:12px;}
 .dh-qual-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
 .dh-qual-left{display:flex;align-items:center;gap:7px;}
@@ -1948,17 +1948,14 @@ function renderDashboard(){
     return`<svg viewBox="0 0 ${vw} ${vh}" style="width:100%;height:${vh}px;">${grid}${bars}</svg>`;
   }
 
-  function donutSVG(){
+  function catBarsSVG(){
     if(!catEntries.length) return '<div style="color:var(--muted);font-size:12px;padding:20px 0;">Sin egresos en el período.</div>';
-    const R=65,sw=16,cx=80,cy=80,circ=2*Math.PI*R;
-    let off=0;
-    const arcs=catEntries.slice(0,7).map(([cat,val])=>{
-      const pct=val/totalCatUSD;
-      const dash=pct*circ;
-      const el=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${CAT_COLORS_HEX[cat]||'#7D8694'}" stroke-width="${sw}" stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}" stroke-dashoffset="${(circ/4-off).toFixed(2)}" stroke-linecap="butt" style="transform-origin:${cx}px ${cy}px;"/>`;
-      off+=dash; return el;
+    const rows=catEntries.map(([cat,val])=>{
+      const pct=val/totalCatUSD*100;
+      const color=CAT_COLORS_HEX[cat]||'#7D8694';
+      return`<div class="dh-catbar-row"><div class="dh-catbar-sw" style="background:${color};"></div><div class="dh-catbar-nm">${cat}</div><div class="dh-catbar-track"><div class="dh-catbar-fill" style="width:${Math.max(pct,1.5).toFixed(1)}%;background:${color};"></div></div><div class="dh-catbar-pct">${Math.round(pct)}%</div></div>`;
     }).join('');
-    return`<div class="dh-donut-grid"><div style="display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 160 160" width="170" height="170"><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#ECEEF2" stroke-width="${sw}"/>${arcs}<text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="9" fill="#7D8694" letter-spacing="0.06em">EGRESOS</text><text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="18" fill="#15181C" font-weight="700" font-family="JetBrains Mono,monospace">${fmtUSD(totalCatUSD)}</text><text x="${cx}" y="${cy+20}" text-anchor="middle" font-size="9" fill="#7D8694">${catEntries.length} categorías</text></svg></div><div class="dh-cat-list">${catEntries.slice(0,7).map(([cat,val])=>`<div class="dh-cat-row"><div class="dh-cat-sw" style="background:${CAT_COLORS_HEX[cat]||'#7D8694'};"></div><div><div class="dh-cat-nm">${cat}</div></div><div><div class="dh-cat-amt">${fmtUSD(val)}</div><div class="dh-cat-pct">${Math.round(val/totalCatUSD*100)}%</div></div></div>`).join('')}</div></div>`;
+    return`<div class="dh-catbar-list">${rows}</div>`;
   }
 
   function patriChartSVG(){
@@ -2079,7 +2076,7 @@ function renderDashboard(){
       <div class="dh-panel-hd">
         <div class="dh-panel-hd-l"><div class="dh-panel-title">Egresos por categoría</div><div class="dh-panel-sub">May–${mesLabel(mes)}</div></div>
       </div>
-      <div class="dh-panel-bd">${donutSVG()}</div>
+      <div class="dh-panel-bd">${catBarsSVG()}</div>
     </div>
 
   </div>
