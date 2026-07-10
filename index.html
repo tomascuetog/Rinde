@@ -1661,7 +1661,10 @@ function nav(id){
     actividad:renderActividad,
     tablas:renderTablas,
   };
-  if(renders[id]) renders[id]();
+  if(renders[id]){
+    try{ renders[id](); }
+    catch(e){ console.error('Error renderizando panel',id,e); }
+  }
 }
 
 // =============================================
@@ -4622,8 +4625,12 @@ function objCard(ob){
 
 function renderObjetivosLista(){
   const list=dbGet('objetivos');
+  const cards=list.map(ob=>{
+    try{ return objCard(ob); }
+    catch(e){ console.error('Error renderizando objetivo',ob&&ob.id,e); return ''; }
+  }).join('');
   document.getElementById('objetivos-content').innerHTML=
-    list.length?list.map(objCard).join(''):'<div class="empty-state"><p>Todav&#237;a no carg&#225;s objetivos financieros.</p></div>';
+    list.length?cards:'<div class="empty-state"><p>Todav&#237;a no carg&#225;s objetivos financieros.</p></div>';
 }
 
 function renderObjetivosMapa(){
