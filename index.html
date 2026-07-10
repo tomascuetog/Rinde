@@ -285,6 +285,8 @@ html,body{height:100%;font-family:var(--font);font-size:14px;background:var(--bg
 .modal-field input,.modal-field select,.modal-field textarea{background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:var(--font);outline:none;width:100%;transition:border-color .15s,background .15s;}
 .modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--gold);background:var(--surface);box-shadow:0 0 0 3px rgba(232,169,60,.1);}
 .modal-field .hint{font-size:11px;color:var(--muted);margin-top:2px;}
+.modal-field.mf-chk label{display:flex;flex-direction:row;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text);text-transform:none;letter-spacing:0;cursor:pointer;}
+.modal-field.mf-chk input[type=checkbox]{width:auto;accent-color:var(--gold);cursor:pointer;}
 .modal-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;}
 /* ---- CONFIRM ---- */
@@ -1049,30 +1051,40 @@ async function syncKeyToCloud(key){
   }catch(e){ console.warn('Sync error for key',key,e); throw e; }
 }
 
+let _miscDirty=false;
 async function syncAllPending(){
-  if(!_sb||!_sbUser||_pendingSync.size===0) return;
+  if(!_sb||!_sbUser) return;
+  if(_pendingSync.size===0&&!_miscDirty) return;
   const keys=[..._pendingSync];
   _pendingSync.clear();
+  const doMisc=_miscDirty; _miscDirty=false;
   showSync('syncing','Guardando...');
   let errors=0;
   for(const key of keys){
     try{ await syncKeyToCloud(key); }
     catch(e){ errors++; _pendingSync.add(key); }
   }
-  // Also sync misc keys (mapa, nombre, privacy)
-  try{
+  // Also sync misc keys (mapa, nombre, privacy, tablas)
+  if(doMisc)try{
     const misc={
       mapa:JSON.parse(localStorage.getItem('rinde_mapa')||'[]'),
       nombre:localStorage.getItem('rinde_nombre')||'',
       privacy:localStorage.getItem('rinde_privacy')||'0',
+      tablas:JSON.parse(localStorage.getItem('rinde_tablas')||'{}'),
     };
     await _sb.from('rinde_data').upsert({
       user_id:_sbUser.id, key:'_misc', data:misc,
       updated_at:new Date().toISOString()
     },{onConflict:'user_id,key'});
-  }catch(e){ errors++; }
+  }catch(e){ errors++; _miscDirty=true; }
   if(errors===0){ showSync('ok','Guardado ✓'); }
   else { showSync('err','Error al guardar'); }
+}
+
+function scheduleMiscSync(){
+  _miscDirty=true;
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(syncAllPending, 800);
 }
 
 function scheduleSyncKey(key){
@@ -1094,6 +1106,7 @@ async function loadFromCloud(){
       if(m.mapa) localStorage.setItem('rinde_mapa',JSON.stringify(m.mapa));
       if(m.nombre) localStorage.setItem('rinde_nombre',m.nombre);
       if(m.privacy) localStorage.setItem('rinde_privacy',m.privacy);
+      if(m.tablas) localStorage.setItem('rinde_tablas',JSON.stringify(m.tablas));
     } else {
       const lsKey=KEYS[row.key];
       if(lsKey) localStorage.setItem(lsKey,JSON.stringify(row.data));
@@ -1127,6 +1140,7 @@ async function pushAllToCloud(){
       mapa:JSON.parse(localStorage.getItem('rinde_mapa')||'[]'),
       nombre:localStorage.getItem('rinde_nombre')||'',
       privacy:localStorage.getItem('rinde_privacy')||'0',
+      tablas:JSON.parse(localStorage.getItem('rinde_tablas')||'{}'),
     };
     await _sb.from('rinde_data').upsert({
       user_id:_sbUser.id, key:'_misc', data:misc,
@@ -1321,15 +1335,21 @@ const TABLAS_DEFAULTS={
   modosPago:['VISA','MC','AMEX','Débito','Transferencia'],
   tiposActivo:['Inmueble','Vehículo','Electrónica','Mueble/Decoración','Otro'],
   camposIngresos:['descripcion','monto','moneda','frecuencia','desde','hasta','notas'],
-  camposEgresos:['fecha','descripcion','monto','moneda','categoria','esencial','notas'],
+  camposEgresos:['fecha','descripcion','monto','moneda','categoria','evitable','notas'],
   camposSplit:['direccion','descripcion','contraparte','monto','moneda','tipo','desde','hasta','notas'],
   camposActivos:['nombre','tipo','moneda','fechaCompra','precioCompra','valorActual','notas'],
 };
-function getTablasConfig(){ try{ const s=JSON.parse(localStorage.getItem('rinde_tablas')||'{}'); return Object.assign({},TABLAS_DEFAULTS,s); }catch(e){ return Object.assign({},TABLAS_DEFAULTS); } }
-function saveTablasConfig(cfg){ localStorage.setItem('rinde_tablas',JSON.stringify(cfg)); if(document.getElementById('panel-tablas')?.classList.contains('active')) renderTablas(); }
+function getTablasConfig(){
+  try{
+    const s=JSON.parse(localStorage.getItem('rinde_tablas')||'{}');
+    if(Array.isArray(s.camposEgresos)){ const i=s.camposEgresos.indexOf('esencial'); if(i>=0) s.camposEgresos[i]='evitable'; }
+    return Object.assign({},TABLAS_DEFAULTS,s);
+  }catch(e){ return Object.assign({},TABLAS_DEFAULTS); }
+}
+function saveTablasConfig(cfg){ localStorage.setItem('rinde_tablas',JSON.stringify(cfg)); scheduleMiscSync(); if(document.getElementById('panel-tablas')?.classList.contains('active')) renderTablas(); }
 function getTablasList(key){ const cfg=getTablasConfig(); return Array.isArray(cfg[key])?cfg[key]:TABLAS_DEFAULTS[key]||[]; }
 function getMonedas(){ return getTablasList('monedas'); }
-function getCategorias(){ return getTablasList('categorias'); }
+function getCategorias(){ return [...getTablasList('categorias')].sort((a,b)=>a.localeCompare(b,'es')); }
 function getModosPago(){ return getTablasList('modosPago'); }
 function getTiposActivo(){ return getTablasList('tiposActivo'); }
 function getFrecuenciasIng(){ return getTablasList('frecuenciasIng'); }
@@ -1850,9 +1870,9 @@ function renderDashboard(){
   const totalCatUSD=Object.values(cats).reduce((a,b)=>a+b,0)||1;
   const catEntries=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
 
-  // ── Fijo / variable / no esencial ──
-  let fijo=0,variable=0,noEsencial=0;
-  dbGet('egresos_inm').forEach(e=>{ if(e.categoria==='Compra USD')return; const v=egresoInmEnMes(e,mes); if(!v)return; const u=e.moneda==='USD'?v:arsToUsd(v,mes); if(e.tipo==='fijo')fijo+=u; else variable+=u; if(!e.esencial)noEsencial+=u; });
+  // ── Fijo / variable ──
+  let fijo=0,variable=0;
+  dbGet('egresos_inm').forEach(e=>{ if(e.categoria==='Compra USD')return; const v=egresoInmEnMes(e,mes); if(!v)return; const u=e.moneda==='USD'?v:arsToUsd(v,mes); if(e.tipo==='fijo')fijo+=u; else variable+=u; });
   dbGet('egresos_cuotas').forEach(e=>{ const v=egresoCuotaEnMes(e,mes); if(!v)return; const u=e.moneda==='USD'?v:arsToUsd(v,mes); fijo+=u; });
   const totalQual=fijo+variable||1;
 
@@ -2816,11 +2836,6 @@ function renderEgresosInm(){
   const ytdItems=notUSDbuys(ytdItemsAll);
   const ytdARS=sumARS(ytdItems), ytdUSD=sumUSD(ytdItems);
 
-  const noEsItems=curItems.filter(e=>!e.esencial);
-  const noEsARS=sumARS(noEsItems), noEsUSD=sumUSD(noEsItems);
-  const esItems=curItems.filter(e=>e.esencial);
-  const esARS=sumARS(esItems), esUSD=sumUSD(esItems);
-
   function egresoRow(e){
     const montoAmt=e.moneda==='ARS'?'-'+fmtARS(e.monto):'-'+fmtUSD(e.monto)+' USD';
     return `<div class="irow">
@@ -2829,7 +2844,7 @@ function renderEgresosInm(){
         <div class="irow-tags">
           <span class="itag ${e.moneda==='ARS'?'ars':'usd'}">${e.moneda}</span>
           ${e.categoria?`<span class="itag cuota">${e.categoria}</span>`:''}
-          <span class="itag ${e.esencial?'es':'op'}">${e.esencial?'Esencial':'Opcional'}</span>
+          ${e.evitable?`<span class="itag op">Evitable</span>`:''}
           ${e.fecha?`<span class="itag dt">${fmtFecha(e.fecha)}</span>`:''}
         </div>
       </div>
@@ -2846,12 +2861,6 @@ function renderEgresosInm(){
   function monthCardInm(m,items){
     const isOpen=m===mes;
     const a=sumARS(items),u=sumUSD(items);
-    const cotM=getCotizacion(m)||1;
-    const expItems=items.filter(e=>e.categoria!=='Compra USD');
-    const noEsItems=expItems.filter(e=>!e.esencial);
-    const noEsN=noEsItems.reduce((s,e)=>s+(e.moneda==='USD'?e.monto:e.monto/cotM),0);
-    const totalN=expItems.reduce((s,e)=>s+(e.moneda==='USD'?e.monto:e.monto/cotM),0)||1;
-    const noEsPct=Math.round(noEsN/totalN*100);
     const totLabel=[a?`-${fmtARS(a)}`:'',u?`-${fmtUSD(u)} USD`:''].filter(Boolean).join(' · ')||'$0';
     const sorted=[...items].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     const cats=[...new Set(sorted.map(e=>e.categoria||'Sin categoría'))].sort();
@@ -2871,9 +2880,7 @@ function renderEgresosInm(){
         <svg id="mc-chev-inm-${m}" class="mc-chev${isOpen?'':' closed'}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         <div class="mc-title">${mesLabel(m)}</div>
         <span class="mc-sub">${items.length} gasto${items.length!==1?'s':''}</span>
-        <div class="mc-prog" title="Opcional ${noEsPct}%" style="flex:1;max-width:90px;height:4px;border-radius:2px;background:var(--border2);overflow:hidden;margin:0 8px;">
-          <div style="height:100%;width:${noEsPct}%;background:var(--neg);border-radius:2px;"></div>
-        </div>
+        <div style="flex:1;"></div>
         <div class="mc-total">${totLabel}</div>
       </div>
       <div class="mc-body" id="mc-body-inm-${m}" style="display:${isOpen?'block':'none'};">
@@ -2897,7 +2904,7 @@ function renderEgresosInm(){
       </button>
     </div>
   </div>
-  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);">
     <div class="kpi-card kc-red">
       <div class="kpi-ico" style="background:var(--neg-bg);color:var(--neg);font-weight:700;">$</div>
       <div style="flex:1;">
@@ -2923,22 +2930,6 @@ function renderEgresosInm(){
         ${ytdARS&&ytdUSD?`<div class="kpi-meta">-${fmtUSD(ytdUSD)} USD</div>`:''}
       </div>
     </div>
-    <div class="kpi-card kc-blue">
-      <div class="kpi-ico" style="background:var(--opal-bg);color:var(--opal-dk);font-weight:700;">✓</div>
-      <div style="flex:1;">
-        <div class="kpi-lbl">Esencial</div>
-        <div class="kpi-val">${esARS?'-'+fmtARS(esARS):(esUSD?'-'+fmtUSD(esUSD)+' USD':'$0')}</div>
-        ${esARS&&esUSD?`<div class="kpi-meta">-${fmtUSD(esUSD)} USD</div>`:''}
-      </div>
-    </div>
-    <div class="kpi-card kc-green">
-      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">!</div>
-      <div style="flex:1;">
-        <div class="kpi-lbl">No esencial</div>
-        <div class="kpi-val">${noEsARS?'-'+fmtARS(noEsARS):(noEsUSD?'-'+fmtUSD(noEsUSD)+' USD':'$0')}</div>
-        ${noEsARS&&noEsUSD?`<div class="kpi-meta">-${fmtUSD(noEsUSD)} USD</div>`:''}
-      </div>
-    </div>
     <div class="kpi-card" style="border-color:var(--gold);">
       <div class="kpi-ico" style="background:var(--warn-bg);color:var(--gold-dk);font-weight:700;">$</div>
       <div style="flex:1;">
@@ -2959,10 +2950,10 @@ function addEgresoInm(){
     {key:'monto',label:'Monto',type:'number',required:true},
     {key:'moneda',label:'Moneda',type:'select',options:getMonedas()},
     {key:'categoria',label:'Categoría',type:'select',options:getCategorias()},
-    {key:'esencial',label:'Esencial',type:'select',options:['si','no']},
+    {key:'evitable',label:'¿Era evitable?',type:'checkbox'},
     {key:'notas',label:'Notas',type:'textarea'},
   ]),(data)=>{
-    dbAdd('egresos_inm',{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si'});
+    dbAdd('egresos_inm',{...data,monto:+data.monto,tipo:'fijo',evitable:!!data.evitable});
     renderEgresosInm();
   });
 }
@@ -2974,10 +2965,10 @@ function editEgresoInm(id){
     {key:'monto',label:'Monto',type:'number',value:e.monto,required:true},
     {key:'moneda',label:'Moneda',type:'select',options:getMonedas(),value:e.moneda},
     {key:'categoria',label:'Categoría',type:'select',options:getCategorias(),value:e.categoria},
-    {key:'esencial',label:'Esencial',type:'select',options:['si','no'],value:e.esencial?'si':'no'},
+    {key:'evitable',label:'¿Era evitable?',type:'checkbox',value:!!e.evitable},
     {key:'notas',label:'Notas',type:'textarea',value:e.notas||''},
   ]),(data)=>{
-    dbUpdate('egresos_inm',id,{...data,monto:+data.monto,tipo:'fijo',esencial:data.esencial==='si'});
+    dbUpdate('egresos_inm',id,{...data,monto:+data.monto,tipo:'fijo',evitable:!!data.evitable});
     renderEgresosInm();
   });
 }
@@ -3086,11 +3077,6 @@ function renderEgresosCuotas(){
     return s+(ec.montoCuota||0)*rest;
   },0);
 
-  // Handle both boolean false and legacy string 'no' for esencial field
-  const esEs=(ec)=>ec.esencial===true||ec.esencial==='si';
-  const noEsARS=list.filter(ec=>ec.moneda==='ARS'&&!esEs(ec)).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
-  const noEsUSD=list.filter(ec=>ec.moneda==='USD'&&!esEs(ec)).reduce((s,ec)=>s+cuotaMontoEnMes(ec,mes),0);
-
   // KPI card helper
   function kpiCard(cls,label,ars,usd){
     const hasARS=ars>0, hasUSD=usd>0;
@@ -3126,24 +3112,12 @@ function renderEgresosCuotas(){
     </div>`;
   }).join('');
 
-  // ── Composition breakdown (current month only) ──
+  // ── Composition breakdown (current month only: periódico vs cuotas) ──
   const todayItems=list.filter(ec=>cuotaMontoEnMes(ec,mes)>0);
   const totalN=todayItems.reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0)||1;
-  const esencialN=todayItems.filter(ec=>esEs(ec)).reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0);
   const periodicoN=todayItems.filter(ec=>ec.periodicidad&&ec.periodicidad!=='unico').reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0);
-  const esencialPct=Math.round(esencialN/totalN*100);
-  const opcionalPct=100-esencialPct;
   const periodicoPct=Math.round(periodicoN/totalN*100);
   const cuotasPct=100-periodicoPct;
-
-  // ── Smart insight ──
-  const noEsCount=todayItems.filter(ec=>!esEs(ec)).length;
-  const noEsUSDEq=noEsUSD+noEsARS/cotiz;
-  const insightHtml=noEsUSDEq>0?`
-  <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:8px;background:var(--warn-bg);border:1px solid var(--warn);margin-bottom:16px;font-size:12px;color:var(--warn);">
-    <span style="font-size:16px;flex-shrink:0;">💡</span>
-    <span>Revisando <strong>${noEsCount} gasto${noEsCount!==1?'s':''} opcional${noEsCount!==1?'es':''}</strong> podrías liberar hasta <strong>~${fmtUSD(noEsUSDEq)} USD/mes</strong></span>
-  </div>`:'';;
 
   // ── Active months list ──
   const activeMonths=[];
@@ -3170,7 +3144,7 @@ function renderEgresosCuotas(){
         <div class="erow-meta" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;">
           <span class="pill ${ec.moneda==='ARS'?'opal':'pos'}">${ec.moneda}</span>
           <span class="pill gr">${typeLabel}</span>
-          <span class="pill ${esEs(ec)?'pos':'neg'}">${esEs(ec)?'Esencial':'Opcional'}</span>
+          ${ec.evitable?`<span class="pill neg">Evitable</span>`:''}
           <span style="font-size:10px;color:var(--muted);">${medioPago} · ${inicio} → ${fin}</span>
         </div>
       </div>
@@ -3220,16 +3194,13 @@ function renderEgresosCuotas(){
   const allCuotas=dbGet('egresos_cuotas').filter(ec=>!ec.periodicidad||ec.periodicidad==='unico');
   const chartData=chartMonths.map(m=>{
     const cotM=getCotizacion(m)||cotiz||1;
-    const esV=allCuotas.filter(ec=>esEs(ec)).reduce((s,ec)=>{const v=cuotaMontoEnMes(ec,m);return s+(ec.moneda==='USD'?v*cotM:v);},0);
-    const opV=allCuotas.filter(ec=>!esEs(ec)).reduce((s,ec)=>{const v=cuotaMontoEnMes(ec,m);return s+(ec.moneda==='USD'?v*cotM:v);},0);
-    return {m,esV,opV,total:esV+opV};
+    const total=allCuotas.reduce((s,ec)=>{const v=cuotaMontoEnMes(ec,m);return s+(ec.moneda==='USD'?v*cotM:v);},0);
+    return {m,total};
   });
   const maxChart=Math.max(...chartData.map(d=>d.total),1);
 
   // ── Filter/search ──
   const filterFn=ec=>{
-    if(_cuotaFilter==='es'&&!esEs(ec)) return false;
-    if(_cuotaFilter==='op'&&esEs(ec)) return false;
     if(_cuotaTarjetaFilter!=='todas'&&(ec.tarjeta||'–')!==_cuotaTarjetaFilter) return false;
     return true;
   };
@@ -3256,7 +3227,7 @@ function renderEgresosCuotas(){
         <div class="irow-tags">
           <span class="itag ${ec.moneda==='ARS'?'ars':'usd'}">${ec.moneda}</span>
           <span class="itag cuota">Cuota ${idx}/${total}</span>
-          <span class="itag ${esEs(ec)?'es':'op'}">${esEs(ec)?'Esencial':'Opcional'}</span>
+          ${ec.evitable?`<span class="itag op">Evitable</span>`:''}
           ${ec.fecha?`<span class="itag dt">${fmtFecha(ec.fecha)}</span>`:''}
         </div>
       </div>
@@ -3282,9 +3253,6 @@ function renderEgresosCuotas(){
     const uT=allInM.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+cuotaMontoEnMes(ec,m),0);
     const cotM=getCotizacion(m)||cotiz||1;
     const totUSD=(aT/cotM)+uT;
-    const esUSD=allInM.filter(ec=>esEs(ec)).reduce((s,ec)=>{const v=cuotaMontoEnMes(ec,m);return s+(ec.moneda==='USD'?v:v/cotM);},0);
-    const esPct=totUSD>0?Math.round(esUSD/totUSD*100):0;
-    const opPct=100-esPct;
     const totLabel=[aT?`-${fmtARS(aT)}`:'',uT?`-${fmtUSD(uT)} USD`:''].filter(Boolean).join(' · ')||'$0';
     const isOpen=m===mes;
     const cats=[...new Set(items.map(ec=>ec.categoria||'Sin categoría'))].sort();
@@ -3309,9 +3277,7 @@ function renderEgresosCuotas(){
         <div class="mc-title">${mesLabel(m)}</div>
         <span class="mc-sub">${allInM.length} compra${allInM.length!==1?'s':''}</span>
         <span class="mc-pill">${allInM.length}</span>
-        <div class="mc-prog" title="Esencial ${esPct}% / Opcional ${opPct}%" style="flex:1;max-width:90px;height:4px;border-radius:2px;background:var(--border2);overflow:hidden;margin:0 8px;">
-          <div style="height:100%;width:${esPct}%;background:var(--neg);border-radius:2px;display:inline-block;"></div>
-        </div>
+        <div style="flex:1;"></div>
         <div class="mc-total">${totLabel}</div>
       </div>
       <div class="mc-body" id="mc-body-${m}" style="display:${isOpen?'block':'none'};">
@@ -3324,7 +3290,6 @@ function renderEgresosCuotas(){
   const arsHoyUSD=cotiz>0?(arsHoy/cotiz+usdHoy):usdHoy;
   const arsProxUSD=cotiz>0?(arsProx/cotiz+usdProx):usdProx;
   const deltaPct=arsHoyUSD>0?Math.round((arsProxUSD-arsHoyUSD)/arsHoyUSD*100):0;
-  const noEsPct=arsHoyUSD>0?Math.round((noEsARS/cotiz+noEsUSD)/arsHoyUSD*100):0;
 
   // ── Render ──────────────────────────────────
   document.getElementById('egresos-cuotas-content').innerHTML=`
@@ -3368,42 +3333,22 @@ function renderEgresosCuotas(){
         ${deudaARS&&deudaUSD?`<div class="kpi-meta">${fmtUSD(deudaUSD)} USD</div>`:''}
       </div>
     </div>
-    <div class="kpi-card kc-green">
-      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">!</div>
-      <div style="flex:1;">
-        <div class="kpi-lbl">No esencial</div>
-        <div class="kpi-val">${noEsARS?fmtARS(noEsARS):(noEsUSD?fmtUSD(noEsUSD)+' USD':'$0')}</div>
-        ${noEsARS&&noEsUSD?`<div class="kpi-meta">${fmtUSD(noEsUSD)} USD</div>`:''}
-      </div>
-      ${noEsPct>0?`<span class="kpi-chip up">${noEsPct}%</span>`:''}
-    </div>
   </div>
 
   <!-- CHART -->
   <div class="chart-box">
     <div class="chart-hdr">
       <div class="chart-ttl">Evolución de compromisos</div>
-      <div class="chart-leg">
-        <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);">
-          <span style="width:10px;height:10px;border-radius:2px;background:var(--neg);display:inline-block;"></span>Esencial
-        </span>
-        <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);">
-          <span style="width:10px;height:10px;border-radius:2px;background:#F0909A;display:inline-block;"></span>Opcional
-        </span>
-      </div>
     </div>
     <div class="chart-bars">
       ${chartData.map(d=>{
         const totalPct=Math.round(d.total/maxChart*88);
-        const esFlex=d.total>0?Math.round(d.esV/d.total*100):0;
-        const opFlex=100-esFlex;
         const isCur=d.m===mes;
         const lbl=mesLabel(d.m).split(' ')[0];
         const barH=Math.max(totalPct,d.total>0?3:0);
         return `<div class="cbar-col${isCur?' cbar-cur':''}" title="${mesLabel(d.m)}: ${fmtARS(d.total)}" style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;">
           <div style="margin-top:auto;width:100%;height:${barH}%;border-radius:5px 5px 0 0;overflow:hidden;display:flex;flex-direction:column-reverse;${isCur?'outline:2px solid var(--gold);outline-offset:1px;':''}">
-            ${d.esV>0?`<div class="cbar-es" style="flex:${esFlex};"></div>`:''}
-            ${d.opV>0?`<div class="cbar-op" style="flex:${opFlex};"></div>`:''}
+            ${d.total>0?`<div class="cbar-es" style="flex:1;"></div>`:''}
             ${d.total===0?`<div style="height:3px;background:var(--border2);border-radius:3px;"></div>`:''}
           </div>
           <div style="font-size:9px;font-weight:${isCur?700:400};color:${isCur?'var(--gold-dk)':'var(--muted)'};margin-top:5px;text-align:center;">${lbl}</div>
@@ -3416,8 +3361,6 @@ function renderEgresosCuotas(){
   <div class="filter-row">
     <div class="chip-grp">
       <button class="fchip${_cuotaFilter==='todos'?' active':''}" onclick="setCuotaFilter('todos')">Todos</button>
-      <button class="fchip${_cuotaFilter==='es'?' active':''}" onclick="setCuotaFilter('es')">Esencial</button>
-      <button class="fchip${_cuotaFilter==='op'?' active':''}" onclick="setCuotaFilter('op')">Opcional</button>
     </div>
     <div class="fsearch"><input type="text" placeholder="Buscar… ⌘K" value="${(_cuotaSearch||'').replace(/"/g,'&quot;')}" oninput="setCuotaSearch(this.value)"><span class="fkbd">⌘K</span></div>
   </div>
@@ -3476,7 +3419,7 @@ function addEgresoCuota(modo){
     {key:'transferenciaNombre',label:'A quién (nombre)',type:'text'},
     {key:'transferenciaAlias',label:'Alias (opcional)',type:'text'},
     {key:'categoria',label:'Categoría',type:'select',options:getCategorias()},
-    {key:'esencial',label:'Esencial',type:'select',options:['si','no']},
+    {key:'evitable',label:'¿Era evitable?',type:'checkbox'},
     {key:'notas',label:'Notas',type:'textarea'},
   ];
   openModal(esPeriodico?'Nuevo gasto periódico / fijo':'Nueva compra en cuotas',fields,(data)=>{
@@ -3485,7 +3428,7 @@ function addEgresoCuota(modo){
       montoCuota:+data.montoCuota,
       nCuotas:+(data.nCuotas||1),
       cuotaActual:+(data.cuotaActual||1),
-      esencial:data.esencial==='si',
+      evitable:!!data.evitable,
     });
     renderEgresosCuotas(); renderEgresosFijos();
   });
@@ -3570,7 +3513,7 @@ function _editEgresoCuotaFull(id){
     {key:'transferenciaNombre',label:'A quién (nombre)',type:'text',value:ec.transferenciaNombre||''},
     {key:'transferenciaAlias',label:'Alias (opcional)',type:'text',value:ec.transferenciaAlias||''},
     {key:'categoria',label:'Categoría',type:'select',options:getCategorias(),value:ec.categoria},
-    {key:'esencial',label:'Esencial',type:'select',options:['si','no'],value:ec.esencial?'si':'no'},
+    {key:'evitable',label:'¿Era evitable?',type:'checkbox',value:!!ec.evitable},
     {key:'notas',label:'Notas',type:'textarea',value:ec.notas||''},
   ],(data)=>{
     dbUpdate('egresos_cuotas',id,{
@@ -3578,7 +3521,7 @@ function _editEgresoCuotaFull(id){
       montoCuota:+data.montoCuota,
       nCuotas:+(data.nCuotas||1),
       cuotaActual:+(data.cuotaActual||1),
-      esencial:data.esencial==='si',
+      evitable:!!data.evitable,
     });
     renderEgresosCuotas(); renderEgresosFijos();
   });
@@ -3611,14 +3554,6 @@ function renderEgresosFijos(){
   let hastaFinARS=0, hastaFinUSD=0;
   for(let m=mes; m<=FIN; m=mesNext(m)){ hastaFinARS+=mesARS(m); hastaFinUSD+=mesUSD(m); }
 
-  const esEs=(ec)=>ec.esencial===true||ec.esencial==='si';
-  // Include ALL optional items within their active range (desde≤mes≤hasta),
-  // regardless of billing frequency — so quarterly/bimonthly items are always visible.
-  const isInRange=(ec)=>{ const d=(ec.desde||'').slice(0,7),h=(ec.hasta||'').slice(0,7); return(!d||d<=mes)&&(!h||h>=mes); };
-  const noEsItems=list.filter(ec=>!esEs(ec)&&isInRange(ec));
-  const noEsARS=noEsItems.filter(ec=>ec.moneda==='ARS').reduce((s,ec)=>s+(ec.montoCuota||0),0);
-  const noEsUSD=noEsItems.filter(ec=>ec.moneda==='USD').reduce((s,ec)=>s+(ec.montoCuota||0),0);
-
   function kpiCard(cls,label,ars,usd){
     const hA=ars>0,hU=usd>0;
     return `<div class="card ${cls}">
@@ -3647,22 +3582,6 @@ function renderEgresosFijos(){
     </div>`;
   }).join('');
 
-  // Composition: Esencial/Opcional only (all are periódico)
-  const todayItems=list.filter(ec=>cuotaMontoEnMes(ec,mes)>0);
-  const totalN=todayItems.reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0)||1;
-  const esencialN=todayItems.filter(ec=>esEs(ec)).reduce((s,ec)=>{ const v=cuotaMontoEnMes(ec,mes); return s+(ec.moneda==='USD'?v:v/cotiz); },0);
-  const esencialPct=Math.round(esencialN/totalN*100);
-  const opcionalPct=100-esencialPct;
-
-  // Insight
-  const noEsCount=noEsItems.length;
-  const noEsUSDEq=noEsUSD+noEsARS/cotiz;
-  const insightHtml=noEsUSDEq>0?`
-  <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:8px;background:var(--warn-bg);border:1px solid var(--warn);margin-bottom:16px;font-size:12px;color:var(--warn);">
-    <span style="font-size:16px;flex-shrink:0;">💡</span>
-    <span>Revisando <strong>${noEsCount} gasto${noEsCount!==1?'s':''} opcional${noEsCount!==1?'es':''}</strong> podrías liberar hasta <strong>~${fmtUSD(noEsUSDEq)} USD/mes</strong></span>
-  </div>`:'';
-
   // Active months
   const activeMonths=[];
   for(let i=-3;i<=24;i++){ const m=mesNext(mes,i); if(list.some(ec=>cuotaMontoEnMes(ec,m)>0)) activeMonths.push(m); }
@@ -3678,7 +3597,7 @@ function renderEgresosFijos(){
         <div class="irow-tags">
           <span class="itag ${ec.moneda==='ARS'?'ars':'usd'}">${ec.moneda}</span>
           <span class="itag cuota">${PERIOD_LABELS[ec.periodicidad]||ec.periodicidad}</span>
-          <span class="itag ${esEs(ec)?'es':'op'}">${esEs(ec)?'Esencial':'Opcional'}</span>
+          ${ec.evitable?`<span class="itag op">Evitable</span>`:''}
           <span class="itag dt">${inicio} → ${fin}</span>
         </div>
       </div>
@@ -3740,7 +3659,7 @@ function renderEgresosFijos(){
       </button>
     </div>
   </div>
-  <div class="kpi-grid">
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
     <div class="kpi-card kc-red">
       <div class="kpi-ico" style="background:var(--neg-bg);color:var(--neg);font-weight:700;">$</div>
       <div style="flex:1;">
@@ -3763,14 +3682,6 @@ function renderEgresosFijos(){
         <div class="kpi-lbl">Hasta dic '26</div>
         <div class="kpi-val">${hastaFinARS?'-'+fmtARS(hastaFinARS):(hastaFinUSD?'-'+fmtUSD(hastaFinUSD)+' USD':'$0')}</div>
         ${hastaFinARS&&hastaFinUSD?`<div class="kpi-meta">-${fmtUSD(hastaFinUSD)} USD</div>`:''}
-      </div>
-    </div>
-    <div class="kpi-card kc-green">
-      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">!</div>
-      <div style="flex:1;">
-        <div class="kpi-lbl">No esencial</div>
-        <div class="kpi-val">${noEsARS?'-'+fmtARS(noEsARS):(noEsUSD?'-'+fmtUSD(noEsUSD)+' USD':'$0')}</div>
-        ${noEsARS&&noEsUSD?`<div class="kpi-meta">-${fmtUSD(noEsUSD)} USD</div>`:''}
       </div>
     </div>
   </div>
@@ -3981,7 +3892,7 @@ function checkSplitEntry(spId, instMes){
       const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
       const todayMes=todayStr.slice(0,7);
       if(sp.direccion==='Yo debo'){
-        dbAdd('egresos_inm',{descripcion:sp.descripcion+(sp.contraparte?' → '+sp.contraparte:''),monto:sp.monto,moneda:sp.moneda,categoria:'Otro',esencial:false,tipo:'fijo',fecha:todayStr,desde:todayMes});
+        dbAdd('egresos_inm',{descripcion:sp.descripcion+(sp.contraparte?' → '+sp.contraparte:''),monto:sp.monto,moneda:sp.moneda,categoria:'Otro',evitable:false,tipo:'fijo',fecha:todayStr,desde:todayMes});
         setTimeout(()=>{ if(typeof renderEgresosInm==='function') renderEgresosInm(); },50);
       } else {
         dbAdd('ingresos',{descripcion:sp.descripcion+(sp.contraparte?' de '+sp.contraparte:''),monto:sp.monto,moneda:sp.moneda,frecuencia:'unico',desde:todayMes});
@@ -4680,30 +4591,30 @@ function renderAnalisis(){
     <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Detalle de egresos · ${mesLabel(selMes)}</div>
     <div class="table-wrap">
     <table class="tbl">
-      <tr><th>Descripción</th><th>Tipo</th><th>Moneda</th><th>ARS</th><th>USD</th><th>Categoría</th><th>Esencial</th></tr>
+      <tr><th>Descripción</th><th>Tipo</th><th>Moneda</th><th>ARS</th><th>USD</th><th>Categoría</th><th>Evitable</th></tr>
       ${dbGet('egresos_inm').filter(e=>egresoInmEnMes(e,selMes)>0).map(e=>{
         const v=egresoInmEnMes(e,selMes);
         const usd=e.moneda==='USD'?v:arsToUsd(v,selMes);
         const ars=e.moneda==='ARS'?v:v*cotiz;
-        return `<tr><td>${e.descripcion}</td><td><span class="pill gr">Inmediato</span></td><td>${e.moneda}</td><td class="neg-text">${fmtARS(ars)}</td><td class="neg-text">${fmtUSD(usd)}</td><td><span class="pill opal">${e.categoria}</span></td><td><span class="pill ${e.esencial?'pos':'neg'}">${e.esencial?'Sí':'No'}</span></td></tr>`;
+        return `<tr><td>${e.descripcion}</td><td><span class="pill gr">Inmediato</span></td><td>${e.moneda}</td><td class="neg-text">${fmtARS(ars)}</td><td class="neg-text">${fmtUSD(usd)}</td><td><span class="pill opal">${e.categoria}</span></td><td><span class="pill ${e.evitable?'neg':'pos'}">${e.evitable?'Sí':'No'}</span></td></tr>`;
       }).join('')}
       ${dbGet('egresos_cuotas').filter(ec=>egresoCuotaEnMes(ec,selMes)>0).map(ec=>{
         const v=egresoCuotaEnMes(ec,selMes);
         const usd=ec.moneda==='USD'?v:arsToUsd(v,selMes);
-        return `<tr><td>${ec.descripcion}</td><td><span class="pill warn">Cuota</span></td><td>${ec.moneda}</td><td class="neg-text">${fmtARS(usd*cotiz)}</td><td class="neg-text">${fmtUSD(usd)}</td><td><span class="pill opal">${ec.categoria}</span></td><td><span class="pill ${ec.esencial?'pos':'neg'}">${ec.esencial?'Sí':'No'}</span></td></tr>`;
+        return `<tr><td>${ec.descripcion}</td><td><span class="pill warn">Cuota</span></td><td>${ec.moneda}</td><td class="neg-text">${fmtARS(usd*cotiz)}</td><td class="neg-text">${fmtUSD(usd)}</td><td><span class="pill opal">${ec.categoria}</span></td><td><span class="pill ${ec.evitable?'neg':'pos'}">${ec.evitable?'Sí':'No'}</span></td></tr>`;
       }).join('')}
     </table>
     </div>
   </div>`;
 }
 function exportarCSV(mes){
-  let csv='Descripción,Tipo,Moneda,Monto orig.,USD,ARS,Categoría,Esencial\n';
+  let csv='Descripción,Tipo,Moneda,Monto orig.,USD,ARS,Categoría,Evitable\n';
   const cotiz=getCotizacion(mes);
   dbGet('egresos_inm').filter(e=>egresoInmEnMes(e,mes)>0).forEach(e=>{
     const v=egresoInmEnMes(e,mes);
     const usd=e.moneda==='USD'?v:arsToUsd(v,mes);
     const ars=e.moneda==='ARS'?v:v*cotiz;
-    csv+=`"${e.descripcion}",Inmediato,${e.moneda},${v},${usd.toFixed(2)},${ars.toFixed(0)},${e.categoria},${e.esencial?'Sí':'No'}\n`;
+    csv+=`"${e.descripcion}",Inmediato,${e.moneda},${v},${usd.toFixed(2)},${ars.toFixed(0)},${e.categoria},${e.evitable?'Sí':'No'}\n`;
   });
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -5135,8 +5046,8 @@ function renderOptimizador(){
   const mes=MES_ACTUAL;
   const cotiz=getCotizacion(mes);
 
-  // Hormiga: non-essential fixed expenses
-  const hormiga=dbGet('egresos_inm').filter(e=>!e.esencial&&e.tipo==='fijo').map(e=>{
+  // Hormiga: expenses marked as avoidable
+  const hormiga=dbGet('egresos_inm').filter(e=>e.evitable).map(e=>{
     const v=egresoInmEnMes(e,mes);
     const usd=e.moneda==='USD'?v:arsToUsd(v,mes);
     const anual=usd*12;
@@ -5238,13 +5149,13 @@ function renderOptimizador(){
 
   document.getElementById('optimizador-content').innerHTML=`
   <div class="g4">
-    <div class="card neg-s"><div class="cl">Gastos hormiga/mes</div><div class="cv">${fmtUSD(hormiga.reduce((a,h)=>a+h.mensual,0))}</div><div class="cs">no esenciales fijos</div></div>
+    <div class="card neg-s"><div class="cl">Gastos hormiga/mes</div><div class="cv">${fmtUSD(hormiga.reduce((a,h)=>a+h.mensual,0))}</div><div class="cs">marcados evitables</div></div>
     <div class="card warn"><div class="cl">Ahorro potencial/año</div><div class="cv">${fmtUSD(hormiga.reduce((a,h)=>a+h.anual,0))}</div><div class="cs">si eliminás hormiga</div></div>
     <div class="card pos-s"><div class="cl">A 5 años invertido</div><div class="cv">${fmtUSD(hormiga.reduce((a,h)=>a+h.a5y,0))}</div><div class="cs">al 7.5% anual blend</div></div>
     <div class="card opal"><div class="cl">Platos cargados</div><div class="cv">${platos.length}</div><div class="cs">${platos.filter(p=>p.tipo==='casero').length} caseros · ${platos.filter(p=>p.tipo==='comprado').length} comprados</div></div>
   </div>
 
-  <div class="sh">Gastos hormiga · no esenciales y fijos detectados</div>
+  <div class="sh">Gastos hormiga · marcados como evitables</div>
   ${hormiga.length?hormiga.map(h=>`
     <div class="opt-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -5516,6 +5427,7 @@ function openModal(title,fields,onSave){
   container.innerHTML=fields.map(f=>{
     if(f.type==='textarea') return `<div class="modal-field"><label>${f.label}</label><textarea id="mf-${f.key}" rows="2">${f.value||''}</textarea>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
     if(f.type==='select') return `<div class="modal-field"><label>${f.label}</label><select id="mf-${f.key}">${(f.options||[]).map(o=>`<option value="${o}" ${o===(f.value||f.options[0])?'selected':''}>${o||'(vacío)'}</option>`).join('')}</select>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
+    if(f.type==='checkbox') return `<div class="modal-field mf-chk"><label><input type="checkbox" id="mf-${f.key}" ${f.value?'checked':''}> ${f.label}</label>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
     return `<div class="modal-field"><label>${f.label}${f.required?' *':''}</label><input type="${f.type||'text'}" id="mf-${f.key}" value="${f.value??''}" placeholder="${f.hint||''}" ${f.required?'required':''}>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
   }).join('');
   document.getElementById('modal-overlay').classList.remove('hidden');
@@ -5533,6 +5445,7 @@ function saveModal(){
   let valid=true;
   fields.forEach(el=>{
     const key=el.id.replace('mf-','');
+    if(el.type==='checkbox'){ data[key]=el.checked; return; }
     data[key]=el.value;
     if(el.required&&!el.value){ el.style.borderColor='var(--neg)'; valid=false; }
     else { el.style.borderColor=''; }
@@ -6064,7 +5977,7 @@ const TABLAS_CAMPOS_META={
     {key:'monto',label:'Monto',required:true},
     {key:'moneda',label:'Moneda',required:true},
     {key:'categoria',label:'Categoría'},
-    {key:'esencial',label:'Esencial'},
+    {key:'evitable',label:'¿Era evitable?'},
     {key:'notas',label:'Notas'},
   ],
   Split:[
@@ -6137,8 +6050,9 @@ function renderTablas(){
   const ed=window._tablasEditing||null;
 
   function listCard(title,key,addHint){
-    const items=getTablasList(key);
-    const rows=items.map((it,i)=>{
+    const entries=getTablasList(key).map((v,i)=>({v,i}));
+    if(key==='categorias') entries.sort((a,b)=>a.v.localeCompare(b.v,'es'));
+    const rows=entries.map(({v:it,i})=>{
       const isEditing=ed&&ed.key===key&&ed.idx===i;
       if(isEditing){
         return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);">
@@ -6243,7 +6157,7 @@ function renderAsistente(){
     <div class="chat-chip" onclick="sendChip('¿En qué categorías estoy gastando de más?')">¿Dónde gasto de más?</div>
     <div class="chat-chip" onclick="sendChip('¿Cuánto tiempo me falta para llegar a mi objetivo de portafolio más grande?')">¿Cuándo llego a mi meta?</div>
     <div class="chat-chip" onclick="sendChip('Haceme un análisis general de mi situación financiera actual')">Análisis general</div>
-    <div class="chat-chip" onclick="sendChip('¿Qué gastos no esenciales debería eliminar primero?')">¿Qué corto primero?</div>
+    <div class="chat-chip" onclick="sendChip('¿Qué gastos evitables debería eliminar primero?')">¿Qué corto primero?</div>
     <div class="chat-chip" onclick="sendChip('Si ahorro USD 200 más por mes, ¿cuánto más tengo en 5 años?')">¿Qué pasa si ahorro más?</div>
   </div>
   <div class="chat-wrap">
