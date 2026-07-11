@@ -1397,6 +1397,26 @@ function initDefaultData(){
   if(!localStorage.getItem('rinde_prod_initialized')){
     localStorage.setItem('rinde_prod_initialized','1');
   }
+  migrateSplitComma();
+}
+
+// Separa en registros individuales las contrapartes de Split cargadas con comas (ej: "Rota, Tano, Mardo")
+function migrateSplitComma(){
+  if(localStorage.getItem('rinde_split_comma_migrated')) return;
+  const list=dbGet('split');
+  const next=[];
+  let changed=false;
+  list.forEach((sp,i)=>{
+    const nombres=(sp.contraparte||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(nombres.length>1){
+      changed=true;
+      nombres.forEach((nombre,j)=>next.push({...sp,id:Date.now()+'_'+i+'_'+j+Math.random().toString(36).slice(2,5),contraparte:nombre}));
+    } else {
+      next.push(sp);
+    }
+  });
+  if(changed) dbSet('split',next);
+  localStorage.setItem('rinde_split_comma_migrated','1');
 }
 
 // =============================================
@@ -3706,12 +3726,18 @@ function _setupSplitModal(){
   update();
 }
 
+function getSplitContrapartes(){
+  const set=new Set();
+  dbGet('split').forEach(sp=>(sp.contraparte||'').split(',').forEach(n=>{ n=n.trim(); if(n) set.add(n); }));
+  return [...set].sort((a,b)=>a.localeCompare(b,'es'));
+}
+
 function addSplit(){
   const cuotaFields=Array.from({length:12},(_,i)=>({key:`cuota_${i+1}`,label:`Cuota ${i+1}`,type:'number'}));
   openModal('Nuevo registro compartido',filterModalCampos('Split',[
     {key:'direccion',label:'Dirección',type:'select',options:['Yo debo','Me deben'],required:true},
     {key:'descripcion',label:'Descripción',type:'text',required:true},
-    {key:'contraparte',label:'A quién / De quién',type:'text',required:true},
+    {key:'contraparte',label:'A quién / De quién',type:'text',required:true,datalist:getSplitContrapartes(),hint:'Separá por comas para cargar varias personas'},
     {key:'monto',label:'Monto',type:'number',required:true},
     {key:'nCuotas',label:'N° de cuotas',type:'number',value:'2'},
     ...cuotaFields,
@@ -3758,7 +3784,7 @@ function editSplit(id){
   openModal('Editar registro compartido',[
     {key:'direccion',label:'Dirección',type:'select',options:['Yo debo','Me deben'],value:sp.direccion,required:true},
     {key:'descripcion',label:'Descripción',type:'text',value:sp.descripcion,required:true},
-    {key:'contraparte',label:'A quién / De quién',type:'text',value:sp.contraparte||'',required:true},
+    {key:'contraparte',label:'A quién / De quién',type:'text',value:sp.contraparte||'',required:true,datalist:getSplitContrapartes()},
     {key:'monto',label:'Monto',type:'number',value:sp.monto||'',required:true},
     {key:'nCuotas',label:'N° de cuotas',type:'number',value:sp.nCuotas||2},
     ...cuotaFields,
@@ -4784,7 +4810,7 @@ function openModal(title,fields,onSave){
     if(f.type==='textarea') return `<div class="modal-field"><label>${f.label}</label><textarea id="mf-${f.key}" rows="2">${f.value||''}</textarea>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
     if(f.type==='select') return `<div class="modal-field"><label>${f.label}</label><select id="mf-${f.key}">${(f.options||[]).map(o=>`<option value="${o}" ${o===(f.value||f.options[0])?'selected':''}>${o||'(vacío)'}</option>`).join('')}</select>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
     if(f.type==='checkbox') return `<div class="modal-field mf-chk"><label><input type="checkbox" id="mf-${f.key}" ${f.value?'checked':''}> ${f.label}</label>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
-    return `<div class="modal-field"><label>${f.label}${f.required?' *':''}</label><input type="${f.type||'text'}" id="mf-${f.key}" value="${f.value??''}" placeholder="${f.hint||''}" ${f.required?'required':''}>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
+    return `<div class="modal-field"><label>${f.label}${f.required?' *':''}</label><input type="${f.type||'text'}" id="mf-${f.key}" value="${f.value??''}" placeholder="${f.hint||''}" ${f.required?'required':''} ${f.datalist?`list="dl-mf-${f.key}"`:''}>${f.datalist?`<datalist id="dl-mf-${f.key}">${f.datalist.map(v=>`<option value="${v}"></option>`).join('')}</datalist>`:''}${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
   }).join('');
   document.getElementById('modal-overlay').classList.remove('hidden');
   // focus first input
