@@ -4771,6 +4771,227 @@ function vincularActivosObjetivo(id){
 function deleteObjetivo(id){ confirmDelete(()=>{ dbDelete('objetivos',id); renderObjetivos(); }); }
 
 // =============================================
+// MODAL SYSTEM
+// =============================================
+let _modalCallback=null;
+function openModal(title,fields,onSave){
+  _modalCallback=onSave;
+  document.getElementById('modal-title').textContent=title;
+  const container=document.getElementById('modal-fields');
+  container.innerHTML=fields.map(f=>{
+    if(f.type==='textarea') return `<div class="modal-field"><label>${f.label}</label><textarea id="mf-${f.key}" rows="2">${f.value||''}</textarea>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
+    if(f.type==='select') return `<div class="modal-field"><label>${f.label}</label><select id="mf-${f.key}">${(f.options||[]).map(o=>`<option value="${o}" ${o===(f.value||f.options[0])?'selected':''}>${o||'(vacío)'}</option>`).join('')}</select>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
+    if(f.type==='checkbox') return `<div class="modal-field mf-chk"><label><input type="checkbox" id="mf-${f.key}" ${f.value?'checked':''}> ${f.label}</label>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
+    return `<div class="modal-field"><label>${f.label}${f.required?' *':''}</label><input type="${f.type||'text'}" id="mf-${f.key}" value="${f.value??''}" placeholder="${f.hint||''}" ${f.required?'required':''}>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
+  }).join('');
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  // focus first input
+  setTimeout(()=>{ const first=container.querySelector('input,select,textarea'); if(first)first.focus(); },50);
+}
+function closeModal(){
+  document.getElementById('modal-overlay').classList.add('hidden');
+  _modalCallback=null;
+}
+function saveModal(){
+  if(!_modalCallback)return closeModal();
+  const fields=document.getElementById('modal-fields').querySelectorAll('[id^="mf-"]');
+  const data={};
+  let valid=true;
+  fields.forEach(el=>{
+    const key=el.id.replace('mf-','');
+    if(el.type==='checkbox'){ data[key]=el.checked; return; }
+    data[key]=el.value;
+    if(el.required&&!el.value){ el.style.borderColor='var(--neg)'; valid=false; }
+    else { el.style.borderColor=''; }
+  });
+  if(!valid) return;
+  _modalCallback(data);
+  closeModal();
+}
+document.getElementById('modal-overlay').addEventListener('click',e=>{
+  if(e.target===document.getElementById('modal-overlay')) closeModal();
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+// =============================================
+// CONFIRM DELETE
+// =============================================
+let _confirmCallback=null;
+function confirmDelete(cb, msg='Esta acción no se puede deshacer.'){
+  _confirmCallback=cb;
+  document.getElementById('confirm-msg').textContent=msg;
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+  document.getElementById('confirm-ok-btn').onclick=()=>{ if(_confirmCallback)_confirmCallback(); closeConfirm(); };
+}
+function closeConfirm(){ document.getElementById('confirm-overlay').classList.add('hidden'); _confirmCallback=null; }
+
+// =============================================
+// RENDER: TABLAS
+// =============================================
+const TABLAS_CAMPOS_META={
+  Ingresos:[
+    {key:'descripcion',label:'Descripción',required:true},
+    {key:'monto',label:'Monto',required:true},
+    {key:'moneda',label:'Moneda',required:true},
+    {key:'frecuencia',label:'Frecuencia',required:true},
+    {key:'desde',label:'Desde (mes)'},
+    {key:'hasta',label:'Hasta (mes)'},
+    {key:'notas',label:'Notas'},
+  ],
+  Egresos:[
+    {key:'fecha',label:'Fecha',required:true},
+    {key:'descripcion',label:'Descripción',required:true},
+    {key:'monto',label:'Monto',required:true},
+    {key:'moneda',label:'Moneda',required:true},
+    {key:'categoria',label:'Categoría'},
+    {key:'evitable',label:'¿Era evitable?'},
+    {key:'notas',label:'Notas'},
+  ],
+  Split:[
+    {key:'direccion',label:'Dirección',required:true},
+    {key:'descripcion',label:'Descripción',required:true},
+    {key:'contraparte',label:'Contraparte'},
+    {key:'monto',label:'Monto',required:true},
+    {key:'moneda',label:'Moneda',required:true},
+    {key:'tipo',label:'Tipo'},
+    {key:'desde',label:'Desde (mes)'},
+    {key:'hasta',label:'Hasta (mes)'},
+    {key:'notas',label:'Notas'},
+  ],
+  Activos:[
+    {key:'nombre',label:'Nombre',required:true},
+    {key:'tipo',label:'Tipo de activo',required:true},
+    {key:'moneda',label:'Moneda',required:true},
+    {key:'precioCompra',label:'Precio de compra',required:true},
+    {key:'fechaCompra',label:'Fecha de compra'},
+    {key:'valorActual',label:'Valor actual estimado'},
+    {key:'notas',label:'Notas'},
+  ],
+};
+
+// Propagate a rename to all data tables that reference the old value
+function propagateTablasRename(key,oldVal,newVal){
+  if(key==='categorias'){
+    dbSet('egresos_inm', dbGet('egresos_inm').map(e=>e.categoria===oldVal?{...e,categoria:newVal}:e));
+    dbSet('egresos_cuotas', dbGet('egresos_cuotas').map(e=>e.categoria===oldVal?{...e,categoria:newVal}:e));
+  }
+  if(key==='tiposActivo'){
+    dbSet('activos', dbGet('activos').map(a=>a.tipo===oldVal?{...a,tipo:newVal}:a));
+  }
+  if(key==='modosPago'){
+    dbSet('egresos_cuotas', dbGet('egresos_cuotas').map(e=>e.tarjeta===oldVal?{...e,tarjeta:newVal}:e));
+  }
+  if(key==='frecuenciasIng'){
+    dbSet('ingresos', dbGet('ingresos').map(i=>i.frecuencia===oldVal?{...i,frecuencia:newVal}:i));
+    dbSet('ingresos_futuros', dbGet('ingresos_futuros').map(i=>i.frecuencia===oldVal?{...i,frecuencia:newVal}:i));
+  }
+  if(key==='frecuenciasEg'){
+    dbSet('egresos_cuotas', dbGet('egresos_cuotas').map(e=>e.periodicidad===oldVal?{...e,periodicidad:newVal}:e));
+  }
+  if(key==='monedas'){
+    ['egresos_inm','egresos_cuotas','ingresos','ingresos_futuros','split','activos'].forEach(k=>{
+      dbSet(k, dbGet(k).map(r=>r.moneda===oldVal?{...r,moneda:newVal}:r));
+    });
+  }
+}
+function renameTablasItem(key,idx,newVal){
+  newVal=(newVal||'').trim(); if(!newVal) return;
+  const cfg=getTablasConfig();
+  if(!cfg[key]) cfg[key]=[...TABLAS_DEFAULTS[key]||[]];
+  const oldVal=cfg[key][idx];
+  if(oldVal===newVal) return;
+  cfg[key][idx]=newVal;
+  saveTablasConfig(cfg);
+  propagateTablasRename(key,oldVal,newVal);
+}
+function startTablasEdit(key,idx){ window._tablasEditing={key,idx}; renderTablas(); }
+function confirmTablasEdit(key,idx){
+  const inp=document.getElementById(`tedit-${key}-${idx}`);
+  if(!inp) return;
+  renameTablasItem(key,idx,inp.value);
+  window._tablasEditing=null;
+}
+function cancelTablasEdit(){ window._tablasEditing=null; renderTablas(); }
+
+function renderTablas(){
+  const ed=window._tablasEditing||null;
+
+  function listCard(title,key,addHint){
+    const entries=getTablasList(key).map((v,i)=>({v,i}));
+    if(key==='categorias') entries.sort((a,b)=>a.v.localeCompare(b.v,'es'));
+    const rows=entries.map(({v:it,i})=>{
+      const isEditing=ed&&ed.key===key&&ed.idx===i;
+      if(isEditing){
+        return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);">
+          <input id="tedit-${key}-${i}" type="text" value="${it}" style="flex:1;font-size:13px;padding:3px 6px;border:1px solid var(--opal);border-radius:5px;background:var(--surface);color:var(--text);" onkeydown="if(event.key==='Enter')confirmTablasEdit('${key}',${i});if(event.key==='Escape')cancelTablasEdit();">
+          <button class="btn sm pos" onclick="confirmTablasEdit('${key}',${i})">✓</button>
+          <button class="btn sm ghost" onclick="cancelTablasEdit()">✕</button>
+        </div>`;
+      }
+      return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);">
+        <span style="flex:1;font-size:13px;">${it}</span>
+        <button class="btn sm ghost" onclick="startTablasEdit('${key}',${i})" title="Editar">✏</button>
+        <button class="btn sm danger" onclick="removeTablasItem('${key}',${i})" title="Eliminar">✕</button>
+      </div>`;
+    }).join('');
+    return `
+      <div class="card" style="display:flex;flex-direction:column;gap:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div class="cl" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">${title}</div>
+          <button class="btn sm ghost" onclick="resetTablasList('${key}')" title="Restaurar defaults" style="font-size:10px;">↺</button>
+        </div>
+        <div style="flex:1;min-height:40px;">${rows||'<div style="color:var(--muted);font-size:12px;padding:4px 0;">Sin ítems</div>'}</div>
+        <div style="display:flex;gap:6px;margin-top:10px;">
+          <input type="text" id="inp-${key}" placeholder="${addHint}" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);" onkeydown="if(event.key==='Enter'){addTablasItem('${key}',this.value);this.value='';}">
+          <button class="btn sm pos" onclick="addTablasItem('${key}',document.getElementById('inp-${key}').value);document.getElementById('inp-${key}').value=''">+</button>
+        </div>
+      </div>`;
+  }
+
+  function camposCard(modulo){
+    const meta=TABLAS_CAMPOS_META[modulo]||[];
+    const visible=getCamposVisibles(modulo);
+    const rows=meta.map(f=>{
+      const on=visible.has(f.key);
+      const req=f.required;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border2);">
+        <label style="display:flex;align-items:center;gap:7px;cursor:${req?'default':'pointer'};flex:1;font-size:12px;">
+          <input type="checkbox" ${on?'checked':''} ${req?'disabled':''} onchange="toggleTablaCampo('${modulo}','${f.key}')" style="cursor:${req?'default':'pointer'};">
+          ${f.label}${req?'<span style="font-size:9px;color:var(--muted);margin-left:4px;">siempre</span>':''}
+        </label>
+      </div>`;
+    }).join('');
+    return `
+      <div class="card">
+        <div class="cl" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">${modulo}</div>
+        ${rows}
+      </div>`;
+  }
+
+  document.getElementById('tablas-content').innerHTML=`
+  <div class="sh">Desplegables</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+    ${listCard('Monedas','monedas','Ej: EUR')}
+    ${listCard('Frecuencias · Ingresos','frecuenciasIng','Ej: bimensual')}
+    ${listCard('Frecuencias · Egresos','frecuenciasEg','Ej: cuatrimestral')}
+    ${listCard('Categorías de gasto','categorias','Ej: Mascota')}
+    ${listCard('Modos de pago','modosPago','Ej: Naranja X')}
+    ${listCard('Tipos de activo físico','tiposActivo','Ej: Arte')}
+  </div>
+  <div class="sh">Campos en formularios</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+    ${camposCard('Ingresos')}
+    ${camposCard('Egresos')}
+    ${camposCard('Split')}
+    ${camposCard('Activos')}
+  </div>
+  <div style="font-size:11px;color:var(--muted);padding:8px 0;">Los campos marcados como <strong>siempre</strong> no se pueden ocultar porque son necesarios para guardar el registro.</div>`;
+
+  // Auto-focus el input de edición si hay uno activo
+  if(ed){ const inp=document.getElementById(`tedit-${ed.key}-${ed.idx}`); if(inp){ inp.focus(); inp.select(); } }
+}
+
+// =============================================
 // GAMIFICACIÓN: SCORE, RACHA, MAPA
 // =============================================
 
