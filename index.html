@@ -3565,7 +3565,7 @@ function renderSplit(){
 
   const splitMonthCards=months.map(m=>{
     const items=allInst.filter(x=>x.inst.mes===m);
-    const isOpen=m===mes;
+    const isOpen=false;
     const arsPos=items.filter(x=>x.sp.direccion==='Me deben'&&x.sp.moneda==='ARS').reduce((s,x)=>s+x.inst.monto,0);
     const usdPos=items.filter(x=>x.sp.direccion==='Me deben'&&x.sp.moneda==='USD').reduce((s,x)=>s+x.inst.monto,0);
     const arsNeg=items.filter(x=>x.sp.direccion==='Yo debo'&&x.sp.moneda==='ARS').reduce((s,x)=>s+x.inst.monto,0);
@@ -3603,11 +3603,11 @@ function renderSplit(){
   const personas=Object.keys(personBalance);
   const personCards=personas.length?`<div class="month-card" style="margin-bottom:16px;">
     <div class="mc-hdr" onclick="toggleMonth('split-personas')" style="cursor:pointer;">
-      <svg id="mc-chev-split-personas" class="mc-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      <svg id="mc-chev-split-personas" class="mc-chev closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
       <div class="mc-title">Saldo por persona</div>
       <span class="mc-sub">${personas.length} persona${personas.length!==1?'s':''}</span>
     </div>
-    <div class="mc-body" id="mc-body-split-personas" style="display:block;">
+    <div class="mc-body" id="mc-body-split-personas" style="display:none;">
       ${personas.map(cp=>{
         const pb=personBalance[cp];
         const lines=[];
@@ -3736,7 +3736,9 @@ function addSplit(){
       entry.monto=+data.monto||0;
       entry.desde=data.desde;
     }
-    dbAdd('split',entry);
+    const nombres=(data.contraparte||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(nombres.length>1) nombres.forEach(nombre=>dbAdd('split',{...entry,contraparte:nombre}));
+    else dbAdd('split',entry);
     renderSplit();
   });
   _setupSplitModal();
