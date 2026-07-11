@@ -3620,7 +3620,10 @@ function renderSplit(){
       else { if(sp.moneda==='ARS') personBalance[cp].meDebenARS+=inst.monto; else personBalance[cp].meDebenUSD+=inst.monto; }
     });
   });
-  const personas=Object.keys(personBalance);
+  const personas=Object.keys(personBalance).filter(cp=>{
+    const pb=personBalance[cp];
+    return pb.deboARS||pb.deboUSD||pb.meDebenARS||pb.meDebenUSD;
+  });
   const personCards=personas.length?`<div class="month-card" style="margin-bottom:16px;">
     <div class="mc-hdr" onclick="toggleMonth('split-personas')" style="cursor:pointer;">
       <svg id="mc-chev-split-personas" class="mc-chev closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
