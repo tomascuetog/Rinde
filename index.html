@@ -637,8 +637,6 @@ body.privacy svg text{
 .wl-seccion-reorder .btn{padding:2px 6px;font-size:10px;line-height:1;}
 .wl-item-img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--s2);}
 .wl-item-img-fallback{display:flex;align-items:center;justify-content:center;font-size:18px;}
-.wl-cbar-comprado{background:#EFA13A;}
-.wl-cbar-proj{background:#F5CD91;}
 </style>
 </head>
 <body>
@@ -5094,23 +5092,40 @@ function wlCuotaEnMes(link,mes){
   return idx>=0?(link.montoCuota||0):0;
 }
 
+function wlLightenColor(hex,amt){
+  hex=(hex||'#8A8A85').replace('#','');
+  if(hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+  const num=parseInt(hex,16)||0x8A8A85;
+  let r=(num>>16)&0xff, g=(num>>8)&0xff, b=num&0xff;
+  r=Math.min(255,Math.round(r+(255-r)*amt));
+  g=Math.min(255,Math.round(g+(255-g)*amt));
+  b=Math.min(255,Math.round(b+(255-b)*amt));
+  return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
 function calcGastoMensualWishlist(meses){
+  const secciones=dbGet('wishlist_secciones').slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
   const items=dbGet('wishlist_items');
   const links=dbGet('wishlist_links');
   return meses.map(mes=>{
-    let comprado=0,proyectado=0;
-    const detalleComprado=[],detalleProyectado=[];
+    const porSeccion={};
+    secciones.forEach(s=>{ porSeccion[s.id]={seccionId:s.id,nombre:s.nombre,color:s.color||'#8A8A85',comprado:0,proyectado:0,detalleComprado:[],detalleProyectado:[]}; });
+    let total=0;
     items.forEach(item=>{
       if(item.estado==='descartado') return;
+      const bucket=porSeccion[item.seccionId];
+      if(!bucket) return;
       links.filter(l=>l.itemId===item.id).forEach(link=>{
         const monto=wlCuotaEnMes(link,mes);
         if(monto<=0) return;
         const entry={item:item.nombre,tienda:link.tienda||inferStoreFromUrl(link.url),monto};
-        if(item.estado==='comprado'){ comprado+=monto; detalleComprado.push(entry); }
-        else { proyectado+=monto; detalleProyectado.push(entry); }
+        if(item.estado==='comprado'){ bucket.comprado+=monto; bucket.detalleComprado.push(entry); }
+        else { bucket.proyectado+=monto; bucket.detalleProyectado.push(entry); }
+        total+=monto;
       });
     });
-    return {mes,comprado,proyectado,detalleComprado,detalleProyectado};
+    const seccionesMes=secciones.map(s=>porSeccion[s.id]).filter(b=>b.comprado>0||b.proyectado>0);
+    return {mes,total,secciones:seccionesMes};
   });
 }
 
@@ -5371,7 +5386,10 @@ function renderWishlistChart(){
   const meses=[];
   for(let i=0;i<_wlChartRangoMeses;i++) meses.push(mesNext(MES_ACTUAL,i));
   const data=calcGastoMensualWishlist(meses);
-  const maxVal=Math.max(...data.map(d=>d.comprado+(_wlChartIncluirProyectados?d.proyectado:0)),1);
+  const efectivo=d=>d.secciones.reduce((s,seg)=>s+seg.comprado+(_wlChartIncluirProyectados?seg.proyectado:0),0);
+  const maxVal=Math.max(...data.map(efectivo),1);
+  const seccionesActivas=[];
+  data.forEach(d=>d.secciones.forEach(seg=>{ if(!seccionesActivas.find(s=>s.seccionId===seg.seccionId)) seccionesActivas.push({seccionId:seg.seccionId,nombre:seg.nombre,color:seg.color}); }));
   return `<div class="chart-box">
     <div class="chart-hdr">
       <div class="chart-ttl">Gasto mensual en cuotas</div>
@@ -5384,21 +5402,30 @@ function renderWishlistChart(){
         </select>
       </div>
     </div>
+    ${seccionesActivas.length?`<div class="chart-leg" style="flex-wrap:wrap;margin-bottom:12px;">${seccionesActivas.map(s=>`<span><span class="leg-dot" style="background:${s.color};"></span>${s.nombre}</span>`).join('')}</div>`:''}
     <div class="chart-bars">
       ${data.map(d=>{
-        const total=d.comprado+(_wlChartIncluirProyectados?d.proyectado:0);
+        const total=efectivo(d);
         const isCur=d.mes===MES_ACTUAL;
         const lbl=mesLabel(d.mes).split(' ')[0];
         const barH=Math.max(Math.round(total/maxVal*88),total>0?3:0);
-        const detalle=[...d.detalleComprado.map(x=>`${x.item} (${x.tienda}): ${fmtARS(x.monto)}`),
-          ...(_wlChartIncluirProyectados?d.detalleProyectado.map(x=>`${x.item} (${x.tienda}, proyectado): ${fmtARS(x.monto)}`):[])];
-        const tooltip=`${mesLabel(d.mes)}: ${fmtARS(total)}`+(detalle.length?'\n'+detalle.join('\n'):'');
+        const tooltipLineas=d.secciones.map(seg=>{
+          const montoSeg=seg.comprado+(_wlChartIncluirProyectados?seg.proyectado:0);
+          if(montoSeg<=0) return null;
+          return `${seg.nombre}: ${fmtARS(montoSeg)}`;
+        }).filter(Boolean);
+        const tooltip=`${mesLabel(d.mes)}: ${fmtARS(total)}`+(tooltipLineas.length?'\n'+tooltipLineas.join('\n'):'');
+        const segmentosHTML=d.secciones.map(seg=>{
+          const partes=[];
+          if(seg.comprado>0) partes.push(`<div style="flex:${seg.comprado};background:${seg.color};"></div>`);
+          if(_wlChartIncluirProyectados&&seg.proyectado>0) partes.push(`<div style="flex:${seg.proyectado};background:${wlLightenColor(seg.color,0.55)};"></div>`);
+          return partes.join('');
+        }).join('');
         return `<div class="cbar-col${isCur?' cbar-cur':''}" title="${tooltip}" style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;">
           <div style="margin-top:auto;width:100%;height:${barH}%;position:relative;">
             ${total>0?`<div style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;font-size:8.5px;font-weight:700;color:${isCur?'var(--gold-dk)':'var(--text)'};white-space:nowrap;">${fmtARS(total)}</div>`:''}
             <div style="width:100%;height:100%;border-radius:5px 5px 0 0;overflow:hidden;display:flex;flex-direction:column-reverse;${isCur?'outline:2px solid var(--gold);outline-offset:1px;':''}">
-              ${d.comprado>0?`<div class="wl-cbar-comprado" style="flex:${d.comprado};"></div>`:''}
-              ${(_wlChartIncluirProyectados&&d.proyectado>0)?`<div class="wl-cbar-proj" style="flex:${d.proyectado};"></div>`:''}
+              ${segmentosHTML}
               ${total===0?`<div style="height:3px;background:var(--border2);border-radius:3px;"></div>`:''}
             </div>
           </div>
