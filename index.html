@@ -626,6 +626,13 @@ body.privacy svg text{
 .nav-items{overflow:hidden;transition:max-height .25s ease,opacity .18s ease;max-height:500px;opacity:1;}
 .nav-items.collapsed{max-height:0;opacity:0;pointer-events:none;}
 .sidebar.collapsed .ns-chev{display:none;}
+/* ---- WISHLIST ---- */
+.wl-seccion-card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:box-shadow .15s;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.wl-seccion-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);}
+.wl-seccion-reorder{display:flex;flex-direction:column;gap:2px;}
+.wl-seccion-reorder .btn{padding:2px 6px;font-size:10px;line-height:1;}
+.wl-item-img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--s2);}
+.wl-item-img-fallback{display:flex;align-items:center;justify-content:center;font-size:18px;}
 </style>
 </head>
 <body>
@@ -661,6 +668,7 @@ body.privacy svg text{
     <div class="ni" onclick="nav('activos')" data-label="Activos físicos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 14V7.5L8 2l6 5.5V14a1 1 0 01-1 1H3a1 1 0 01-1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span><span class="ni-label">Activos físicos</span></div>
     <div class="ni" onclick="nav('simulador')" data-label="¿Puedo?"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M6 6.5c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L8 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r="1" fill="currentColor"/></svg></span><span class="ni-label">¿Puedo?</span></div>
     <div class="ni" onclick="nav('objetivos')" data-label="Objetivos"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg></span><span class="ni-label">Objetivos</span></div>
+    <div class="ni" onclick="nav('wishlist')" data-label="Wishlist"><span class="ni-icon"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.85 3.75 4.15.6-3 2.93.71 4.14L8 11.5l-3.71 1.92.71-4.14-3-2.93 4.15-.6L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span><span class="ni-label">Wishlist</span></div>
   </div>
 
   <div class="ns" onclick="toggleNavGroup(this)" data-group="analisis">Análisis <span class="ns-chev">▾</span></div>
@@ -822,6 +830,11 @@ body.privacy svg text{
     </div>
   </div>
   <div id="objetivos-content"></div>
+</div>
+
+<!-- WISHLIST -->
+<div class="panel" id="panel-wishlist">
+  <div id="wishlist-content"></div>
 </div>
 
 <!-- MAPA DE PROGRESO — eliminado, fusionado en Objetivos -->
@@ -1255,6 +1268,8 @@ const KEYS = {
   productos:'rinde_productos', platos:'rinde_platos',
   actividad:'rinde_actividad', mapa:'rinde_mapa',
   mejoras:'rinde_mejoras',
+  wishlist_secciones:'rinde_wishlist_secciones', wishlist_items:'rinde_wishlist_items',
+  wishlist_links:'rinde_wishlist_links', wishlist_snapshots:'rinde_wishlist_snapshots',
 };
 
 // ── TABLAS CONFIG ──────────────────────────────
@@ -1645,6 +1660,7 @@ const BC_MAP={
   'analisis':['Herramientas','Análisis'],
   'proyeccion':['Herramientas','Proyección'],
   'objetivos':['Objetivos'],
+  'wishlist':['Wishlist'],
   'actividad':['Actividad'],
   'tablas':['Configuración','Tablas'],
 };
@@ -1678,6 +1694,7 @@ function nav(id){
     cartera:renderCartera, activos:renderActivos, tarjetas:renderTarjetas,
     simulador:renderSimulador, analisis:renderAnalisis,
     proyeccion:renderProyeccion, objetivos:renderObjetivos,
+    wishlist:renderWishlist,
     actividad:renderActividad,
     tablas:renderTablas,
   };
@@ -4811,9 +4828,16 @@ function openModal(title,fields,onSave){
   const container=document.getElementById('modal-fields');
   container.innerHTML=fields.map(f=>{
     if(f.type==='textarea') return `<div class="modal-field"><label>${f.label}</label><textarea id="mf-${f.key}" rows="2">${f.value||''}</textarea>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
-    if(f.type==='select') return `<div class="modal-field"><label>${f.label}</label><select id="mf-${f.key}">${(f.options||[]).map(o=>`<option value="${o}" ${o===(f.value||f.options[0])?'selected':''}>${o||'(vacío)'}</option>`).join('')}</select>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
+    if(f.type==='select') return `<div class="modal-field"><label>${f.label}</label><select id="mf-${f.key}">${(f.options||[]).map(o=>{
+      const val=(o&&typeof o==='object')?o.value:o;
+      const lbl=(o&&typeof o==='object')?o.label:o;
+      const first=f.options[0];
+      const defVal=(first&&typeof first==='object')?first.value:first;
+      const sel=(f.value!=null?f.value:defVal);
+      return `<option value="${val}" ${val===sel?'selected':''}>${lbl||'(vacío)'}</option>`;
+    }).join('')}</select>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
     if(f.type==='checkbox') return `<div class="modal-field mf-chk"><label><input type="checkbox" id="mf-${f.key}" ${f.value?'checked':''}> ${f.label}</label>${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
-    return `<div class="modal-field"><label>${f.label}${f.required?' *':''}</label><input type="${f.type||'text'}" id="mf-${f.key}" value="${f.value??''}" placeholder="${f.hint||''}" ${f.required?'required':''} ${f.datalist?`list="dl-mf-${f.key}"`:''}>${f.datalist?`<datalist id="dl-mf-${f.key}">${f.datalist.map(v=>`<option value="${v}"></option>`).join('')}</datalist>`:''}${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
+    return `<div class="modal-field"><label>${f.label}${f.required?' *':''}</label><input type="${f.type||'text'}" id="mf-${f.key}" value="${f.value??''}" placeholder="${f.hint||''}" ${f.required?'required':''} ${f.min!=null?`min="${f.min}"`:''} ${f.step!=null?`step="${f.step}"`:''} ${f.datalist?`list="dl-mf-${f.key}"`:''}>${f.datalist?`<datalist id="dl-mf-${f.key}">${f.datalist.map(v=>`<option value="${v}"></option>`).join('')}</datalist>`:''}${f.hint?`<div class="hint">${f.hint}</div>`:''}</div>`;
   }).join('');
   document.getElementById('modal-overlay').classList.remove('hidden');
   // focus first input
@@ -5020,6 +5044,526 @@ function renderTablas(){
 
   // Auto-focus el input de edición si hay uno activo
   if(ed){ const inp=document.getElementById(`tedit-${ed.key}-${ed.idx}`); if(inp){ inp.focus(); inp.select(); } }
+}
+
+// =============================================
+// WISHLIST
+// =============================================
+const WL_COLORES=['#EFA13A','#3E9C6E','#D65B5B','#6AA3D9','#9B7EDE','#E082B0','#8A8A85','#36C9C6'];
+function wlNextColor(){ return WL_COLORES[dbGet('wishlist_secciones').length%WL_COLORES.length]; }
+
+let _wlView={mode:'secciones',seccionId:null};
+let _wlFilterEstado='quiero';
+let _wlFilterPrioridad='todas';
+let _wlExcluirSinStock=false;
+let _wlAddingLinkFor=null;
+
+function setWishlistView(mode,seccionId){ _wlView={mode,seccionId:seccionId||null}; renderWishlist(); }
+function setWlFilterEstado(v){ _wlFilterEstado=v; renderWishlist(); }
+function setWlFilterPrioridad(v){ _wlFilterPrioridad=v; renderWishlist(); }
+function setWlExcluirSinStock(v){ _wlExcluirSinStock=v; renderWishlist(); }
+
+function renderWishlist(){
+  if(_wlView.mode==='seccion'&&_wlView.seccionId) renderWishlistSeccion(_wlView.seccionId);
+  else renderWishlistSecciones();
+}
+
+// ---- Cálculo ----
+function inferStoreFromUrl(url){
+  try{
+    const h=new URL(url).hostname.replace(/^www\./,'');
+    const name=h.split('.')[0];
+    return name?name.charAt(0).toUpperCase()+name.slice(1):'';
+  }catch(e){ return ''; }
+}
+
+function calcRangoItem(itemId,excluirSinStock=false){
+  let links=dbGet('wishlist_links').filter(l=>l.itemId===itemId);
+  if(excluirSinStock) links=links.filter(l=>l.enStock!==false);
+  if(!links.length) return {min:null,max:null,moneda:null,convertido:false,count:0};
+  const monedas=new Set(links.map(l=>l.moneda||'ARS'));
+  if(monedas.size===1){
+    const m=[...monedas][0];
+    const precios=links.map(l=>l.precio||0);
+    return {min:Math.min(...precios),max:Math.max(...precios),moneda:m,convertido:false,count:links.length};
+  }
+  const arsVals=links.map(l=>l.moneda==='USD'?usdToArs(l.precio||0,MES_ACTUAL):(l.precio||0));
+  return {min:Math.min(...arsVals),max:Math.max(...arsVals),moneda:'ARS',convertido:true,count:links.length};
+}
+
+function calcRangoSeccion(seccionId,excluirSinStock=false){
+  const items=dbGet('wishlist_items').filter(i=>i.seccionId===seccionId&&(i.estado||'quiero')==='quiero');
+  let min=0,max=0,anyConvertido=false,anyData=false;
+  items.forEach(it=>{
+    const r=calcRangoItem(it.id,excluirSinStock);
+    if(r.min==null) return;
+    anyData=true;
+    const rMin=r.moneda==='USD'?usdToArs(r.min,MES_ACTUAL):r.min;
+    const rMax=r.moneda==='USD'?usdToArs(r.max,MES_ACTUAL):r.max;
+    if(r.convertido) anyConvertido=true;
+    min+=rMin; max+=rMax;
+  });
+  return {min:anyData?min:null,max:anyData?max:null,moneda:'ARS',convertido:anyConvertido};
+}
+
+function calcDashboardWishlist(excluirSinStock=false){
+  const secciones=dbGet('wishlist_secciones');
+  const items=dbGet('wishlist_items');
+  const porEstado={quiero:0,comprado:0,descartado:0};
+  items.forEach(i=>{ const e=i.estado||'quiero'; porEstado[e]=(porEstado[e]||0)+1; });
+  let totalMin=0,totalMax=0,topSeccion=null,topMax=-1;
+  secciones.forEach(s=>{
+    const r=calcRangoSeccion(s.id,excluirSinStock);
+    if(r.min!=null){ totalMin+=r.min; totalMax+=r.max; if(r.max>topMax){ topMax=r.max; topSeccion=s; } }
+  });
+  return {porEstado,totalMin,totalMax,topSeccion};
+}
+
+function fmtRango(r){
+  if(r.min==null) return '—';
+  return r.min===r.max?fmtARS(r.max):fmtARS(r.min)+' – '+fmtARS(r.max);
+}
+
+// ---- Componentes ----
+function wishlistSectionCard(seccion,idx,total){
+  const r=calcRangoSeccion(seccion.id,_wlExcluirSinStock);
+  const cantItems=dbGet('wishlist_items').filter(i=>i.seccionId===seccion.id&&i.estado!=='descartado').length;
+  let presuLine='';
+  if((seccion.presupuestoObjetivo||0)>0&&r.max!=null){
+    const presuArs=seccion.presupuestoObjetivoMoneda==='USD'?usdToArs(seccion.presupuestoObjetivo,MES_ACTUAL):seccion.presupuestoObjetivo;
+    const pct=presuArs>0?Math.round(r.max/presuArs*100):0;
+    const over=r.max>presuArs;
+    presuLine=`<div style="font-size:11px;color:${over?'var(--neg-dk)':'var(--muted)'};margin-top:4px;">${pct}% de ${fmtARS(presuArs)} presupuestado${over?' · excedido':''}</div>`;
+  }
+  return `<div class="wl-seccion-card" style="border-left:4px solid ${seccion.color||'#8A8A85'};" onclick="setWishlistView('seccion','${seccion.id}')">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+        <span style="font-size:20px;flex-shrink:0;">${seccion.icono||'📦'}</span>
+        <div style="min-width:0;">
+          <div style="font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${seccion.nombre}</div>
+          <div style="font-size:11px;color:var(--muted);">${cantItems} ítem${cantItems!==1?'s':''}</div>
+        </div>
+      </div>
+      <div class="wl-seccion-reorder" onclick="event.stopPropagation()">
+        <button class="btn sm ghost" onclick="moveWishlistSeccion('${seccion.id}',-1)" ${idx===0?'disabled':''} title="Subir">▲</button>
+        <button class="btn sm ghost" onclick="moveWishlistSeccion('${seccion.id}',1)" ${idx===total-1?'disabled':''} title="Bajar">▼</button>
+      </div>
+    </div>
+    <div style="font-family:var(--font-mono);font-size:15px;font-weight:700;margin-top:10px;">${fmtRango(r)}</div>
+    ${presuLine}
+  </div>`;
+}
+
+function wishlistItemCard(item){
+  const r=calcRangoItem(item.id,_wlExcluirSinStock);
+  const prioClase=item.prioridad==='alta'?'neg':item.prioridad==='baja'?'gr':'warn';
+  const prioLabel=item.prioridad==='alta'?'Alta':item.prioridad==='baja'?'Baja':'Media';
+  const estClase=item.estado==='comprado'?'pos':item.estado==='descartado'?'gr':'opal';
+  const estLabel=item.estado==='comprado'?'Comprado':item.estado==='descartado'?'Descartado':'Quiero';
+  const imgHTML=item.imagenUrl
+    ?`<img src="${item.imagenUrl}" class="wl-item-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div class="wl-item-img wl-item-img-fallback" style="display:none;">🎁</div>`
+    :`<div class="wl-item-img wl-item-img-fallback">🎁</div>`;
+  return `<div class="card" style="padding:14px;display:flex;gap:12px;align-items:flex-start;margin-bottom:8px;cursor:pointer;" onclick="openWishlistItemDetail('${item.id}')">
+    ${imgHTML}
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div style="font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.nombre}</div>
+        <div style="display:flex;gap:4px;flex-shrink:0;" onclick="event.stopPropagation()">
+          ${item.estado==='quiero'?`<button class="btn sm ghost" onclick="marcarWishlistItemComprado('${item.id}')" title="Marcar comprado">✓</button>`:''}
+          <button class="btn sm ghost" onclick="editWishlistItem('${item.id}')" title="Editar">✏</button>
+          <button class="btn sm danger" onclick="deleteWishlistItem('${item.id}')" title="Eliminar">✕</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;margin:5px 0;flex-wrap:wrap;">
+        <span class="pill ${prioClase}">${prioLabel}</span>
+        <span class="pill ${estClase}">${estLabel}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;">${fmtRango(r)}${r.convertido?' <span style="font-weight:500;color:var(--muted);font-size:10px;">≈ convertido</span>':''}</span>
+        <span style="font-size:11px;color:var(--muted);">${r.count} link${r.count!==1?'s':''}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function wishlistLinkRow(link,isCheapest){
+  const monedaLabel=link.moneda||'ARS';
+  const stockLabel=link.enStock===false?'Agotado':link.enStock===true?'Disponible':'Sin dato';
+  const stockClase=link.enStock===false?'neg':link.enStock===true?'pos':'gr';
+  return `<div class="irow" style="${isCheapest?'background:var(--pos-bg);border-radius:8px;':''}">
+    <div class="irow-info">
+      <div class="irow-nm"><a href="${link.url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${link.tienda||inferStoreFromUrl(link.url)||'Link'}</a></div>
+      <div class="irow-tags">
+        <span class="itag ${monedaLabel==='ARS'?'ars':'usd'}">${monedaLabel}</span>
+        <span class="pill ${stockClase}" style="cursor:pointer;" onclick="toggleWishlistLinkStock('${link.id}')" title="Click para cambiar disponibilidad">${stockLabel}</span>
+      </div>
+    </div>
+    <div class="irow-right">
+      <input type="number" min="0" step="0.01" value="${link.precio}" onchange="updateWishlistLinkPrecio('${link.id}',this.value)" style="width:90px;font-family:var(--font-mono);font-size:13px;font-weight:700;text-align:right;border:1px solid var(--border2);border-radius:6px;padding:4px 7px;background:var(--surface);color:var(--text);">
+      <button class="btn sm ${link.favorito?'pos':'ghost'}" onclick="toggleWishlistLinkFavorito('${link.id}')" title="Favorito">★</button>
+      <button class="btn sm danger" onclick="deleteWishlistLink('${link.id}')" title="Eliminar">✕</button>
+    </div>
+  </div>`;
+}
+
+// ---- Vista general ----
+function renderWishlistSecciones(){
+  const secciones=dbGet('wishlist_secciones').slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const dash=calcDashboardWishlist(_wlExcluirSinStock);
+  document.getElementById('wishlist-content').innerHTML=`
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title">Wishlist</div>
+      <div class="page-hdr-sub">Organizá lo que querés comprar para tu hogar, por sección</div>
+    </div>
+    <div class="page-hdr-actions">
+      <button class="btn-cta-dark" onclick="addWishlistSeccion()"><span class="btn-cta-sq">+</span>Nueva sección</button>
+    </div>
+  </div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="kpi-card kc-gold">
+      <div class="kpi-ico" style="background:var(--warn-bg);color:var(--gold-dk);font-weight:700;">$</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Wishlist total</div>
+        <div class="kpi-val">${dash.totalMax>0?fmtRango({min:dash.totalMin,max:dash.totalMax}):'$0'}</div>
+      </div>
+    </div>
+    <div class="kpi-card kc-blue">
+      <div class="kpi-ico" style="background:var(--opal-bg);color:var(--opal);font-weight:700;">#</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Ítems</div>
+        <div class="kpi-val" style="font-size:15px;">${dash.porEstado.quiero||0} quiero · ${dash.porEstado.comprado||0} comprados</div>
+      </div>
+    </div>
+    <div class="kpi-card kc-green">
+      <div class="kpi-ico" style="background:var(--pos-bg);color:var(--pos);font-weight:700;">↑</div>
+      <div style="flex:1;">
+        <div class="kpi-lbl">Mayor gasto proyectado</div>
+        <div class="kpi-val" style="font-size:14px;">${dash.topSeccion?dash.topSeccion.nombre:'—'}</div>
+      </div>
+    </div>
+  </div>
+  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:12px;cursor:pointer;">
+    <input type="checkbox" ${_wlExcluirSinStock?'checked':''} onchange="setWlExcluirSinStock(this.checked)"> Excluir links agotados del cálculo
+  </label>
+  ${secciones.length?secciones.map((s,i)=>wishlistSectionCard(s,i,secciones.length)).join(''):'<div class="empty-state"><p>Todavía no creaste secciones. Empezá por "Nueva sección".</p></div>'}`;
+}
+
+// ---- Vista de sección ----
+function renderWishlistSeccion(seccionId){
+  const seccion=dbGet('wishlist_secciones').find(s=>s.id===seccionId);
+  if(!seccion){ setWishlistView('secciones'); return; }
+  let items=dbGet('wishlist_items').filter(i=>i.seccionId===seccionId);
+  if(_wlFilterEstado!=='todos') items=items.filter(i=>(i.estado||'quiero')===_wlFilterEstado);
+  if(_wlFilterPrioridad!=='todas') items=items.filter(i=>(i.prioridad||'media')===_wlFilterPrioridad);
+  document.getElementById('wishlist-content').innerHTML=`
+  <div style="margin-bottom:8px;">
+    <button class="btn sm ghost" onclick="setWishlistView('secciones')">← Volver a Wishlist</button>
+  </div>
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <div class="page-hdr-title" style="font-size:24px;">${seccion.icono||'📦'} ${seccion.nombre}</div>
+      <div class="page-hdr-sub">${items.length} ítem${items.length!==1?'s':''}</div>
+    </div>
+    <div class="page-hdr-actions">
+      <button class="btn sm ghost" onclick="editWishlistSeccion('${seccion.id}')">✏ Editar sección</button>
+      <button class="btn-cta-dark" onclick="addWishlistItem('${seccion.id}')"><span class="btn-cta-sq">+</span>Agregar ítem</button>
+    </div>
+  </div>
+  <div class="filter-row">
+    <select class="fselect" onchange="setWlFilterEstado(this.value)">
+      ${['quiero','comprado','descartado','todos'].map(e=>`<option value="${e}" ${_wlFilterEstado===e?'selected':''}>${e==='todos'?'Todos los estados':e.charAt(0).toUpperCase()+e.slice(1)}</option>`).join('')}
+    </select>
+    <select class="fselect" onchange="setWlFilterPrioridad(this.value)">
+      ${['todas','alta','media','baja'].map(p=>`<option value="${p}" ${_wlFilterPrioridad===p?'selected':''}>${p==='todas'?'Toda prioridad':p.charAt(0).toUpperCase()+p.slice(1)}</option>`).join('')}
+    </select>
+  </div>
+  ${items.length?items.map(wishlistItemCard).join(''):'<div class="empty-state"><p>Sin ítems con este filtro.</p></div>'}`;
+}
+
+// ---- CRUD secciones ----
+function addWishlistSeccion(){
+  openModal('Nueva sección',[
+    {key:'nombre',label:'Nombre',type:'text',required:true,hint:'Ej: Cocina, Living, Dormitorio'},
+    {key:'icono',label:'Ícono (emoji)',type:'text',value:'📦'},
+    {key:'color',label:'Color',type:'select',options:WL_COLORES,value:wlNextColor()},
+    {key:'presupuestoObjetivo',label:'Presupuesto objetivo (opcional)',type:'number',min:0,step:'0.01',value:'0'},
+    {key:'presupuestoObjetivoMoneda',label:'Moneda del presupuesto',type:'select',options:getMonedas()},
+  ],(data)=>{
+    const secciones=dbGet('wishlist_secciones');
+    const maxOrden=secciones.reduce((m,s)=>Math.max(m,s.orden||0),-1);
+    const now=new Date().toISOString();
+    dbAdd('wishlist_secciones',{
+      nombre:data.nombre,icono:data.icono||'📦',color:data.color,orden:maxOrden+1,
+      presupuestoObjetivo:+data.presupuestoObjetivo||0,
+      presupuestoObjetivoMoneda:data.presupuestoObjetivoMoneda||'ARS',
+      createdAt:now,updatedAt:now,
+    });
+    renderWishlist();
+  });
+}
+
+function editWishlistSeccion(id){
+  const s=dbGet('wishlist_secciones').find(x=>x.id===id);
+  if(!s) return;
+  openModal('Editar sección',[
+    {key:'nombre',label:'Nombre',type:'text',value:s.nombre,required:true},
+    {key:'icono',label:'Ícono (emoji)',type:'text',value:s.icono||'📦'},
+    {key:'color',label:'Color',type:'select',options:WL_COLORES,value:s.color},
+    {key:'presupuestoObjetivo',label:'Presupuesto objetivo (opcional)',type:'number',min:0,step:'0.01',value:s.presupuestoObjetivo||0},
+    {key:'presupuestoObjetivoMoneda',label:'Moneda del presupuesto',type:'select',options:getMonedas(),value:s.presupuestoObjetivoMoneda||'ARS'},
+  ],(data)=>{
+    dbUpdate('wishlist_secciones',id,{
+      nombre:data.nombre,icono:data.icono||'📦',color:data.color,
+      presupuestoObjetivo:+data.presupuestoObjetivo||0,
+      presupuestoObjetivoMoneda:data.presupuestoObjetivoMoneda||'ARS',
+      updatedAt:new Date().toISOString(),
+    });
+    renderWishlist();
+  });
+}
+
+function deleteWishlistSeccion(id){
+  const s=dbGet('wishlist_secciones').find(x=>x.id===id);
+  if(!s) return;
+  const items=dbGet('wishlist_items').filter(i=>i.seccionId===id);
+  if(!items.length){
+    confirmDelete(()=>{ dbDelete('wishlist_secciones',id); setWishlistView('secciones'); },`¿Eliminar la sección "${s.nombre}"?`);
+    return;
+  }
+  const otras=dbGet('wishlist_secciones').filter(x=>x.id!==id);
+  openModal(`Eliminar "${s.nombre}"`,[
+    {key:'destino',label:`Esta sección tiene ${items.length} ítem${items.length!==1?'s':''}. ¿Qué hacer con ellos?`,type:'select',
+      options:[{value:'__cascade__',label:'Eliminar los ítems también'},...otras.map(o=>({value:o.id,label:'Mover a: '+o.nombre}))],required:true},
+  ],(data)=>{
+    if(data.destino==='__cascade__'){
+      const itemIds=items.map(i=>i.id);
+      dbSet('wishlist_items',dbGet('wishlist_items').filter(i=>i.seccionId!==id));
+      dbSet('wishlist_links',dbGet('wishlist_links').filter(l=>!itemIds.includes(l.itemId)));
+    } else {
+      dbSet('wishlist_items',dbGet('wishlist_items').map(i=>i.seccionId===id?{...i,seccionId:data.destino}:i));
+    }
+    dbDelete('wishlist_secciones',id);
+    setWishlistView('secciones');
+  });
+}
+
+function moveWishlistSeccion(id,dir){
+  const list=dbGet('wishlist_secciones').slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const idx=list.findIndex(s=>s.id===id);
+  const swapIdx=idx+dir;
+  if(swapIdx<0||swapIdx>=list.length) return;
+  const a=list[idx],b=list[swapIdx];
+  dbUpdate('wishlist_secciones',a.id,{orden:b.orden});
+  dbUpdate('wishlist_secciones',b.id,{orden:a.orden});
+  renderWishlist();
+}
+
+// ---- CRUD items ----
+function addWishlistItem(seccionId){
+  openModal('Nuevo ítem',[
+    {key:'nombre',label:'Nombre',type:'text',required:true},
+    {key:'notas',label:'Notas',type:'textarea',hint:'Medidas, color, detalles...'},
+    {key:'imagenUrl',label:'Imagen (URL, opcional)',type:'text'},
+    {key:'prioridad',label:'Prioridad',type:'select',options:['baja','media','alta'],value:'media'},
+  ],(data)=>{
+    const now=new Date().toISOString();
+    dbAdd('wishlist_items',{
+      seccionId,nombre:data.nombre,notas:data.notas||'',imagenUrl:data.imagenUrl||'',
+      prioridad:data.prioridad||'media',estado:'quiero',
+      compradoEn:null,linkCompradoId:null,precioComprado:null,precioCompradoMoneda:null,
+      createdAt:now,updatedAt:now,
+    });
+    renderWishlist();
+  });
+}
+
+function editWishlistItem(id){
+  const item=dbGet('wishlist_items').find(x=>x.id===id);
+  if(!item) return;
+  const secciones=dbGet('wishlist_secciones');
+  openModal('Editar ítem',[
+    {key:'nombre',label:'Nombre',type:'text',value:item.nombre,required:true},
+    {key:'notas',label:'Notas',type:'textarea',value:item.notas||''},
+    {key:'imagenUrl',label:'Imagen (URL, opcional)',type:'text',value:item.imagenUrl||''},
+    {key:'prioridad',label:'Prioridad',type:'select',options:['baja','media','alta'],value:item.prioridad||'media'},
+    {key:'seccionId',label:'Sección',type:'select',options:secciones.map(s=>({value:s.id,label:s.nombre})),value:item.seccionId,required:true},
+    {key:'estado',label:'Estado',type:'select',options:['quiero','comprado','descartado'],value:item.estado||'quiero'},
+  ],(data)=>{
+    dbUpdate('wishlist_items',id,{
+      nombre:data.nombre,notas:data.notas||'',imagenUrl:data.imagenUrl||'',
+      prioridad:data.prioridad,estado:data.estado,seccionId:data.seccionId,
+      updatedAt:new Date().toISOString(),
+    });
+    renderWishlist();
+  });
+}
+
+function deleteWishlistItem(id){
+  confirmDelete(()=>{
+    dbSet('wishlist_links',dbGet('wishlist_links').filter(l=>l.itemId!==id));
+    dbDelete('wishlist_items',id);
+    renderWishlist();
+  });
+}
+
+// ---- Marcar comprado ----
+function marcarWishlistItemComprado(itemId){
+  const item=dbGet('wishlist_items').find(x=>x.id===itemId);
+  if(!item) return;
+  if(!confirm(`¿Marcar "${item.nombre}" como comprado?`)) return;
+  const links=dbGet('wishlist_links').filter(l=>l.itemId===itemId);
+  document.getElementById('modal-title').textContent='¿Cuál compraste?';
+  const opciones=links.length?links.map(l=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;">
+      <input type="radio" name="wl-comprado-link" value="${l.id}" style="width:16px;height:16px;">
+      <span>${l.tienda||inferStoreFromUrl(l.url)} — ${l.moneda==='USD'?fmtUSD(l.precio)+' USD':fmtARS(l.precio)}</span>
+    </label>`).join(''):'<div style="color:var(--muted);font-size:12px;">Este ítem no tiene links cargados.</div>';
+  document.getElementById('modal-fields').innerHTML=`
+    <div class="modal-field">
+      <label>Elegí qué opción compraste (o cargá un precio manual)</label>
+      ${opciones}
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;">
+        <input type="radio" name="wl-comprado-link" value="__manual__" ${!links.length?'checked':''} style="width:16px;height:16px;">
+        <span>Ninguno / precio manual:</span>
+      </label>
+      <input id="wl-comprado-precio-manual" type="number" min="0" step="0.01" placeholder="Precio final (opcional)" style="width:100%;margin-top:4px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
+    </div>`;
+  _modalCallback=()=>{
+    const sel=document.querySelector('input[name="wl-comprado-link"]:checked');
+    const val=sel?sel.value:'__manual__';
+    const updates={estado:'comprado',compradoEn:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    if(val&&val!=='__manual__'){
+      updates.linkCompradoId=val;
+      updates.precioComprado=null;
+    } else {
+      updates.linkCompradoId=null;
+      const manual=+document.getElementById('wl-comprado-precio-manual')?.value||0;
+      updates.precioComprado=manual>0?manual:null;
+    }
+    dbUpdate('wishlist_items',itemId,updates);
+    renderWishlist();
+  };
+  document.getElementById('modal-save-btn').style.display='';
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+// ---- Detalle de item (overlay custom, no openModal — ver vincularActivosObjetivo) ----
+function openWishlistItemDetail(itemId){
+  const item=dbGet('wishlist_items').find(x=>x.id===itemId);
+  if(!item) return;
+  _wlAddingLinkFor=null;
+  document.getElementById('modal-title').textContent=item.nombre;
+  document.getElementById('modal-fields').innerHTML=renderWishlistItemDetailBody(item);
+  document.getElementById('modal-save-btn').style.display='none';
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function refreshWishlistItemDetail(itemId){
+  const item=dbGet('wishlist_items').find(x=>x.id===itemId);
+  if(!item) return;
+  document.getElementById('modal-fields').innerHTML=renderWishlistItemDetailBody(item);
+}
+
+function renderWishlistItemDetailBody(item){
+  const links=dbGet('wishlist_links').filter(l=>l.itemId===item.id);
+  const r=calcRangoItem(item.id,_wlExcluirSinStock);
+  let cheapestId=null;
+  if(links.length>1){
+    let best=Infinity;
+    links.forEach(l=>{ const v=l.moneda==='USD'?usdToArs(l.precio||0,MES_ACTUAL):(l.precio||0); if(v<best){ best=v; cheapestId=l.id; } });
+  }
+  const compradoLink=item.linkCompradoId?links.find(l=>l.id===item.linkCompradoId):null;
+  const compradoInfo=item.estado==='comprado'?`<div style="background:var(--pos-bg);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--pos-dk);">
+    ✓ Comprado${item.compradoEn?' el '+new Date(item.compradoEn).toLocaleDateString('es-AR'):''}${compradoLink?' en '+(compradoLink.tienda||inferStoreFromUrl(compradoLink.url)):''}${item.precioComprado?' · '+fmtARS(item.precioComprado):''}
+  </div>`:'';
+  const addLinkSection=_wlAddingLinkFor===item.id
+    ?`<div class="modal-field" style="background:var(--s2);border-radius:8px;padding:10px;margin:8px 0;">
+        <label>Nuevo link</label>
+        <input id="wl-new-url" type="text" placeholder="URL" style="width:100%;margin-bottom:6px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
+        <input id="wl-new-tienda" type="text" placeholder="Tienda (opcional)" style="width:100%;margin-bottom:6px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <input id="wl-new-precio" type="number" min="0.01" step="0.01" placeholder="Precio" style="flex:1;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
+          <select id="wl-new-moneda" style="padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">${getMonedas().map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn sm pos" onclick="commitWishlistLinkInline('${item.id}')">Agregar</button>
+          <button class="btn sm ghost" onclick="cancelWishlistLinkInline('${item.id}')">Cancelar</button>
+        </div>
+      </div>`
+    :`<button class="btn sm pos" style="margin:10px 0 16px;" onclick="_wlAddingLinkFor='${item.id}';refreshWishlistItemDetail('${item.id}');">+ Agregar link</button>`;
+  return `
+    ${item.notas?`<div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;">${item.notas}</div>`:''}
+    ${compradoInfo}
+    <div style="font-family:var(--font-mono);font-size:20px;font-weight:800;margin-bottom:14px;">${fmtRango(r)}${r.convertido?' <span style="font-size:11px;font-weight:500;color:var(--muted);">≈ convertido a ARS</span>':''}</div>
+    <div class="modal-field"><label>Links de compra</label></div>
+    <div id="wl-links-list">${links.length?links.map(l=>wishlistLinkRow(l,l.id===cheapestId)).join(''):'<div class="empty-state" style="padding:16px 0;"><p>Sin links todavía.</p></div>'}</div>
+    ${addLinkSection}
+    <div class="month-card">
+      <div class="mc-hdr" onclick="toggleMonth('wl-hist-${item.id}')" style="cursor:pointer;">
+        <svg class="mc-chev closed" id="mc-chev-wl-hist-${item.id}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="mc-title" style="font-size:12px;">Historial de precios</div>
+      </div>
+      <div class="mc-body" id="mc-body-wl-hist-${item.id}" style="display:none;">${renderWishlistHistorial(item.id)}</div>
+    </div>`;
+}
+
+function renderWishlistHistorial(itemId){
+  const linkIds=dbGet('wishlist_links').filter(l=>l.itemId===itemId).map(l=>l.id);
+  const snaps=dbGet('wishlist_snapshots').filter(s=>linkIds.includes(s.linkId)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  if(!snaps.length) return '<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sin cambios de precio registrados.</div>';
+  return snaps.map(s=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border2);">
+    <span style="color:var(--muted);">${new Date(s.fecha).toLocaleDateString('es-AR')}</span>
+    <span style="font-family:var(--font-mono);font-weight:600;">${s.moneda==='USD'?fmtUSD(s.precio)+' USD':fmtARS(s.precio)}</span>
+  </div>`).join('');
+}
+
+function cancelWishlistLinkInline(itemId){ _wlAddingLinkFor=null; refreshWishlistItemDetail(itemId); }
+
+function commitWishlistLinkInline(itemId){
+  const url0=(document.getElementById('wl-new-url')?.value||'').trim();
+  const precio=+(document.getElementById('wl-new-precio')?.value)||0;
+  if(!url0||precio<=0){ alert('Cargá una URL y un precio mayor a 0.'); return; }
+  let url=url0; if(!/^https?:\/\//i.test(url)) url='https://'+url;
+  const tienda=(document.getElementById('wl-new-tienda')?.value||'').trim();
+  const moneda=document.getElementById('wl-new-moneda')?.value||'ARS';
+  const now=new Date().toISOString();
+  dbAdd('wishlist_links',{itemId,url,tienda:tienda||inferStoreFromUrl(url),precio,moneda,favorito:false,enStock:null,createdAt:now,updatedAt:now});
+  _wlAddingLinkFor=null;
+  refreshWishlistItemDetail(itemId);
+}
+
+function toggleWishlistLinkFavorito(linkId){
+  const l=dbGet('wishlist_links').find(x=>x.id===linkId);
+  if(!l) return;
+  dbUpdate('wishlist_links',linkId,{favorito:!l.favorito,updatedAt:new Date().toISOString()});
+  refreshWishlistItemDetail(l.itemId);
+}
+
+function toggleWishlistLinkStock(linkId){
+  const l=dbGet('wishlist_links').find(x=>x.id===linkId);
+  if(!l) return;
+  const next=l.enStock===false?true:l.enStock===true?null:false;
+  dbUpdate('wishlist_links',linkId,{enStock:next,updatedAt:new Date().toISOString()});
+  refreshWishlistItemDetail(l.itemId);
+}
+
+function updateWishlistLinkPrecio(linkId,val){
+  const l=dbGet('wishlist_links').find(x=>x.id===linkId);
+  if(!l) return;
+  const nuevo=+val||0;
+  if(nuevo===l.precio) return;
+  dbAdd('wishlist_snapshots',{linkId,precio:l.precio,moneda:l.moneda,fecha:new Date().toISOString()});
+  dbUpdate('wishlist_links',linkId,{precio:nuevo,updatedAt:new Date().toISOString()});
+  refreshWishlistItemDetail(l.itemId);
+}
+
+function deleteWishlistLink(linkId){
+  const l=dbGet('wishlist_links').find(x=>x.id===linkId);
+  if(!l) return;
+  confirmDelete(()=>{
+    dbDelete('wishlist_links',linkId);
+    refreshWishlistItemDetail(l.itemId);
+  });
 }
 
 // =============================================
