@@ -633,6 +633,8 @@ body.privacy svg text{
 .wl-seccion-reorder .btn{padding:2px 6px;font-size:10px;line-height:1;}
 .wl-item-img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--s2);}
 .wl-item-img-fallback{display:flex;align-items:center;justify-content:center;font-size:18px;}
+.wl-cbar-comprado{background:#EFA13A;}
+.wl-cbar-proj{background:#F5CD91;}
 </style>
 </head>
 <body>
@@ -5056,12 +5058,145 @@ let _wlView={mode:'secciones',seccionId:null};
 let _wlFilterEstado='quiero';
 let _wlFilterPrioridad='todas';
 let _wlExcluirSinStock=false;
-let _wlAddingLinkFor=null;
+let _wlLinkDraft=null; // {itemId,url,tienda,precio,moneda,enCuotas,nCuotas,montoCuota,mesesCuotas,mesInicial}
+let _wlCuotasEditFor=null; // linkId
+let _wlCuotasEditDraft=null; // {enCuotas,nCuotas,montoCuota,mesesCuotas,mesInicial}
+let _wlChartRangoMeses=12;
+let _wlChartIncluirProyectados=false;
+const WL_MAX_CUOTAS=24;
 
 function setWishlistView(mode,seccionId){ _wlView={mode,seccionId:seccionId||null}; renderWishlist(); }
 function setWlFilterEstado(v){ _wlFilterEstado=v; renderWishlist(); }
 function setWlFilterPrioridad(v){ _wlFilterPrioridad=v; renderWishlist(); }
 function setWlExcluirSinStock(v){ _wlExcluirSinStock=v; renderWishlist(); }
+function setWlChartRango(v){ _wlChartRangoMeses=+v||12; renderWishlist(); }
+function setWlChartProyectados(v){ _wlChartIncluirProyectados=v; renderWishlist(); }
+
+// ---- Cuotas: helpers puros ----
+function wlGenerarMesesConsecutivos(mesInicial,n){
+  const meses=[];
+  for(let i=0;i<n;i++) meses.push(mesNext(mesInicial,i));
+  return meses;
+}
+
+function wlCuotaEnMes(link,mes){
+  if(!link.enCuotas) return 0;
+  const idx=(link.mesesCuotas||[]).indexOf(mes);
+  return idx>=0?(link.montoCuota||0):0;
+}
+
+function calcGastoMensualWishlist(meses){
+  const items=dbGet('wishlist_items');
+  const links=dbGet('wishlist_links');
+  return meses.map(mes=>{
+    let comprado=0,proyectado=0;
+    const detalleComprado=[],detalleProyectado=[];
+    items.forEach(item=>{
+      if(item.estado==='descartado') return;
+      links.filter(l=>l.itemId===item.id).forEach(link=>{
+        const monto=wlCuotaEnMes(link,mes);
+        if(monto<=0) return;
+        const entry={item:item.nombre,tienda:link.tienda||inferStoreFromUrl(link.url),monto};
+        if(item.estado==='comprado'){ comprado+=monto; detalleComprado.push(entry); }
+        else { proyectado+=monto; detalleProyectado.push(entry); }
+      });
+    });
+    return {mes,comprado,proyectado,detalleComprado,detalleProyectado};
+  });
+}
+
+// ---- Cuotas: draft de formulario (compartido entre "agregar link" y "editar cuotas de un link existente") ----
+function wlCuotasDraftRef(target){ return target==='new'?_wlLinkDraft:_wlCuotasEditDraft; }
+
+function wlCuotasPrecioRef(target){
+  if(target==='new') return +(_wlLinkDraft&&_wlLinkDraft.precio)||0;
+  const link=dbGet('wishlist_links').find(l=>l.id===_wlCuotasEditFor);
+  return link?(link.precio||0):0;
+}
+
+function wlCuotasFieldsHTML(target){
+  const d=wlCuotasDraftRef(target);
+  if(!d) return '';
+  if(!d.enCuotas){
+    return `<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0;cursor:pointer;">
+      <input type="checkbox" onchange="wlToggleCuotas('${target}',this.checked)"> Pagar en cuotas
+    </label>`;
+  }
+  const precioRef=wlCuotasPrecioRef(target);
+  const sumaCuotas=(d.montoCuota||0)*(d.nCuotas||0);
+  const diff=Math.abs(sumaCuotas-precioRef);
+  return `<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0 10px;cursor:pointer;">
+      <input type="checkbox" checked onchange="wlToggleCuotas('${target}',this.checked)"> Pagar en cuotas
+    </label>
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <div style="flex:1;"><label style="font-size:10px;color:var(--muted);">Cantidad de cuotas</label>
+        <input type="number" min="1" max="${WL_MAX_CUOTAS}" value="${d.nCuotas}" onchange="wlCuotasFieldChange('${target}','nCuotas',this.value)" style="width:100%;padding:5px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);"></div>
+      <div style="flex:1;"><label style="font-size:10px;color:var(--muted);">Monto por cuota</label>
+        <input type="number" min="0" step="0.01" value="${d.montoCuota}" onchange="wlCuotasFieldChange('${target}','montoCuota',this.value)" style="width:100%;padding:5px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);"></div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:8px;">
+      <div style="flex:1;"><label style="font-size:10px;color:var(--muted);">Mes de la primera cuota</label>
+        <input type="month" value="${d.mesInicial}" onchange="wlCuotasFieldChange('${target}','mesInicial',this.value)" style="width:100%;padding:5px 7px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);"></div>
+      <button class="btn sm ghost" type="button" onclick="wlGenerarMesesDraft('${target}')">Generar consecutivos</button>
+    </div>
+    ${diff>0.5?`<div style="font-size:11px;color:var(--warn);margin-bottom:6px;">⚠ La suma de las cuotas (${fmtARS(sumaCuotas)}) no coincide con el precio (${fmtARS(precioRef)}).</div>`:''}
+    ${d.mesesCuotas.length?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:6px;">
+      ${d.mesesCuotas.map((m,i)=>`<div><label style="font-size:9px;color:var(--muted);">Cuota ${i+1}</label><input type="month" value="${m}" onchange="wlSetCuotaMes('${target}',${i},this.value)" style="width:100%;padding:4px 5px;font-size:11px;border:1px solid var(--border2);border-radius:5px;background:var(--surface);color:var(--text);"></div>`).join('')}
+    </div>`:''}`;
+}
+
+function wlRefreshAfterDraftChange(target){
+  if(target==='new'){ if(_wlLinkDraft) refreshWishlistItemDetail(_wlLinkDraft.itemId); }
+  else{ const link=dbGet('wishlist_links').find(l=>l.id===_wlCuotasEditFor); if(link) refreshWishlistItemDetail(link.itemId); }
+}
+
+function wlToggleCuotas(target,checked){
+  const d=wlCuotasDraftRef(target);
+  if(!d) return;
+  d.enCuotas=checked;
+  if(checked&&!d.mesesCuotas.length) wlGenerarMesesDraft(target);
+  else wlRefreshAfterDraftChange(target);
+}
+
+function wlCuotasFieldChange(target,field,val){
+  const d=wlCuotasDraftRef(target);
+  if(!d) return;
+  d[field]=val;
+  wlRefreshAfterDraftChange(target);
+}
+
+function wlGenerarMesesDraft(target){
+  const d=wlCuotasDraftRef(target);
+  if(!d) return;
+  const n=Math.max(1,Math.min(WL_MAX_CUOTAS,+d.nCuotas||1));
+  d.nCuotas=n;
+  d.mesesCuotas=wlGenerarMesesConsecutivos(d.mesInicial||MES_ACTUAL,n);
+  const precioRef=wlCuotasPrecioRef(target);
+  d.montoCuota=Math.round(precioRef/n*100)/100;
+  wlRefreshAfterDraftChange(target);
+}
+
+function wlSetCuotaMes(target,idx,val){
+  const d=wlCuotasDraftRef(target);
+  if(!d) return;
+  d.mesesCuotas[idx]=val;
+}
+
+function wlCuotasLineForItem(item){
+  const links=dbGet('wishlist_links').filter(l=>l.itemId===item.id);
+  if(!links.length) return '';
+  let target=links.find(l=>l.favorito&&l.enCuotas);
+  if(!target){
+    const enCuotasLinks=links.filter(l=>l.enCuotas);
+    target=enCuotasLinks.reduce((best,l)=>{
+      const v=l.moneda==='USD'?usdToArs(l.precio||0,MES_ACTUAL):(l.precio||0);
+      const bv=best?(best.moneda==='USD'?usdToArs(best.precio||0,MES_ACTUAL):(best.precio||0)):Infinity;
+      return v<bv?l:best;
+    },null);
+  }
+  if(!target||!target.enCuotas) return '';
+  return `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${target.nCuotas} cuotas de ${fmtARS(target.montoCuota)}</div>`;
+}
 
 function renderWishlist(){
   if(_wlView.mode==='seccion'&&_wlView.seccionId) renderWishlistSeccion(_wlView.seccionId);
@@ -5182,6 +5317,7 @@ function wishlistItemCard(item){
         <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;">${fmtRango(r)}${r.convertido?' <span style="font-weight:500;color:var(--muted);font-size:10px;">≈ convertido</span>':''}</span>
         <span style="font-size:11px;color:var(--muted);">${r.count} link${r.count!==1?'s':''}</span>
       </div>
+      ${wlCuotasLineForItem(item)}
     </div>
   </div>`;
 }
@@ -5190,18 +5326,73 @@ function wishlistLinkRow(link,isCheapest){
   const monedaLabel=link.moneda||'ARS';
   const stockLabel=link.enStock===false?'Agotado':link.enStock===true?'Disponible':'Sin dato';
   const stockClase=link.enStock===false?'neg':link.enStock===true?'pos':'gr';
-  return `<div class="irow" style="${isCheapest?'background:var(--pos-bg);border-radius:8px;':''}">
+  const cuotasLine=link.enCuotas&&(link.mesesCuotas||[]).length
+    ?`<div style="font-size:10.5px;color:var(--muted);margin-top:2px;">${link.nCuotas} cuotas de ${fmtARS(link.montoCuota)}</div>`:'';
+  const cuotasPanel=_wlCuotasEditFor===link.id
+    ?`<div class="modal-field" style="background:var(--s2);border-radius:8px;padding:10px;margin-top:8px;">
+        ${wlCuotasFieldsHTML('edit')}
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <button class="btn sm pos" onclick="saveWlCuotasEdit('${link.itemId}')">Guardar cuotas</button>
+          <button class="btn sm ghost" onclick="cancelWlCuotasEdit('${link.itemId}')">Cancelar</button>
+        </div>
+      </div>`:'';
+  return `<div class="irow" style="${isCheapest?'background:var(--pos-bg);border-radius:8px;':''}flex-direction:column;align-items:stretch;">
+    <div style="display:flex;align-items:center;gap:10px;">
     <div class="irow-info">
       <div class="irow-nm"><a href="${link.url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">${link.tienda||inferStoreFromUrl(link.url)||'Link'}</a></div>
       <div class="irow-tags">
         <span class="itag ${monedaLabel==='ARS'?'ars':'usd'}">${monedaLabel}</span>
         <span class="pill ${stockClase}" style="cursor:pointer;" onclick="toggleWishlistLinkStock('${link.id}')" title="Click para cambiar disponibilidad">${stockLabel}</span>
       </div>
+      ${cuotasLine}
     </div>
     <div class="irow-right">
       <input type="number" min="0" step="0.01" value="${link.precio}" onchange="updateWishlistLinkPrecio('${link.id}',this.value)" style="width:90px;font-family:var(--font-mono);font-size:13px;font-weight:700;text-align:right;border:1px solid var(--border2);border-radius:6px;padding:4px 7px;background:var(--surface);color:var(--text);">
+      <button class="btn sm ${link.enCuotas?'pos':'ghost'}" onclick="${_wlCuotasEditFor===link.id?`cancelWlCuotasEdit('${link.itemId}')`:`startWlCuotasEdit('${link.id}')`}" title="Cuotas">%</button>
       <button class="btn sm ${link.favorito?'pos':'ghost'}" onclick="toggleWishlistLinkFavorito('${link.id}')" title="Favorito">★</button>
       <button class="btn sm danger" onclick="deleteWishlistLink('${link.id}')" title="Eliminar">✕</button>
+    </div>
+    </div>
+    ${cuotasPanel}
+  </div>`;
+}
+
+// ---- Gráfico de gasto mensual ----
+function renderWishlistChart(){
+  const meses=[];
+  for(let i=0;i<_wlChartRangoMeses;i++) meses.push(mesNext(MES_ACTUAL,i));
+  const data=calcGastoMensualWishlist(meses);
+  const maxVal=Math.max(...data.map(d=>d.comprado+(_wlChartIncluirProyectados?d.proyectado:0)),1);
+  return `<div class="chart-box">
+    <div class="chart-hdr">
+      <div class="chart-ttl">Gasto mensual en cuotas</div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" ${_wlChartIncluirProyectados?'checked':''} onchange="setWlChartProyectados(this.checked)"> Incluir proyectados
+        </label>
+        <select class="fselect sm" onchange="setWlChartRango(this.value)">
+          ${[6,12,24].map(n=>`<option value="${n}" ${_wlChartRangoMeses===n?'selected':''}>${n} meses</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="chart-bars">
+      ${data.map(d=>{
+        const total=d.comprado+(_wlChartIncluirProyectados?d.proyectado:0);
+        const isCur=d.mes===MES_ACTUAL;
+        const lbl=mesLabel(d.mes).split(' ')[0];
+        const barH=Math.max(Math.round(total/maxVal*88),total>0?3:0);
+        const detalle=[...d.detalleComprado.map(x=>`${x.item} (${x.tienda}): ${fmtARS(x.monto)}`),
+          ...(_wlChartIncluirProyectados?d.detalleProyectado.map(x=>`${x.item} (${x.tienda}, proyectado): ${fmtARS(x.monto)}`):[])];
+        const tooltip=`${mesLabel(d.mes)}: ${fmtARS(total)}`+(detalle.length?'\n'+detalle.join('\n'):'');
+        return `<div class="cbar-col${isCur?' cbar-cur':''}" title="${tooltip}" style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;">
+          <div style="margin-top:auto;width:100%;height:${barH}%;border-radius:5px 5px 0 0;overflow:hidden;display:flex;flex-direction:column-reverse;${isCur?'outline:2px solid var(--gold);outline-offset:1px;':''}">
+            ${d.comprado>0?`<div class="wl-cbar-comprado" style="flex:${d.comprado};"></div>`:''}
+            ${(_wlChartIncluirProyectados&&d.proyectado>0)?`<div class="wl-cbar-proj" style="flex:${d.proyectado};"></div>`:''}
+            ${total===0?`<div style="height:3px;background:var(--border2);border-radius:3px;"></div>`:''}
+          </div>
+          <div style="font-size:9px;font-weight:${isCur?700:400};color:${isCur?'var(--gold-dk)':'var(--muted)'};margin-top:5px;text-align:center;">${lbl}</div>
+        </div>`;
+      }).join('')}
     </div>
   </div>`;
 }
@@ -5246,6 +5437,7 @@ function renderWishlistSecciones(){
   <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:12px;cursor:pointer;">
     <input type="checkbox" ${_wlExcluirSinStock?'checked':''} onchange="setWlExcluirSinStock(this.checked)"> Excluir links agotados del cálculo
   </label>
+  ${renderWishlistChart()}
   ${secciones.length?secciones.map((s,i)=>wishlistSectionCard(s,i,secciones.length)).join(''):'<div class="empty-state"><p>Todavía no creaste secciones. Empezá por "Nueva sección".</p></div>'}`;
 }
 
@@ -5451,7 +5643,9 @@ function marcarWishlistItemComprado(itemId){
 function openWishlistItemDetail(itemId){
   const item=dbGet('wishlist_items').find(x=>x.id===itemId);
   if(!item) return;
-  _wlAddingLinkFor=null;
+  _wlLinkDraft=null;
+  _wlCuotasEditFor=null;
+  _wlCuotasEditDraft=null;
   document.getElementById('modal-title').textContent=item.nombre;
   document.getElementById('modal-fields').innerHTML=renderWishlistItemDetailBody(item);
   document.getElementById('modal-save-btn').style.display='none';
@@ -5476,21 +5670,22 @@ function renderWishlistItemDetailBody(item){
   const compradoInfo=item.estado==='comprado'?`<div style="background:var(--pos-bg);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--pos-dk);">
     ✓ Comprado${item.compradoEn?' el '+new Date(item.compradoEn).toLocaleDateString('es-AR'):''}${compradoLink?' en '+(compradoLink.tienda||inferStoreFromUrl(compradoLink.url)):''}${item.precioComprado?' · '+fmtARS(item.precioComprado):''}
   </div>`:'';
-  const addLinkSection=_wlAddingLinkFor===item.id
+  const addLinkSection=_wlLinkDraft&&_wlLinkDraft.itemId===item.id
     ?`<div class="modal-field" style="background:var(--s2);border-radius:8px;padding:10px;margin:8px 0;">
         <label>Nuevo link</label>
-        <input id="wl-new-url" type="text" placeholder="URL" style="width:100%;margin-bottom:6px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
-        <input id="wl-new-tienda" type="text" placeholder="Tienda (opcional)" style="width:100%;margin-bottom:6px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
+        <input id="wl-new-url" type="text" placeholder="URL" value="${_wlLinkDraft.url}" onchange="updateWlLinkDraft('url',this.value)" style="width:100%;margin-bottom:6px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
+        <input id="wl-new-tienda" type="text" placeholder="Tienda (opcional)" value="${_wlLinkDraft.tienda}" onchange="updateWlLinkDraft('tienda',this.value)" style="width:100%;margin-bottom:6px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
         <div style="display:flex;gap:6px;margin-bottom:6px;">
-          <input id="wl-new-precio" type="number" min="0.01" step="0.01" placeholder="Precio" style="flex:1;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
-          <select id="wl-new-moneda" style="padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">${getMonedas().map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+          <input id="wl-new-precio" type="number" min="0.01" step="0.01" placeholder="Precio" value="${_wlLinkDraft.precio}" onchange="updateWlLinkDraft('precio',this.value)" style="flex:1;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">
+          <select id="wl-new-moneda" onchange="updateWlLinkDraft('moneda',this.value)" style="padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);">${getMonedas().map(m=>`<option value="${m}" ${m===_wlLinkDraft.moneda?'selected':''}>${m}</option>`).join('')}</select>
         </div>
-        <div style="display:flex;gap:6px;">
+        ${wlCuotasFieldsHTML('new')}
+        <div style="display:flex;gap:6px;margin-top:8px;">
           <button class="btn sm pos" onclick="commitWishlistLinkInline('${item.id}')">Agregar</button>
           <button class="btn sm ghost" onclick="cancelWishlistLinkInline('${item.id}')">Cancelar</button>
         </div>
       </div>`
-    :`<button class="btn sm pos" style="margin:10px 0 16px;" onclick="_wlAddingLinkFor='${item.id}';refreshWishlistItemDetail('${item.id}');">+ Agregar link</button>`;
+    :`<button class="btn sm pos" style="margin:10px 0 16px;" onclick="startWlLinkDraft('${item.id}')">+ Agregar link</button>`;
   return `
     ${item.notas?`<div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;">${item.notas}</div>`:''}
     ${compradoInfo}
@@ -5517,18 +5712,79 @@ function renderWishlistHistorial(itemId){
   </div>`).join('');
 }
 
-function cancelWishlistLinkInline(itemId){ _wlAddingLinkFor=null; refreshWishlistItemDetail(itemId); }
+function startWlLinkDraft(itemId){
+  _wlLinkDraft={itemId,url:'',tienda:'',precio:'',moneda:(getMonedas()[0]||'ARS'),enCuotas:false,nCuotas:3,montoCuota:0,mesesCuotas:[],mesInicial:MES_ACTUAL};
+  refreshWishlistItemDetail(itemId);
+}
+
+function updateWlLinkDraft(field,val){
+  if(!_wlLinkDraft) return;
+  _wlLinkDraft[field]=val;
+  refreshWishlistItemDetail(_wlLinkDraft.itemId);
+}
+
+function cancelWishlistLinkInline(itemId){ _wlLinkDraft=null; refreshWishlistItemDetail(itemId); }
 
 function commitWishlistLinkInline(itemId){
-  const url0=(document.getElementById('wl-new-url')?.value||'').trim();
-  const precio=+(document.getElementById('wl-new-precio')?.value)||0;
+  const d=_wlLinkDraft;
+  if(!d) return;
+  const url0=(d.url||'').trim();
+  const precio=+d.precio||0;
   if(!url0||precio<=0){ alert('Cargá una URL y un precio mayor a 0.'); return; }
   let url=url0; if(!/^https?:\/\//i.test(url)) url='https://'+url;
-  const tienda=(document.getElementById('wl-new-tienda')?.value||'').trim();
-  const moneda=document.getElementById('wl-new-moneda')?.value||'ARS';
+  const tienda=(d.tienda||'').trim();
+  const moneda=d.moneda||'ARS';
   const now=new Date().toISOString();
-  dbAdd('wishlist_links',{itemId,url,tienda:tienda||inferStoreFromUrl(url),precio,moneda,favorito:false,enStock:null,createdAt:now,updatedAt:now});
-  _wlAddingLinkFor=null;
+  const nuevoLink={itemId,url,tienda:tienda||inferStoreFromUrl(url),precio,moneda,favorito:false,enStock:null,enCuotas:false,createdAt:now,updatedAt:now};
+  if(d.enCuotas&&d.mesesCuotas.length){
+    const n=Math.max(1,Math.min(WL_MAX_CUOTAS,+d.nCuotas||1));
+    nuevoLink.enCuotas=true;
+    nuevoLink.nCuotas=n;
+    nuevoLink.montoCuota=+d.montoCuota||0;
+    nuevoLink.mesesCuotas=d.mesesCuotas.slice(0,n);
+  }
+  dbAdd('wishlist_links',nuevoLink);
+  _wlLinkDraft=null;
+  refreshWishlistItemDetail(itemId);
+}
+
+function startWlCuotasEdit(linkId){
+  const link=dbGet('wishlist_links').find(x=>x.id===linkId);
+  if(!link) return;
+  _wlCuotasEditFor=linkId;
+  const nDefault=link.nCuotas||3;
+  _wlCuotasEditDraft={
+    enCuotas:!!link.enCuotas,
+    nCuotas:nDefault,
+    montoCuota:link.montoCuota!=null?link.montoCuota:Math.round((link.precio||0)/nDefault*100)/100,
+    mesesCuotas:(link.mesesCuotas||[]).slice(),
+    mesInicial:(link.mesesCuotas&&link.mesesCuotas[0])||MES_ACTUAL,
+  };
+  refreshWishlistItemDetail(link.itemId);
+}
+
+function cancelWlCuotasEdit(itemId){ _wlCuotasEditFor=null; _wlCuotasEditDraft=null; refreshWishlistItemDetail(itemId); }
+
+function saveWlCuotasEdit(itemId){
+  const d=_wlCuotasEditDraft;
+  const linkId=_wlCuotasEditFor;
+  if(!d||!linkId) return;
+  const updates={updatedAt:new Date().toISOString()};
+  if(d.enCuotas&&d.mesesCuotas.length){
+    const n=Math.max(1,Math.min(WL_MAX_CUOTAS,+d.nCuotas||1));
+    updates.enCuotas=true;
+    updates.nCuotas=n;
+    updates.montoCuota=+d.montoCuota||0;
+    updates.mesesCuotas=d.mesesCuotas.slice(0,n);
+  } else {
+    updates.enCuotas=false;
+    updates.nCuotas=null;
+    updates.montoCuota=null;
+    updates.mesesCuotas=null;
+  }
+  dbUpdate('wishlist_links',linkId,updates);
+  _wlCuotasEditFor=null;
+  _wlCuotasEditDraft=null;
   refreshWishlistItemDetail(itemId);
 }
 
