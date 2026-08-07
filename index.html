@@ -1786,9 +1786,9 @@ function movimientosPanelHTML(moneda){
     const cierre=items[items.length-1].saldo;
     // Reverso simple: la cuenta queda consecutiva (cada fila = la siguiente + su propio monto)
     const descAll=[...items].reverse();
-    // Los ingresos imputados al 1° del mes (sueldo, etc.) se muestran primero dentro del mes
+    // Los ingresos imputados al 1° del mes (sueldo, etc.) quedan al final del mes, pegados al corte siguiente
     const esIngresoDia1=r=>r.tipo==='ingreso'&&r.fecha.endsWith('-01');
-    const desc=[...descAll.filter(esIngresoDia1),...descAll.filter(r=>!esIngresoDia1(r))];
+    const desc=[...descAll.filter(r=>!esIngresoDia1(r)),...descAll.filter(esIngresoDia1)];
     const label=m===MES_ACTUAL?'Saldo actual':`Cierre ${mesLabel(m)}`;
     return `<tr class="mov-subtotal">
       <td colspan="2">${label}</td>
