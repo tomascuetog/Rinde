@@ -206,6 +206,7 @@ html,body{height:100%;font-family:var(--font);font-size:14px;background:var(--bg
 .tbl tr:last-child td{border:none;}
 .tbl tr:hover td{background:var(--s2);cursor:default;transition:background .1s;}
 .tbl .actions{white-space:nowrap;}
+.tbl tr.mov-subtotal td{background:var(--s3);font-weight:700;font-size:12px;}
 /* ---- PILLS ---- */
 .pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap;letter-spacing:.02em;}
 .pill.pos{background:var(--pos-bg);color:var(--pos-dk);border:1px solid #A8D9BE;}
@@ -1618,6 +1619,32 @@ function calcSaldoProyectado(){
   return {ytdNeto,saldoDic:saldo+splitBal,mesRows,splitBal};
 }
 
+// Filas de movimientos (débito real + crédito/fijo imputado al 1º del mes de impacto + ingresos), hasta hastaMes inclusive
+function movimientosDashboard(hastaMes){
+  const rows=[];
+  dbGet('egresos_inm').forEach(e=>{
+    if(!e.fecha||e.fecha.slice(0,7)>hastaMes) return;
+    rows.push({fecha:e.fecha,descripcion:e.descripcion,categoria:e.categoria,tipo:'debito',monto:-e.monto,moneda:e.moneda});
+  });
+  dbGet('egresos_cuotas').forEach(ec=>{
+    if(!ec.desde) return;
+    const tipo=(ec.periodicidad&&ec.periodicidad!=='unico')?'fijo':'credito';
+    for(let m=ec.desde.slice(0,7); m<=hastaMes; m=mesNext(m,1)){
+      const v=cuotaMontoEnMes(ec,m);
+      if(v) rows.push({fecha:`${m}-01`,descripcion:ec.descripcion,categoria:ec.categoria,tipo,monto:-v,moneda:ec.moneda});
+    }
+  });
+  dbGet('ingresos').forEach(ing=>{
+    const inicio=(ing.mesIngreso||ing.desde||'').slice(0,7);
+    if(!inicio) return;
+    for(let m=inicio; m<=hastaMes; m=mesNext(m,1)){
+      const v=ingresoEnMes(ing,m);
+      if(v>0) rows.push({fecha:`${m}-01`,descripcion:ing.descripcion,categoria:'',tipo:'ingreso',monto:v,moneda:ing.moneda});
+    }
+  });
+  return rows;
+}
+
 // =============================================
 // NAVIGATION
 // =============================================
@@ -1711,6 +1738,69 @@ function nav(id){
 // =============================================
 // RENDER: DASHBOARD
 // =============================================
+let _dashMovMoneda='ARS';
+function setDashMovMoneda(m){ _dashMovMoneda=m; renderDashboard(); }
+
+const MOV_TIPO_LABEL={debito:'Débito',credito:'Crédito',fijo:'Fijo',ingreso:'Ingreso'};
+const MOV_TIPO_STYLE={
+  debito:{bg:'var(--s2)',color:'var(--muted)'},
+  credito:{bg:'#FEF6E4',color:'#B87D1A'},
+  fijo:{bg:'#EAF2FB',color:'#2A6FA8'},
+  ingreso:{bg:'var(--pos-bg)',color:'var(--pos-dk)'},
+};
+
+function movimientosPanelHTML(moneda){
+  const fmt=moneda==='USD'?(n=>fmtUSD(n)+' USD'):fmtARS;
+  const asc=movimientosDashboard(MES_ACTUAL).filter(r=>r.moneda===moneda).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  if(!asc.length) return `<div style="color:var(--muted);font-size:12px;padding:16px 0;text-align:center;">Sin movimientos en ${moneda}.</div>`;
+
+  let saldo=0;
+  const withSaldo=asc.map(r=>{ saldo+=r.monto; return {...r,saldo}; });
+
+  const mesesOrden=[];
+  const porMes={};
+  withSaldo.forEach(r=>{
+    const m=r.fecha.slice(0,7);
+    if(!porMes[m]){ porMes[m]=[]; mesesOrden.push(m); }
+    porMes[m].push(r);
+  });
+
+  const rowHTML=r=>{
+    const ts=MOV_TIPO_STYLE[r.tipo];
+    return `<tr>
+      <td style="white-space:nowrap;color:var(--muted);">${fmtFecha(r.fecha)}</td>
+      <td>${r.descripcion||'-'}</td>
+      <td><span class="itag" style="background:${ts.bg};color:${ts.color};">${MOV_TIPO_LABEL[r.tipo]}</span></td>
+      <td class="${r.monto<0?'neg-text':'pos-text'}" style="white-space:nowrap;">${r.monto<0?'-':'+'}${fmt(Math.abs(r.monto))}</td>
+      <td style="white-space:nowrap;font-weight:700;">${fmt(r.saldo)}</td>
+    </tr>`;
+  };
+
+  const mesBlockHTML=m=>{
+    const items=porMes[m];
+    const ingresosMes=items.filter(r=>r.monto>0).reduce((s,r)=>s+r.monto,0);
+    const egresosMes=items.filter(r=>r.monto<0).reduce((s,r)=>s+r.monto,0);
+    const cierre=items[items.length-1].saldo;
+    const desc=[...items].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    return `${desc.map(rowHTML).join('')}
+    <tr class="mov-subtotal">
+      <td colspan="2">Cierre ${mesLabel(m)}</td>
+      <td></td>
+      <td style="white-space:nowrap;">
+        <span class="pos-text">+${fmt(ingresosMes)}</span> · <span class="neg-text">-${fmt(Math.abs(egresosMes))}</span>
+      </td>
+      <td style="white-space:nowrap;">${fmt(cierre)}</td>
+    </tr>`;
+  };
+
+  return `<div class="table-wrap">
+    <table class="tbl">
+      <tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Monto</th><th>Saldo</th></tr>
+      ${[...mesesOrden].reverse().map(mesBlockHTML).join('')}
+    </table>
+  </div>`;
+}
+
 function renderDashboard(){
   const mes=MES_ACTUAL;
   const cotiz=getCotizacion(mes);
@@ -2060,6 +2150,20 @@ function renderDashboard(){
       </div>
     </div>
 
+  </div>
+
+  <!-- MOVIMIENTOS -->
+  <div class="dh-panel" style="margin-top:16px;">
+    <div class="dh-panel-hd">
+      <div class="dh-panel-hd-l"><div class="dh-panel-title">Movimientos</div><div class="dh-panel-sub">Histórico hasta ${mesLabel(mes)}, corte de saldo por mes</div></div>
+    </div>
+    <div class="dh-panel-bd">
+      <div class="filter-row" style="margin-bottom:10px;">
+        <button class="fchip${_dashMovMoneda==='ARS'?' active':''}" onclick="setDashMovMoneda('ARS')">Pesos</button>
+        <button class="fchip${_dashMovMoneda==='USD'?' active':''}" onclick="setDashMovMoneda('USD')">Dólares</button>
+      </div>
+      ${movimientosPanelHTML(_dashMovMoneda)}
+    </div>
   </div>`;
 
   tickClock();
