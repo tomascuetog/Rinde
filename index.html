@@ -1751,7 +1751,10 @@ const MOV_TIPO_STYLE={
 
 function movimientosPanelHTML(moneda){
   const fmt=moneda==='USD'?(n=>fmtUSD(n)+' USD'):fmtARS;
-  const asc=movimientosDashboard(MES_ACTUAL).filter(r=>r.moneda===moneda).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const asc=movimientosDashboard(MES_ACTUAL).filter(r=>r.moneda===moneda).sort((a,b)=>{
+    if(a.fecha!==b.fecha) return a.fecha.localeCompare(b.fecha);
+    return (a.monto>0?1:0)-(b.monto>0?1:0); // mismo día: egresos antes que ingresos (así el ingreso queda primero al invertir para mostrar)
+  });
   if(!asc.length) return `<div style="color:var(--muted);font-size:12px;padding:16px 0;text-align:center;">Sin movimientos en ${moneda}.</div>`;
 
   let saldo=0;
@@ -1782,15 +1785,16 @@ function movimientosPanelHTML(moneda){
     const egresosMes=items.filter(r=>r.monto<0).reduce((s,r)=>s+r.monto,0);
     const cierre=items[items.length-1].saldo;
     const desc=[...items].reverse();
-    return `${desc.map(rowHTML).join('')}
-    <tr class="mov-subtotal">
-      <td colspan="2">Cierre ${mesLabel(m)}</td>
+    const label=m===MES_ACTUAL?'Saldo actual':`Cierre ${mesLabel(m)}`;
+    return `<tr class="mov-subtotal">
+      <td colspan="2">${label}</td>
       <td></td>
       <td style="white-space:nowrap;">
         <span class="pos-text">+${fmt(ingresosMes)}</span> · <span class="neg-text">-${fmt(Math.abs(egresosMes))}</span>
       </td>
       <td style="white-space:nowrap;">${fmt(cierre)}</td>
-    </tr>`;
+    </tr>
+    ${desc.map(rowHTML).join('')}`;
   };
 
   return `<div class="table-wrap">
