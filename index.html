@@ -1781,7 +1781,7 @@ function movimientosPanelHTML(moneda){
     const ingresosMes=items.filter(r=>r.monto>0).reduce((s,r)=>s+r.monto,0);
     const egresosMes=items.filter(r=>r.monto<0).reduce((s,r)=>s+r.monto,0);
     const cierre=items[items.length-1].saldo;
-    const desc=[...items].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    const desc=[...items].reverse();
     return `${desc.map(rowHTML).join('')}
     <tr class="mov-subtotal">
       <td colspan="2">Cierre ${mesLabel(m)}</td>
